@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient } from "@relaykit/core";
+import { MessagingClient, SdkError } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -292,4 +292,52 @@ test("a message that exhausted its attempts is not retried on reconnection", asy
 
   assert.equal(adapter.failuresLeft, attemptsBefore, "no further attempt should be made");
   await client.stop();
+});
+
+class RateLimitedAdapter extends InMemoryAdapter {
+  limitOnce = false;
+  sends = 0;
+
+  async sendMessage(conversationId, body, ...rest) {
+    this.sends += 1;
+    if (this.limitOnce) {
+      this.limitOnce = false;
+      throw new SdkError("RATE_LIMITED", "El homeserver esta limitando", 60);
+    }
+    return super.sendMessage(conversationId, body, ...rest);
+  }
+}
+
+test("a message rejected for going too fast is sent again on its own", async () => {
+  const adapter = new RateLimitedAdapter();
+  const storage = new InMemoryStorage();
+  const client = createClient(adapter, storage);
+  await client.start();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  adapter.limitOnce = true;
+
+  await assert.rejects(client.messages.send(conversation.id, "rapido"), { code: "RATE_LIMITED" });
+
+  const sent = await waitUntil(async () => {
+    const messages = await client.messages.list(conversation.id);
+    return messages.find(message => message.body === "rapido" && message.status === "sent");
+  }, 100);
+  assert.ok(sent, "the message should go out once the wait the server asked for is over");
+  assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
+  await client.stop();
+});
+
+test("stopping the client cancels a retry that was waiting", async () => {
+  const adapter = new RateLimitedAdapter();
+  const client = createClient(adapter, new InMemoryStorage());
+  await client.start();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  adapter.limitOnce = true;
+  await assert.rejects(client.messages.send(conversation.id, "adios"));
+  const sendsBefore = adapter.sends;
+
+  await client.stop();
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  assert.equal(adapter.sends, sendsBefore, "no retry should happen after stopping");
 });

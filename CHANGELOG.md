@@ -21,6 +21,8 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   imagen con su tipo de contenido.
 - Gestion de conversaciones: `conversations.invite`, `conversations.rename` y `conversations.leave`, que ademas
   borra del almacen local lo que ya no pertenece al usuario.
+- Un mensaje rechazado por ir demasiado rapido se reenvia solo pasada la espera que indica el homeserver, en vez
+  de quedarse esperando a la siguiente reconexion.
 - Al recuperar la conexion se reenvia todo lo que quedo en la cola, sin esperar al backoff. Lo que agoto sus
   intentos sigue esperando una decision explicita.
 - La cache local deja de crecer sin limite: conserva los 500 ultimos mensajes entregados por conversacion,

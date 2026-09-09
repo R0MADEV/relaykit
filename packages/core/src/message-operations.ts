@@ -165,6 +165,7 @@ export class MessageOperations {
 
   clear(): void {
     this.receivedMessageIds.clear();
+    this.outbox.cancelScheduledRetries();
   }
 
   /**

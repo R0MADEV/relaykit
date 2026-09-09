@@ -29,6 +29,7 @@ export class OutboxOperations {
   /** File contents for sends started in this process; persisted operations carry them across restarts. */
   private readonly pendingFiles = new Map<MessageId, FileInput>();
   private readonly progressHandlers = new Map<MessageId, (fraction: number) => void>();
+  private readonly scheduledRetries = new Map<MessageId, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly context: OutboxOperationsContext,
@@ -234,14 +235,38 @@ export class OutboxOperations {
     return this.context.storage?.getOutboxOperation(operationId) ?? Promise.resolve(undefined);
   }
 
+  /** The homeserver said how long to wait, so waiting exactly that long and trying again is the whole fix. */
+  private scheduleRetry(messageId: MessageId, delayMs: number): void {
+    this.cancelRetry(messageId);
+    const timer = setTimeout(() => {
+      this.scheduledRetries.delete(messageId);
+      void this.retry(messageId).catch(() => undefined);
+    }, delayMs);
+    if (typeof timer === "object" && typeof timer.unref === "function") timer.unref();
+    this.scheduledRetries.set(messageId, timer);
+  }
+
+  private cancelRetry(messageId: MessageId): void {
+    const timer = this.scheduledRetries.get(messageId);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    this.scheduledRetries.delete(messageId);
+  }
+
+  /** Called when the client stops, so nothing keeps trying behind its back. */
+  cancelScheduledRetries(): void {
+    for (const messageId of [...this.scheduledRetries.keys()]) this.cancelRetry(messageId);
+  }
+
   private async fail(message: Message, error: unknown): Promise<void> {
     await this.saveAndEmit({ ...message, status: "failed" });
+    const retryAfterMs = error instanceof SdkError && error.code === "RATE_LIMITED" ? error.retryAfterMs : undefined;
     const operation = await this.findOperation(message.id);
     if (operation) {
       const attempts = operation.attempts + 1;
       const nextAttemptAt = attempts >= maxAutomaticAttempts
         ? Number.POSITIVE_INFINITY
-        : Date.now() + Math.min(maxBackoffMs, 1000 * 2 ** attempts);
+        : Date.now() + (retryAfterMs ?? Math.min(maxBackoffMs, 1000 * 2 ** attempts));
       await this.context.storage?.saveOutboxOperation({
         ...operation,
         status: "failed",
@@ -249,6 +274,8 @@ export class OutboxOperations {
         nextAttemptAt,
         lastError: error instanceof Error ? error.message : String(error)
       });
+      const canRetry = attempts < maxAutomaticAttempts && retryAfterMs !== undefined;
+      if (canRetry) this.scheduleRetry(message.id, retryAfterMs);
     }
     this.context.emitError(error);
   }

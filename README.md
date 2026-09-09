@@ -242,7 +242,9 @@ try {
 }
 ```
 
-Los envios de mensajes no necesitan este manejo: el outbox los reintenta solo. Cuando la conexion vuelve se
+Los envios de mensajes no necesitan este manejo: el outbox los reintenta solo. Si el homeserver responde que vas
+demasiado rapido, el mensaje se reenvia solo pasada exactamente la espera que pide, sin que la aplicacion tenga que
+hacer nada. Cuando la conexion vuelve se
 reintenta todo lo que quedo pendiente, sin esperar al backoff, porque recuperar la red es justamente la senal de
 que el fallo anterior ya no aplica. Un mensaje que agota sus ocho intentos deja de reintentarse solo y queda a la
 espera de `messages.retry` o `messages.cancel`.
