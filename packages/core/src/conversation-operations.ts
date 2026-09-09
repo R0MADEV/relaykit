@@ -1,6 +1,6 @@
 import type { MessagingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
-import type { Conversation, CreateConversationInput, Session, UserId } from "./models.js";
+import type { Conversation, CreateConversationInput, JoinConversationOptions, Session, UserId } from "./models.js";
 import { SdkError } from "./errors.js";
 
 export interface ConversationOperationsContext {
@@ -33,7 +33,8 @@ export class ConversationOperations {
 
   async create(input: CreateConversationInput): Promise<Conversation> {
     this.context.assertStarted();
-    if (input.participantIds.length === 0) {
+    // A public conversation can start empty: people join it instead of being invited.
+    if (input.participantIds.length === 0 && input.public !== true) {
       throw new SdkError("INVALID_INPUT", "A conversation requires at least one participant");
     }
     const hasEmptyParticipant = input.participantIds.some(participantId => !participantId.trim());
@@ -105,9 +106,10 @@ export class ConversationOperations {
     });
   }
 
-  async join(conversationId: string): Promise<Conversation> {
+  async join(conversationId: string, options: JoinConversationOptions = {}): Promise<Conversation> {
     this.context.assertStarted();
-    const conversation = await this.context.adapter.joinConversation(conversationId);
+    const via = (options.via ?? []).map(server => server.trim()).filter(server => server.length > 0);
+    const conversation = await this.context.adapter.joinConversation(conversationId, via);
     await this.context.storage?.saveConversation(conversation);
     this.context.emitUpdated(conversation);
     return conversation;

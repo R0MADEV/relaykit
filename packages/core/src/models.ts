@@ -65,6 +65,13 @@ export interface CreateConversationInput {
   readonly encrypted?: boolean;
   /** Marks the conversation as a direct chat so other clients of the same account recognise it. */
   readonly direct?: boolean;
+  /** Anyone who knows the conversation can join it, instead of having to be invited. */
+  readonly public?: boolean;
+}
+
+export interface JoinConversationOptions {
+  /** Servers known to be in the conversation. Needed to join one hosted somewhere else. */
+  readonly via?: readonly string[];
 }
 
 export interface MessagePage {

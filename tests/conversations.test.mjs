@@ -7,10 +7,18 @@ const session = { homeserver: "memory://test", userId: "alice", accessToken: "to
 
 class CountingAdapter extends InMemoryAdapter {
   created = 0;
+  lastCreateInput = undefined;
+  lastJoinHints = undefined;
 
   async createConversation(input) {
     this.created += 1;
+    this.lastCreateInput = input;
     return super.createConversation(input);
+  }
+
+  async joinConversation(conversationId, via = []) {
+    this.lastJoinHints = via;
+    return super.joinConversation(conversationId, via);
   }
 }
 
@@ -228,5 +236,27 @@ test("a new conversation reports the people who have not accepted yet", async ()
   const listed = await client.conversations.list();
 
   assert.deepEqual(listed[0].invitedIds, []);
+  await client.stop();
+});
+
+test("a conversation can be created open to anyone and joined with server hints", async () => {
+  const { adapter, client } = await startClient();
+
+  const conversation = await client.conversations.create({ participantIds: [], title: "Comunidad", public: true });
+  assert.equal(adapter.lastCreateInput.public, true);
+
+  await client.conversations.join(conversation.id, { via: ["fed1", "  "] });
+
+  assert.deepEqual(adapter.lastJoinHints, ["fed1"], "blank hints are dropped");
+  await client.stop();
+});
+
+test("joining without hints keeps working", async () => {
+  const { adapter, client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+
+  await client.conversations.join(conversation.id);
+
+  assert.deepEqual(adapter.lastJoinHints, []);
   await client.stop();
 });

@@ -80,8 +80,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(async () => listMatrixConversations(this.runtime.getClient()));
   }
 
-  async joinConversation(conversationId: ConversationId): Promise<Conversation> {
-    return this.run(() => joinConversation(this.runtime.getClient(), conversationId));
+  async joinConversation(conversationId: ConversationId, via: readonly string[] = []): Promise<Conversation> {
+    return this.run(() => joinConversation(this.runtime.getClient(), conversationId, via));
   }
 
   async leaveConversation(conversationId: ConversationId): Promise<void> {

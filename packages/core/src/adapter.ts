@@ -53,7 +53,7 @@ export interface MessagingAdapter {
   logout(): Promise<void>;
   listConversations(): Promise<readonly Conversation[]>;
   createConversation(input: CreateConversationInput): Promise<Conversation>;
-  joinConversation(conversationId: ConversationId): Promise<Conversation>;
+  joinConversation(conversationId: ConversationId, via?: readonly string[]): Promise<Conversation>;
   leaveConversation(conversationId: ConversationId): Promise<void>;
   inviteToConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
   renameConversation(conversationId: ConversationId, title: string): Promise<Conversation>;

@@ -19,8 +19,12 @@ export function createConversation(client: MatrixClient, input: CreateConversati
   return createMatrixConversation(client, input);
 }
 
-export function joinConversation(client: MatrixClient, conversationId: ConversationId): Promise<Conversation> {
-  return joinMatrixConversation(client, conversationId);
+export function joinConversation(
+  client: MatrixClient,
+  conversationId: ConversationId,
+  via: readonly string[] = []
+): Promise<Conversation> {
+  return joinMatrixConversation(client, conversationId, via);
 }
 
 export async function loadMoreMessages(

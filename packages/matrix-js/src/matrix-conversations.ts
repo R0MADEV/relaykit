@@ -1,4 +1,4 @@
-import { EventType, type MatrixClient, type Room } from "matrix-js-sdk";
+import { EventType, Preset, Visibility, type MatrixClient, type Room } from "matrix-js-sdk";
 import { waitForRoom, waitUntilRoomIsUsable } from "./matrix-room-operations.js";
 import type { Conversation, CreateConversationInput } from "@relaykit/core";
 import { mapConversation } from "./matrix-mapper.js";
@@ -9,6 +9,7 @@ export async function createMatrixConversation(
 ): Promise<Conversation> {
   const roomOptions = {
     invite: [...input.participantIds],
+    ...(input.public ? { preset: Preset.PublicChat, visibility: Visibility.Public } : {}),
     ...(input.direct ? { is_direct: true } : {}),
     initial_state: input.encrypted === false
       ? []
@@ -83,9 +84,11 @@ export async function renameMatrixConversation(
 
 export async function joinMatrixConversation(
   client: MatrixClient,
-  conversationId: string
+  conversationId: string,
+  via: readonly string[] = []
 ): Promise<Conversation> {
-  await client.joinRoom(conversationId);
+  // Without a hint the homeserver has no way to find a conversation it does not already know.
+  await client.joinRoom(conversationId, via.length > 0 ? { viaServers: [...via] } : {});
   const room = await waitForRoom(client, conversationId);
   await waitUntilRoomIsUsable(room);
   return mapConversation(room);

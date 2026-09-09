@@ -17,6 +17,7 @@ export type {
   Conversation,
   ConversationId,
   CreateConversationInput,
+  JoinConversationOptions,
   Message,
   MessageId,
   LoginCredentials,

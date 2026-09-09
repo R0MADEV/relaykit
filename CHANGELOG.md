@@ -28,6 +28,8 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - La cache local deja de crecer sin limite: conserva los 500 ultimos mensajes entregados por conversacion,
   configurable con `cache.messagesPerConversation`, y nunca descarta lo que sigue en la cola de envio.
 - Los participantes de una conversacion ya no incluyen a quien la abandono o fue expulsado.
+- Conversaciones abiertas con `create({ public: true })` y `join(id, { via })` para entrar en una que vive en otro
+  servidor, que era justo lo que fallaba con "no servers that are in the room have been provided".
 - Verificada la federacion entre dos homeservers: invitacion, union y mensajes cifrados en ambos sentidos.
 - Un mensaje que el homeserver todavia no ha aceptado ya no aparece como enviado en el timeline. Su estado lo
   lleva el outbox, que es quien sabe si sigue de camino.

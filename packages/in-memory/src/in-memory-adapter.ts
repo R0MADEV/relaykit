@@ -124,7 +124,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     return conversation;
   }
 
-  async joinConversation(conversationId: ConversationId): Promise<Conversation> {
+  async joinConversation(conversationId: ConversationId, _via: readonly string[] = []): Promise<Conversation> {
     const conversation = this.conversations.find(item => item.id === conversationId);
     if (!conversation) {
       throw new Error("The conversation does not exist");

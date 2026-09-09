@@ -63,6 +63,22 @@ async function main() {
         : undefined;
     });
 
+    // A conversation anyone can join, reachable from the other server only with a hint about where it lives.
+    const community = await alice.client.conversations.create({
+      participantIds: [],
+      title: "RelayKit community",
+      public: true,
+      encrypted: false
+    });
+    const blind = await dave.client.conversations.join(community.id).catch(error => error);
+    if (!(blind instanceof Error)) {
+      throw new Error("Joining a conversation on another server without a hint should not work");
+    }
+    await dave.client.conversations.join(community.id, { via: ["fed1"] });
+    const announcement = `community-${Date.now()}`;
+    await alice.client.messages.send(community.id, announcement);
+    await waitForReadable(dave, community.id, announcement);
+
     console.log(`RelayKit federation smoke check passed (${alice.userId} and ${dave.userId}, ${both.participantIds.length} participants)`);
   } finally {
     for (const who of [alice, dave]) await who?.client.logout().catch(() => undefined);

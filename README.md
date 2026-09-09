@@ -68,6 +68,10 @@ const conversation = await client.conversations.create({
   encrypted: true
 });
 
+// Una conversacion abierta, a la que se entra sin invitacion. Desde otro servidor hace falta decir donde vive.
+const comunidad = await client.conversations.create({ participantIds: [], title: "Comunidad", public: true });
+await client.conversations.join(comunidad.id, { via: ["otro.servidor"] });
+
 await client.conversations.invite(conversationId, "@carol:example.com");
 await client.conversations.rename(conversationId, "Soporte nivel 2");
 await client.conversations.leave(conversationId);

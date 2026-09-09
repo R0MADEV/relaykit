@@ -99,7 +99,7 @@ Cubierto (tests en `tests/remote-events.test.mjs` y `tests/matrix-mapper.test.mj
   actualizada, verificado contra Synapse en el smoke E2E y en el de grupo con tres personas.
 - Federacion: cubierto con `scripts/smoke-federation.mjs` sobre dos homeservers que se hablan entre si, con
   invitacion, union y mensajes cifrados en ambos sentidos entre `@alice:fed1` y `@dave:fed2`. No hizo falta
-  cambiar nada del SDK. Pendiente: unirse por identificador a una sala remota, que necesita pistas de servidor.
+  cambiar nada del SDK. Incluye unirse a una conversacion abierta que vive en el otro servidor pasando `via`.
 - Caida real del homeserver: cubierto con `scripts/smoke-outage.mjs`, que para el contenedor, comprueba que el
   envio queda en cola, lo levanta y verifica que sale solo sin intervencion.
 - Varios dispositivos del mismo usuario: cubierto con `scripts/smoke-devices.mjs`, que comprueba que se leen entre

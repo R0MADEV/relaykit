@@ -23,6 +23,7 @@ import type {
   Conversation,
   ConversationId,
   CreateConversationInput,
+  JoinConversationOptions,
   LoginCredentials,
   Message,
   MessageId,
@@ -43,7 +44,8 @@ export class MessagingClient {
   readonly conversations = {
     list: (): Promise<readonly Conversation[]> => this.conversationOperations.list(),
     create: (input: CreateConversationInput): Promise<Conversation> => this.conversationOperations.create(input),
-    join: (conversationId: ConversationId): Promise<Conversation> => this.conversationOperations.join(conversationId),
+    join: (conversationId: ConversationId, options?: JoinConversationOptions): Promise<Conversation> =>
+      this.conversationOperations.join(conversationId, options),
     open: (userId: string): Promise<Conversation> => this.conversationOperations.open(userId),
     leave: (conversationId: ConversationId): Promise<void> => this.conversationOperations.leave(conversationId),
     invite: (conversationId: ConversationId, userId: string): Promise<Conversation> =>
