@@ -1,5 +1,15 @@
 # Limites de peticiones para desarrollo y CI. Los tests crean muchas salas y envian muchos mensajes
 # seguidos, y los valores por defecto de Synapse los rechazan con 429. No usar en produccion.
+rc_login:
+  address:
+    per_second: 100
+    burst_count: 500
+  account:
+    per_second: 100
+    burst_count: 500
+  failed_attempts:
+    per_second: 100
+    burst_count: 500
 rc_message:
   per_second: 100
   burst_count: 500
