@@ -5,12 +5,6 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain, safeStorage } from "electron";
 
-// A continuous integration container has no user namespaces, so the Chromium sandbox cannot start there.
-// It stays on everywhere else, which is where it actually protects anything.
-if (process.env.RELAYKIT_NO_SANDBOX === "1") {
-  app.commandLine.appendSwitch("no-sandbox");
-}
-
 const distDir = join(fileURLToPath(new URL(".", import.meta.url)), "dist");
 const mimeTypes = {
   ".html": "text/html",

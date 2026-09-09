@@ -6,7 +6,8 @@
   "main": "main.js",
   "scripts": {
     "build": "vite build",
-    "check": "npm run build && electron ."
+    "check": "npm run build && electron .",
+    "check:ci": "vite build && electron . --no-sandbox"
   },
   "dependencies": {
     "@relaykit/web": "0.1.0-alpha.1"

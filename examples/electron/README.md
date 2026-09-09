@@ -10,7 +10,8 @@ npm run check --workspace=@relaykit/example-electron
 Necesita un Synapse local con los usuarios de desarrollo. Sale con codigo 0 si todo funciona.
 
 En un contenedor de integracion continua no hay espacios de nombres de usuario y el aislamiento de Chromium no
-arranca, asi que ahi se desactiva con `RELAYKIT_NO_SANDBOX=1`. En cualquier otro sitio queda activo.
+arranca. Para ese caso existe `npm run check:ci`, que pasa `--no-sandbox`. En cualquier otro sitio se usa `check`,
+con el aislamiento activo.
 
 ## Clave del storage local
 

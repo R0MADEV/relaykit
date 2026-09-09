@@ -73,9 +73,7 @@ jobs:
         run: npm run test:contract
 
       - name: Run the Electron renderer check
-        env:
-          RELAYKIT_NO_SANDBOX: "1"
-        run: xvfb-run --auto-servernum npm run check --workspace=@relaykit/example-electron
+        run: xvfb-run --auto-servernum npm run check:ci --workspace=@relaykit/example-electron
 
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
