@@ -26,6 +26,8 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - La cache local deja de crecer sin limite: conserva los 500 ultimos mensajes entregados por conversacion,
   configurable con `cache.messagesPerConversation`, y nunca descarta lo que sigue en la cola de envio.
 - Los participantes de una conversacion ya no incluyen a quien la abandono o fue expulsado.
+- Un mensaje que el homeserver todavia no ha aceptado ya no aparece como enviado en el timeline. Su estado lo
+  lleva el outbox, que es quien sabe si sigue de camino.
 - `Conversation.invitedIds` dice quien ha sido invitado y todavia no ha aceptado, que antes no se podia distinguir.
 - `conversations.join` ya no responde hasta que la conversacion se puede usar. Antes se podia volver de unirse y
   fallar el primer envio porque el estado de la sala aun no habia llegado.

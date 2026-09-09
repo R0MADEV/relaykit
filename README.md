@@ -169,6 +169,9 @@ const key = message.transactionId ?? message.id;
 
 ## Adjuntos
 
+El outbox necesita `storage` para sobrevivir a un reinicio. Sin el, un envio pendiente solo se observa por
+eventos y desaparece al cerrar. `@relaykit/web` lo configura solo en el navegador.
+
 `messages.sendFile` sube el archivo y envia el mensaje con `attachment` a traves del outbox, asi que un envio fallido
 se reintenta o se cancela como un mensaje de texto y sobrevive a un reinicio. En rooms cifrados el contenido se cifra
 antes de subirlo. `attachment.source` es un localizador opaco: nunca es una URL publica y solo sirve para

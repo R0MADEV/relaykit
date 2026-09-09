@@ -87,6 +87,9 @@ jobs:
       - name: Run RelayKit two device smoke check
         run: npm run smoke:devices
 
+      - name: Run RelayKit outage smoke check
+        run: npm run smoke:outage
+
       - name: Run RelayKit E2EE recovery smoke check
         run: npm run smoke:recovery
 

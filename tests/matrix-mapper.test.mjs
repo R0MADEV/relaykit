@@ -356,3 +356,27 @@ test("a conversation says who has been invited and has not accepted yet", () => 
   assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
   assert.deepEqual(conversation.invitedIds, ["@dave:example.org"]);
 });
+
+test("the timeline leaves out messages the homeserver has not accepted yet", () => {
+  const { mapMessages } = mapper;
+  const pending = new MatrixEvent({
+    type: "m.room.message",
+    event_id: `~${roomId}:txn-1`,
+    sender: "@alice:example.org",
+    room_id: roomId,
+    origin_server_ts: 1000,
+    content: { msgtype: "m.text", body: "sin confirmar" }
+  });
+  const accepted = new MatrixEvent({
+    type: "m.room.message",
+    event_id: "$accepted",
+    sender: "@alice:example.org",
+    room_id: roomId,
+    origin_server_ts: 2000,
+    content: { msgtype: "m.text", body: "confirmado" }
+  });
+
+  const messages = mapMessages([pending, accepted]);
+
+  assert.deepEqual(messages.map(message => message.body), ["confirmado"]);
+});

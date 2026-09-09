@@ -72,6 +72,8 @@ function mapThumbnail(info: NonNullable<MatrixMessageContent["info"]>): MediaRef
 export function mapMessages(events: readonly MatrixEvent[]): Message[] {
   const messages: Message[] = [];
   for (const event of events) {
+    // A local echo has no server id yet. Its state belongs to the outbox, which knows if it is still going out.
+    if (event.getId()?.startsWith("~")) continue;
     const message = mapMessage(event);
     if (message) {
       messages.push(message);

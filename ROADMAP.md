@@ -97,6 +97,8 @@ Cubierto (tests en `tests/remote-events.test.mjs` y `tests/matrix-mapper.test.mj
 
 - Cambios de membership de otros participantes: llegan como `conversation.updated` con la lista de participantes
   actualizada, verificado contra Synapse en el smoke E2E y en el de grupo con tres personas.
+- Caida real del homeserver: cubierto con `scripts/smoke-outage.mjs`, que para el contenedor, comprueba que el
+  envio queda en cola, lo levanta y verifica que sale solo sin intervencion.
 - Varios dispositivos del mismo usuario: cubierto con `scripts/smoke-devices.mjs`, que comprueba que se leen entre
   si en una sala cifrada y que el estado de lectura es de la persona, no del dispositivo.
 - Distinguir quien ha aceptado de quien sigue invitado: cubierto con `Conversation.invitedIds`, en el contract
