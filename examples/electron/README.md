@@ -9,6 +9,9 @@ npm run check --workspace=@relaykit/example-electron
 
 Necesita un Synapse local con los usuarios de desarrollo. Sale con codigo 0 si todo funciona.
 
+En un contenedor de integracion continua no hay espacios de nombres de usuario y el aislamiento de Chromium no
+arranca, asi que ahi se desactiva con `RELAYKIT_NO_SANDBOX=1`. En cualquier otro sitio queda activo.
+
 ## Clave del storage local
 
 RelayKit cifra su cache local con una clave derivada de `storageSecret`. Por defecto usa el access token, que
