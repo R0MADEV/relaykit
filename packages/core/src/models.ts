@@ -47,7 +47,10 @@ export interface AvatarImage {
 export interface Conversation {
   readonly id: ConversationId;
   readonly title?: string;
+  /** Everyone in the conversation, including those invited who have not accepted yet. */
   readonly participantIds: readonly UserId[];
+  /** The subset of `participantIds` still waiting to accept the invitation. */
+  readonly invitedIds?: readonly UserId[];
   readonly membership?: "join" | "invite";
   readonly lastMessage?: Message;
   /** True for one-to-one conversations opened with `conversations.open`. */

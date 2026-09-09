@@ -63,6 +63,17 @@ function runContract(name, setup) {
       await cleanup?.();
     });
 
+    it("reports the participant it invited as not having accepted yet", async () => {
+      // The invitation reaches the conversation through sync, not the moment it is sent.
+      const listed = await waitFor("the invited participant to appear", async () => {
+        const conversations = await adapter.listConversations();
+        const current = conversations.find(item => item.id === conversationId);
+        return current?.participantIds.includes(participant) ? current : undefined;
+      });
+
+      assert.ok(listed.invitedIds.includes(participant), "the invited participant has not joined yet");
+    });
+
     it("lists the conversation it just created", async () => {
       const conversations = await waitFor("the conversation to be listed", async () => {
         const listed = await adapter.listConversations();

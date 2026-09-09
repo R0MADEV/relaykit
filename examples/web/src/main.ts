@@ -107,7 +107,9 @@ class DemoApp {
     item.setAttribute("aria-current", String(conversation.id === this.conversationId));
     const name = document.createElement("span");
     name.className = "name";
-    const others = this.otherParticipants(conversation).map(participantId => this.nameOf(participantId));
+    const pending = new Set(conversation.invitedIds ?? []);
+    const others = this.otherParticipants(conversation)
+      .map(participantId => `${this.nameOf(participantId)}${pending.has(participantId) ? " (pendiente)" : ""}`);
     name.textContent = conversation.title ?? (others.length > 0 ? others.join(", ") : conversation.id);
     const preview = document.createElement("span");
     preview.className = "preview";

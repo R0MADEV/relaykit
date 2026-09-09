@@ -50,6 +50,7 @@ const client = new MessagingClient({
 await client.start();
 
 // Ordenadas por actividad reciente, con `unreadCount` y `lastMessage` para pintar la lista.
+// `invitedIds` dice quien sigue sin aceptar, para poder marcarlo en la interfaz.
 const conversations = await client.conversations.list();
 const messages = await client.messages.list(conversationId);
 

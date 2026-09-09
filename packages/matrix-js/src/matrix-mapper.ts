@@ -83,13 +83,14 @@ export function mapMessages(events: readonly MatrixEvent[]): Message[] {
 export function mapConversation(room: Room): Conversation {
   const messages = mapMessages(room.getLiveTimeline().getEvents());
   const lastMessage = messages.at(-1);
+  const members = room.getMembers()
+    .filter(member => member.membership === "join" || member.membership === "invite");
   const conversation: Conversation = {
     id: room.roomId,
     title: room.name,
     // Whoever left or was banned is no longer part of the conversation, only those in it or invited to it.
-    participantIds: room.getMembers()
-      .filter(member => member.membership === "join" || member.membership === "invite")
-      .map(member => member.userId),
+    participantIds: members.map(member => member.userId),
+    invitedIds: members.filter(member => member.membership === "invite").map(member => member.userId),
     membership: room.getMyMembership() === "invite" ? "invite" : "join",
     unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total),
     ...(isDirectRoom(room) ? { isDirect: true } : {})

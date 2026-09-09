@@ -341,3 +341,18 @@ test("waiting for a room that never becomes usable fails with a clear reason", a
 
   await assert.rejects(waitUntilRoomIsUsable(never, 300), /not ready/);
 });
+
+test("a conversation says who has been invited and has not accepted yet", () => {
+  const { mapConversation } = mapper;
+  const room = fakeRoom([
+    { userId: "@alice:example.org", membership: "join" },
+    { userId: "@bob:example.org", membership: "join" },
+    { userId: "@dave:example.org", membership: "invite" },
+    { userId: "@carol:example.org", membership: "leave" }
+  ]);
+
+  const conversation = mapConversation(room);
+
+  assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
+  assert.deepEqual(conversation.invitedIds, ["@dave:example.org"]);
+});

@@ -215,3 +215,18 @@ test("open ignores an invitation that is not a direct conversation with that use
   assert.deepEqual(opened.participantIds, ["bob"]);
   assert.equal(adapter.created, 1);
 });
+
+test("a new conversation reports the people who have not accepted yet", async () => {
+  const { adapter, client } = await startClient();
+
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+
+  assert.deepEqual(conversation.invitedIds, ["bob"]);
+  assert.ok(conversation.participantIds.includes("bob"), "an invited person is still part of the conversation");
+
+  adapter.acceptInvitation(conversation.id, "bob");
+  const listed = await client.conversations.list();
+
+  assert.deepEqual(listed[0].invitedIds, []);
+  await client.stop();
+});

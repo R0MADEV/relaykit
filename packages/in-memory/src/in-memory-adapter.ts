@@ -113,6 +113,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     const conversation: Conversation = {
       id: `memory-conversation-${this.nextConversationId++}`,
       participantIds: [...input.participantIds],
+      // Creating a conversation invites the others; they are not in it until they accept.
+      invitedIds: [...input.participantIds],
       membership: "join",
       ...(input.title ? { title: input.title } : {}),
       ...(input.direct ? { isDirect: true } : {})
@@ -144,7 +146,15 @@ export class InMemoryAdapter implements MessagingAdapter {
     const participantIds = conversation.participantIds.includes(userId)
       ? conversation.participantIds
       : [...conversation.participantIds, userId];
-    return this.replaceConversation({ ...conversation, participantIds });
+    const invitedIds = [...new Set([...conversation.invitedIds ?? [], userId])];
+    return this.replaceConversation({ ...conversation, participantIds, invitedIds });
+  }
+
+  /** Test helper: simulates someone accepting the invitation to a conversation. */
+  acceptInvitation(conversationId: ConversationId, userId: UserId): Conversation {
+    const conversation = this.requireConversation(conversationId);
+    const invitedIds = (conversation.invitedIds ?? []).filter(invited => invited !== userId);
+    return this.replaceConversation({ ...conversation, invitedIds });
   }
 
   async renameConversation(conversationId: ConversationId, title: string): Promise<Conversation> {
