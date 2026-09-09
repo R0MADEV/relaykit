@@ -1,0 +1,45 @@
+name: RelayKit release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check tag matches package version
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "${expected}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${expected}"
+            exit 1
+          fi
+
+      - name: Typecheck, build, test and pack
+        run: npm run release:check
+
+      - name: Publish with provenance
+        run: npm publish -w @relaykit/core -w @relaykit/browser-storage -w @relaykit/in-memory -w @relaykit/matrix-js -w @relaykit/web --provenance --access public --tag alpha
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

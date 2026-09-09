@@ -1,0 +1,34 @@
+{
+  "name": "relaykit",
+  "private": true,
+  "version": "0.1.0-alpha.1",
+  "description": "Headless messaging SDK for web applications and Electron",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "check": "npm run typecheck && npm run build",
+    "smoke:matrix": "node scripts/smoke-matrix.mjs",
+    "smoke:relaykit": "node scripts/smoke-relaykit.mjs",
+    "smoke:recovery": "node scripts/smoke-recovery.mjs",
+    "smoke:verification": "node scripts/smoke-verification.mjs",
+    "test:unit": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc -b --pretty false",
+    "pack:check": "npm pack --dry-run -w @relaykit/core -w @relaykit/browser-storage -w @relaykit/in-memory -w @relaykit/matrix-js -w @relaykit/web",
+    "release:check": "npm run check && npm run test:unit && npm run pack:check",
+    "test:contract": "npm run build && RELAYKIT_CONTRACT_MATRIX=1 node --test --test-force-exit tests/adapter-contract.test.mjs"
+  },
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0",
+  "author": "Irontec"
+}

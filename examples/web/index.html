@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RelayKit</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --line: color-mix(in srgb, currentColor 15%, transparent);
+        --muted: color-mix(in srgb, currentColor 55%, transparent);
+        --own: color-mix(in srgb, currentColor 8%, transparent);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.5 system-ui, sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      header h1 { font-size: 16px; margin: 0 auto 0 0; }
+      #status { color: var(--muted); font-size: 13px; }
+      input, button, select { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: none; color: inherit; }
+      button { cursor: pointer; }
+      button:disabled { opacity: .5; cursor: default; }
+      #app { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+      #app[hidden] { display: none; }
+      aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+      aside form { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid var(--line); }
+      aside form input { flex: 1; min-width: 0; }
+      #conversations { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
+      #conversations li { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+      #conversations li[aria-current="true"] { background: var(--own); }
+      #conversations .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #conversations .preview { grid-column: 1; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .badge { align-self: center; background: currentColor; color: Canvas; border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 600; }
+      main { display: flex; flex-direction: column; min-height: 0; }
+      #conversation-actions { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+      #timeline { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+      .message { max-width: 70%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; }
+      .message.own { align-self: flex-end; background: var(--own); }
+      .message .meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+      .message.deleted { font-style: italic; color: var(--muted); }
+      footer { border-top: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+      footer form { display: flex; gap: 8px; }
+      #message { flex: 1; }
+      #typing, #load-more, #replying { color: var(--muted); font-size: 13px; }
+      .quote { border-left: 3px solid var(--line); padding-left: 8px; margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+      #empty { margin: auto; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>RelayKit</h1>
+      <form id="login-form">
+        <input id="homeserver" value="http://localhost:8008" aria-label="Homeserver" />
+        <select id="username" aria-label="Usuario">
+          <option value="alice">alice</option>
+          <option value="bob">bob</option>
+        </select>
+        <input id="password" type="password" value="alice-password" aria-label="Contraseña" required />
+        <button type="submit">Conectar</button>
+      </form>
+      <p id="status">Desconectado</p>
+    </header>
+
+    <div id="app" hidden>
+      <aside>
+        <form id="open-form">
+          <select id="participant" aria-label="Con quién">
+            <option value="@alice:localhost">@alice:localhost</option>
+            <option value="@bob:localhost">@bob:localhost</option>
+          </select>
+          <button type="submit">Abrir</button>
+        </form>
+        <form id="search-form">
+          <input id="search" placeholder="Buscar conversación" />
+          <button type="submit">Buscar</button>
+        </form>
+        <ol id="conversations"></ol>
+      </aside>
+
+      <main>
+        <div id="conversation-actions" hidden>
+          <button id="invite" type="button">Invitar</button>
+          <button id="rename" type="button">Renombrar</button>
+          <button id="leave" type="button">Salir</button>
+        </div>
+        <p id="empty">Abre una conversación para empezar.</p>
+        <div id="timeline" hidden>
+          <button id="load-more" type="button" hidden>Cargar mensajes anteriores</button>
+        </div>
+        <footer hidden>
+          <p id="replying" hidden></p>
+          <p id="typing"></p>
+          <form id="message-form">
+            <input id="message" placeholder="Mensaje" autocomplete="off" required />
+            <button type="submit">Enviar</button>
+          </form>
+          <form id="file-form">
+            <input id="file" type="file" required aria-label="Archivo adjunto" />
+            <button type="submit">Enviar archivo</button>
+            <progress id="upload-progress" value="0" max="1" hidden>0%</progress>
+          </form>
+        </footer>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "@relaykit/web",
+  "version": "0.1.0-alpha.1",
+  "description": "Headless RelayKit messaging client for browsers and Electron",
+  "keywords": [
+    "matrix",
+    "chat",
+    "messaging",
+    "sdk",
+    "e2ee",
+    "headless"
+  ],
+  "license": "Apache-2.0",
+  "author": "Irontec",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@relaykit/browser-storage": "0.1.0-alpha.1",
+    "@relaykit/core": "0.1.0-alpha.1",
+    "@relaykit/matrix-js": "0.1.0-alpha.1"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "prepack": "npm run build",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

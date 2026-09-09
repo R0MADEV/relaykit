@@ -1,0 +1,22 @@
+{
+  "extends": "../../packages/core/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../matrix-js"
+    },
+    {
+      "path": "../browser-storage"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

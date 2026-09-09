@@ -1,0 +1,17 @@
+{
+  "name": "@relaykit/example-electron",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "build": "vite build",
+    "check": "npm run build && electron ."
+  },
+  "dependencies": {
+    "@relaykit/web": "0.1.0-alpha.1"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

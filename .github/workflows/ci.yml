@@ -1,0 +1,85 @@
+name: RelayKit CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Verify packages can be packed
+        run: npm run pack:check
+
+      - name: Build web example
+        run: npm run build --workspace=@relaykit/example-web
+
+      - name: Generate Synapse configuration
+        run: docker compose -f infrastructure/matrix/docker-compose.yml run --rm synapse generate
+
+      - name: Raise rate limits for the test run
+        run: cat infrastructure/matrix/dev-rate-limits.yaml >> infrastructure/matrix/data/homeserver.yaml
+
+      - name: Start Synapse
+        run: docker compose -f infrastructure/matrix/docker-compose.yml up -d
+
+      - name: Wait for Synapse
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8008/_matrix/client/versions >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Create smoke users
+        run: |
+          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
+            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
+            -u alice -p alice-password --no-admin
+          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
+            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
+            -u bob -p bob-password --no-admin
+
+      - name: Run Matrix smoke check
+        run: npm run smoke:matrix
+
+      - name: Run adapter contract tests
+        run: npm run test:contract
+
+      - name: Run the Electron renderer check
+        run: xvfb-run --auto-servernum npm run check --workspace=@relaykit/example-electron
+
+      - name: Run RelayKit E2E smoke check
+        run: npm run smoke:relaykit
+
+      - name: Run RelayKit E2EE recovery smoke check
+        run: npm run smoke:recovery
+
+      - name: Run RelayKit SAS verification smoke check
+        run: npm run smoke:verification
+
+      - name: Stop Synapse
+        if: always()
+        run: docker compose -f infrastructure/matrix/docker-compose.yml down -v

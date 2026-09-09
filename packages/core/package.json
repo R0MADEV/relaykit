@@ -1,0 +1,41 @@
+{
+  "name": "@relaykit/core",
+  "version": "0.1.0-alpha.1",
+  "description": "Framework-agnostic contracts and client runtime for RelayKit",
+  "keywords": [
+    "matrix",
+    "chat",
+    "messaging",
+    "sdk",
+    "e2ee",
+    "headless"
+  ],
+  "license": "Apache-2.0",
+  "author": "Irontec",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "prepack": "npm run build",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

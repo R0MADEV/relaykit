@@ -1,0 +1,11 @@
+services:
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: relaykit-synapse
+    environment:
+      SYNAPSE_SERVER_NAME: localhost
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - ./data:/data
+    ports:
+      - "8008:8008"

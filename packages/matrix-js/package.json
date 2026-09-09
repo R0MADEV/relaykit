@@ -1,0 +1,46 @@
+{
+  "name": "@relaykit/matrix-js",
+  "version": "0.1.0-alpha.1",
+  "description": "Matrix adapter for RelayKit built on matrix-js-sdk",
+  "keywords": [
+    "matrix",
+    "chat",
+    "messaging",
+    "sdk",
+    "e2ee",
+    "headless"
+  ],
+  "license": "Apache-2.0",
+  "author": "Irontec",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@relaykit/core": "0.1.0-alpha.1",
+    "matrix-encrypt-attachment": "^1.0.3",
+    "matrix-js-sdk": "^42.3.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "prepack": "npm run build",
+    "typecheck": "tsc -b --pretty false"
+  }
+}
