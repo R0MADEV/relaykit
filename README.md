@@ -141,6 +141,11 @@ Todos los eventos se suscriben con `client.on(nombre, listener)` y devuelven una
 
 Las ediciones y eliminaciones remotas se persisten en el storage antes de emitirse.
 
+En una conversacion cifrada, un mensaje solo lo pueden leer quienes el emisor sabia que estaban dentro al
+enviarlo. Si alguien acaba de entrar y tu cliente todavia no lo ha visto, ese mensaje no le llegara legible. No es
+algo que el SDK pueda evitar: la clave se reparte en el momento del envio. En la practica basta con esperar al
+`conversation.updated` que anuncia al nuevo participante.
+
 Un mensaje que llega cifrado y este dispositivo no puede leer, porque las claves son de otra sesion, llega con
 `undecryptable` a true y el cuerpo vacio. La aplicacion decide como representarlo; lo que nunca vera es el texto
 interno que pone `matrix-js-sdk` en su lugar.

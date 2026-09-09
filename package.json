@@ -20,7 +20,8 @@
     "pack:check": "npm pack --dry-run -w @relaykit/core -w @relaykit/browser-storage -w @relaykit/in-memory -w @relaykit/matrix-js -w @relaykit/web",
     "release:check": "npm run check && npm run test:unit && npm run pack:check",
     "test:contract": "npm run build && RELAYKIT_CONTRACT_MATRIX=1 node --test --test-force-exit tests/adapter-contract.test.mjs",
-    "smoke:group": "node scripts/smoke-group.mjs"
+    "smoke:group": "node scripts/smoke-group.mjs",
+    "smoke:devices": "node scripts/smoke-devices.mjs"
   },
   "devDependencies": {
     "electron": "^44.3.0",

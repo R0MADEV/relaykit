@@ -97,6 +97,9 @@ Cubierto (tests en `tests/remote-events.test.mjs` y `tests/matrix-mapper.test.mj
 
 - Cambios de membership de otros participantes: llegan como `conversation.updated` con la lista de participantes
   actualizada, verificado contra Synapse en el smoke E2E y en el de grupo con tres personas.
+- Varios dispositivos del mismo usuario: cubierto con `scripts/smoke-devices.mjs`, que comprueba que se leen entre
+  si en una sala cifrada y que el estado de lectura es de la persona, no del dispositivo.
+- Pendiente: distinguir en `Conversation` quien ha aceptado y quien sigue invitado. Hoy `participantIds` los junta.
 - Grupos: cubierto con `scripts/smoke-group.mjs`, que comprueba que los tres se leen entre si en una sala cifrada,
   los no leidos y que el grupo encoge cuando alguien se va. Pendiente: grupos grandes y expulsar participantes.
 
