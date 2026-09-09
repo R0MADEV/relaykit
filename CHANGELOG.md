@@ -59,8 +59,9 @@ Apache-2.0.
   `matrix-js-sdk` rechaza reencolar un evento con un id de transaccion ya usado en la sesion. Ahora se reenvia el
   evento pendiente y el mensaje sale. Sin esto el outbox no recuperaba ningun envio fallido sin reiniciar.
 - Ambos fallos los encontraron los contract tests al correr la misma suite contra los dos adapters.
-- Los errores del homeserver ya no se filtran en crudo: el adapter Matrix los traduce a `SdkError`, con los codigos
-  `RATE_LIMITED` (con `retryAfterMs`) e `INVALID_SESSION`, verificado provocando un limite real en Synapse.
+- Los errores del homeserver ya no se filtran en crudo: el adapter Matrix los traduce todos a `SdkError`, con los
+  codigos `RATE_LIMITED` (con `retryAfterMs`) e `INVALID_SESSION` para los casos que una aplicacion debe
+  distinguir, y `ADAPTER_ERROR` con el motivo del servidor para el resto.
 - `@relaykit/web` no creaba storage local si la sesion llegaba por `login()` en vez de por el constructor, que es
   el flujo documentado: la aplicacion se quedaba sin cache, sin outbox persistente y sin nada offline.
 - Enviar justo despues de crear una conversacion podia fallar aunque el homeserver aceptara el mensaje, porque el

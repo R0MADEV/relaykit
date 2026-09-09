@@ -21,7 +21,9 @@ export function translateMatrixError(error: unknown): unknown {
   if (errcode !== undefined && invalidSessionCodes.has(errcode)) {
     return new SdkError("INVALID_SESSION", "The session is no longer valid, log in again");
   }
-  return error;
+  // Anything else is still a homeserver failure, and the caller must never be handed a Matrix type.
+  const detail = typeof (data as { error?: unknown }).error === "string" ? (data as { error: string }).error : error.message;
+  return new SdkError("ADAPTER_ERROR", detail);
 }
 
 /** Runs an adapter operation, translating homeserver errors on the way out. */

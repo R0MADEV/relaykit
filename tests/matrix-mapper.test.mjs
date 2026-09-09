@@ -227,3 +227,27 @@ test("mapMessage reads what a message replies to", () => {
   assert.equal(message.replyToId, "$original");
   assert.equal(message.body, "me viene bien");
 });
+
+test("any other homeserver error is still reported as an SDK error, never as a Matrix one", () => {
+  const translated = translateMatrixError(matrixError({
+    httpStatus: 404,
+    errcode: "M_NOT_FOUND",
+    data: { error: "Can't join remote room because no servers that are in the room have been provided." }
+  }));
+
+  assert.equal(translated.name, "SdkError");
+  assert.equal(translated.code, "ADAPTER_ERROR");
+  assert.match(translated.message, /no servers that are in the room/);
+});
+
+test("the adapter never lets a Matrix error reach the caller", async () => {
+  const { MatrixJsAdapter } = await import("@relaykit/matrix-js");
+  const adapter = new MatrixJsAdapter();
+  adapter.runtime = {
+    getClient: () => ({
+      joinRoom: async () => { throw matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: "no such room" } }); }
+    })
+  };
+
+  await assert.rejects(adapter.joinConversation("!room:example.org"), error => error.name === "SdkError");
+});

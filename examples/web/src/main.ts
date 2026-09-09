@@ -66,8 +66,9 @@ class DemoApp {
         if (!this.input("search").value.trim()) this.renderConversations(conversations.get());
       });
       this.element("app").hidden = false;
-      await this.acceptInvitations();
       await this.refreshConversations();
+      // Joining runs after the list is on screen, so a bad invitation never leaves the user staring at nothing.
+      void this.acceptInvitations();
     } catch (error) {
       this.showError(error);
     } finally {
@@ -77,9 +78,12 @@ class DemoApp {
 
   private async acceptInvitations(): Promise<void> {
     const conversations = await this.client.conversations.list();
-    for (const conversation of conversations) {
-      if (conversation.membership === "invite") await this.client.conversations.join(conversation.id);
+    const invitations = conversations.filter(conversation => conversation.membership === "invite");
+    for (const invitation of invitations) {
+      // An invitation to a room nobody is in any more cannot be joined, and must not stop the others.
+      await this.client.conversations.join(invitation.id).catch(() => undefined);
     }
+    if (invitations.length > 0) await this.refreshConversations();
   }
 
   private async refreshConversations(): Promise<void> {

@@ -219,7 +219,7 @@ aplicacion necesita distinguir:
 | `INVALID_SESSION` | la sesion caduco o fue revocada: hay que volver a iniciar sesion        |
 | `RATE_LIMITED`    | el homeserver esta limitando al cliente; `retryAfterMs` dice cuanto esperar |
 | `NOT_STARTED`     | se uso el cliente antes de `start()`                                    |
-| `ADAPTER_ERROR`   | el homeserver o la red fallaron                                        |
+| `ADAPTER_ERROR`   | el homeserver o la red fallaron; el mensaje trae el motivo del servidor |
 
 ```ts
 try {
