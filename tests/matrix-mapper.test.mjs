@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MatrixError, MatrixEvent } from "matrix-js-sdk";
+import * as mapper from "../packages/matrix-js/dist/matrix-mapper.js";
 import {
   mapMessage,
   mapPresence,
@@ -285,4 +286,32 @@ test("a normal message is not flagged as undecryptable", () => {
 
   assert.equal(message.undecryptable, undefined);
   assert.equal(message.body, "hola");
+});
+
+function fakeRoom(members) {
+  return {
+    roomId,
+    name: "Grupo",
+    getLiveTimeline: () => ({ getEvents: () => [] }),
+    getMembers: () => members,
+    getMyMembership: () => "join",
+    getUnreadNotificationCount: () => 0,
+    getDMInviter: () => undefined,
+    client: { getAccountData: () => undefined }
+  };
+}
+
+test("the participants of a conversation are those in it, not those who left", () => {
+  const { mapConversation } = mapper;
+  const room = fakeRoom([
+    { userId: "@alice:example.org", membership: "join" },
+    { userId: "@bob:example.org", membership: "join" },
+    { userId: "@carol:example.org", membership: "leave" },
+    { userId: "@dave:example.org", membership: "invite" },
+    { userId: "@eve:example.org", membership: "ban" }
+  ]);
+
+  const conversation = mapConversation(room);
+
+  assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
 });

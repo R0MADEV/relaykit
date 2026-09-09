@@ -25,6 +25,7 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   intentos sigue esperando una decision explicita.
 - La cache local deja de crecer sin limite: conserva los 500 ultimos mensajes entregados por conversacion,
   configurable con `cache.messagesPerConversation`, y nunca descarta lo que sigue en la cola de envio.
+- Los participantes de una conversacion ya no incluyen a quien la abandono o fue expulsado.
 - Un mensaje que no se puede descifrar llega marcado con `undecryptable` y el cuerpo vacio, en vez de con el texto
   interno de `matrix-js-sdk`.
 - `conversations.open` se une a la invitacion directa de ese usuario en vez de crear una segunda conversacion, que

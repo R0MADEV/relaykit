@@ -65,6 +65,9 @@ jobs:
           docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
             register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
             -u bob -p bob-password --no-admin
+          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
+            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
+            -u carol -p carol-password --no-admin
 
       - name: Run Matrix smoke check
         run: npm run smoke:matrix
@@ -77,6 +80,9 @@ jobs:
 
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
+
+      - name: Run RelayKit group smoke check
+        run: npm run smoke:group
 
       - name: Run RelayKit E2EE recovery smoke check
         run: npm run smoke:recovery

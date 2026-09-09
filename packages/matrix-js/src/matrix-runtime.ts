@@ -12,6 +12,7 @@ import {
 import type { AdapterHandlers, Session } from "@relaykit/core";
 import { createBrowserStore, handleSync, waitForInitialSync } from "./matrix-sync.js";
 import { handlePresence, handleReceipt, handleRedaction, handleTimeline, handleTyping } from "./matrix-handlers.js";
+import { mapConversation } from "./matrix-mapper.js";
 import { ReactionTracker } from "./reaction-tracker.js";
 import { SecretStorageKeyHolder } from "./matrix-security.js";
 import { MatrixVerificationTracker } from "./matrix-verification.js";
@@ -123,12 +124,7 @@ export class MatrixRuntime {
   private readonly handlePresence = (event: MatrixEvent | undefined): void => handlePresence(event, this.handlers);
 
   private readonly handleMembership = (room: Room): void => {
-    this.handlers.onConversationUpdated?.({
-      id: room.roomId,
-      title: room.name,
-      participantIds: room.getMembers().map(member => member.userId),
-      membership: room.getMyMembership() === "invite" ? "invite" : "join"
-    });
+    this.handlers.onConversationUpdated?.(mapConversation(room));
   };
 
   private readonly handleSync = (state: string): void => handleSync(state, this.handlers);

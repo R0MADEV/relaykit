@@ -75,7 +75,7 @@ docker compose -f infrastructure/matrix/docker-compose.yml exec synapse \
   http://localhost:8008
 ```
 
-Usar, por ejemplo, `alice` y `bob` con el dominio `localhost`.
+Usar `alice`, `bob` y `carol` con el dominio `localhost`. El tercero hace falta para el smoke de grupo.
 
 ## Ejecutar el ejemplo Web
 

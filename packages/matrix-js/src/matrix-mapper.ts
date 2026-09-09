@@ -86,7 +86,10 @@ export function mapConversation(room: Room): Conversation {
   const conversation: Conversation = {
     id: room.roomId,
     title: room.name,
-    participantIds: room.getMembers().map(member => member.userId),
+    // Whoever left or was banned is no longer part of the conversation, only those in it or invited to it.
+    participantIds: room.getMembers()
+      .filter(member => member.membership === "join" || member.membership === "invite")
+      .map(member => member.userId),
     membership: room.getMyMembership() === "invite" ? "invite" : "join",
     unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total),
     ...(isDirectRoom(room) ? { isDirect: true } : {})
