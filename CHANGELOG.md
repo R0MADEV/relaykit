@@ -25,6 +25,10 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   intentos sigue esperando una decision explicita.
 - La cache local deja de crecer sin limite: conserva los 500 ultimos mensajes entregados por conversacion,
   configurable con `cache.messagesPerConversation`, y nunca descarta lo que sigue en la cola de envio.
+- Un mensaje que no se puede descifrar llega marcado con `undecryptable` y el cuerpo vacio, en vez de con el texto
+  interno de `matrix-js-sdk`.
+- `conversations.open` se une a la invitacion directa de ese usuario en vez de crear una segunda conversacion, que
+  dejaba a cada lado hablando en su propia sala.
 - Listas vivas: `createConversationList` y `createMessageTimeline` mantienen al dia una lista de conversaciones o
   el hilo de una conversacion, resolviendo el eco local y el orden, y se conectan a React con `useSyncExternalStore`.
 - `messages.readBy` responde quien ha leido un mensaje y cuando, sin que la aplicacion tenga que seguir los

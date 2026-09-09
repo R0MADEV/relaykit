@@ -185,7 +185,8 @@ class DemoApp {
 
   private messageElement(message: Message, all: readonly Message[]): HTMLElement {
     const item = document.createElement("article");
-    item.className = `message${message.senderId === this.ownUserId ? " own" : ""}${message.deletedAt ? " deleted" : ""}`;
+    const faded = message.deletedAt || message.undecryptable ? " deleted" : "";
+    item.className = `message${message.senderId === this.ownUserId ? " own" : ""}${faded}`;
     const children: (Node | string)[] = [];
     if (message.replyToId) {
       const quoted = document.createElement("div");
@@ -194,7 +195,8 @@ class DemoApp {
       children.push(quoted);
     }
     const body = document.createElement("div");
-    body.textContent = message.deletedAt ? "Mensaje eliminado" : message.body;
+    if (message.undecryptable) body.textContent = "Mensaje cifrado que este dispositivo no puede leer";
+    else body.textContent = message.deletedAt ? "Mensaje eliminado" : message.body;
     children.push(body);
 
     const meta = document.createElement("div");
@@ -208,7 +210,9 @@ class DemoApp {
       const thumbnail = attachment.thumbnail;
       meta.append(this.button("Vista previa", () => void this.download(thumbnail, `preview-${attachment.name}`)));
     }
-    if (!message.deletedAt) meta.append(this.button("Responder", () => this.startReply(message)));
+    if (!message.deletedAt && !message.undecryptable) {
+      meta.append(this.button("Responder", () => this.startReply(message)));
+    }
     if (message.status === "failed") {
       meta.append(this.button("Reintentar", () => void this.client.messages.retry(message.id).catch(error => this.showError(error))));
       meta.append(this.button("Cancelar", () => void this.client.messages.cancel(message.id).catch(error => this.showError(error))));

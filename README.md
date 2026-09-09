@@ -141,6 +141,10 @@ Todos los eventos se suscriben con `client.on(nombre, listener)` y devuelven una
 
 Las ediciones y eliminaciones remotas se persisten en el storage antes de emitirse.
 
+Un mensaje que llega cifrado y este dispositivo no puede leer, porque las claves son de otra sesion, llega con
+`undecryptable` a true y el cuerpo vacio. La aplicacion decide como representarlo; lo que nunca vera es el texto
+interno que pone `matrix-js-sdk` en su lugar.
+
 El SDK decide **que** merece un aviso, siguiendo las reglas de notificacion del homeserver, y la aplicacion decide
 **como** mostrarlo. Nunca avisa de los mensajes propios:
 

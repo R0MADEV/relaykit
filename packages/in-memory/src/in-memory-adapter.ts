@@ -323,6 +323,19 @@ export class InMemoryAdapter implements MessagingAdapter {
     return deletedMessage;
   }
 
+  /** Test helper: simulates being invited to a conversation by someone else. */
+  receiveInvitation(fromUserId: UserId, options: { readonly direct?: boolean } = {}): Conversation {
+    const conversation: Conversation = {
+      id: `memory-conversation-${this.nextConversationId++}`,
+      participantIds: [fromUserId],
+      membership: "invite",
+      ...(options.direct === false ? {} : { isDirect: true })
+    };
+    this.conversations.push(conversation);
+    this.handlers.onConversationUpdated?.(conversation);
+    return conversation;
+  }
+
   /** Test helper: simulates the connection changing, as sync would report it. */
   simulateConnection(status: ConnectionStatus): void {
     this.handlers.onConnectionChanged?.(status);

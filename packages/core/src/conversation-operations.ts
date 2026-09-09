@@ -57,23 +57,40 @@ export class ConversationOperations {
   /** Returns the joined direct conversation with `userId`, if there is one. */
   async findDirect(userId: UserId): Promise<Conversation | undefined> {
     const conversations = await this.list();
-    const ownUserId = this.context.getSession()?.userId;
-    return conversations.find(conversation => {
-      const others = conversation.participantIds.filter(participantId => participantId !== ownUserId);
-      const isDirectWithUser = conversation.isDirect === true && others.length === 1 && others[0] === userId;
-      return isDirectWithUser && conversation.membership !== "invite";
-    });
+    return this.directWith(conversations, userId, "join");
   }
 
-  /** Opens the direct conversation with `userId`, reusing the existing one instead of creating a duplicate. */
+  /**
+   * Opens the direct conversation with `userId`. An invitation from that same user is that conversation, so it
+   * is joined rather than answered with a second one, which would leave each side talking in its own room.
+   */
   async open(userId: UserId): Promise<Conversation> {
     this.context.assertStarted();
     if (!userId.trim()) {
       throw new SdkError("INVALID_INPUT", "A user id is required to open a conversation");
     }
-    const existing = await this.findDirect(userId);
-    if (existing) return existing;
+    const conversations = await this.list();
+    const joined = this.directWith(conversations, userId, "join");
+    if (joined) return joined;
+    const invitation = this.directWith(conversations, userId, "invite");
+    if (invitation) return this.join(invitation.id);
     return this.create({ participantIds: [userId], direct: true });
+  }
+
+  private directWith(
+    conversations: readonly Conversation[],
+    userId: UserId,
+    membership: "join" | "invite"
+  ): Conversation | undefined {
+    const ownUserId = this.context.getSession()?.userId;
+    return conversations.find(conversation => {
+      const others = conversation.participantIds.filter(participantId => participantId !== ownUserId);
+      const isDirectWithUser = conversation.isDirect === true && others.length === 1 && others[0] === userId;
+      const matchesMembership = membership === "invite"
+        ? conversation.membership === "invite"
+        : conversation.membership !== "invite";
+      return isDirectWithUser && matchesMembership;
+    });
   }
 
   async search(query: string): Promise<readonly Conversation[]> {

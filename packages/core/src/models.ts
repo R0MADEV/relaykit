@@ -126,6 +126,8 @@ export interface Message {
   readonly attachment?: Attachment;
   /** The message this one replies to, if any. */
   readonly replyToId?: MessageId;
+  /** True when the message arrived encrypted and this device has no key for it. Its body is empty. */
+  readonly undecryptable?: boolean;
 }
 
 export interface SendMessageOptions {

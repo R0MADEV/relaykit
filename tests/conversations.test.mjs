@@ -193,3 +193,25 @@ test("listing conversations only writes the ones that changed", async () => {
   assert.equal(storage.saves, afterFirstList + 1, "only the conversation that changed should be written");
   await client.stop();
 });
+
+test("open joins a direct invitation from that user instead of starting a second conversation", async () => {
+  const { adapter, client } = await startClient();
+  const invitation = adapter.receiveInvitation("bob");
+
+  const opened = await client.conversations.open("bob");
+
+  assert.equal(opened.id, invitation.id, "both sides must end up in the same conversation");
+  assert.equal(opened.membership, "join");
+  assert.equal(adapter.created, 0, "no new conversation should be created");
+});
+
+test("open ignores an invitation that is not a direct conversation with that user", async () => {
+  const { adapter, client } = await startClient();
+  adapter.receiveInvitation("carol");
+
+  const opened = await client.conversations.open("bob");
+
+  assert.equal(opened.isDirect, true);
+  assert.deepEqual(opened.participantIds, ["bob"]);
+  assert.equal(adapter.created, 1);
+});

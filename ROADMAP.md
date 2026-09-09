@@ -80,7 +80,7 @@ Pendiente:
 - Forzar la subida al backup de las claves creadas despues de activar la recuperacion: `matrix-js-sdk` solo
   ejecuta el bucle de subida al habilitar el backup y no lo repite al enviar.
 - Verificacion por QR y verificacion de otros usuarios sin indicar dispositivo (requiere DM).
-- Eventos no descifrables expuestos en el timeline.
+- Eventos no descifrables: cubierto, llegan marcados con `undecryptable` y sin cuerpo.
 - Rotacion y revocacion.
 - Tests con dos usuarios y multiples dispositivos.
 

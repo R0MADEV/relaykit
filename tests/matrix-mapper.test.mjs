@@ -102,7 +102,8 @@ function sentEvent({ id = "$sent", body = "hola", txnId } = {}) {
     getSender: () => "@alice:example.org",
     getRoomId: () => roomId,
     getTs: () => 1000,
-    isEncrypted: () => false
+    isEncrypted: () => false,
+    isDecryptionFailure: () => false
   };
 }
 
@@ -250,4 +251,38 @@ test("the adapter never lets a Matrix error reach the caller", async () => {
   };
 
   await assert.rejects(adapter.joinConversation("!room:example.org"), error => error.name === "SdkError");
+});
+
+test("a message that cannot be decrypted is flagged instead of showing the internal placeholder", () => {
+  const failed = new MatrixEvent({
+    type: "m.room.message",
+    event_id: "$failed",
+    sender: "@bob:example.org",
+    room_id: roomId,
+    origin_server_ts: 3000,
+    content: { msgtype: "m.bad.encrypted", body: "** Unable to decrypt: DecryptionError: no key **" }
+  });
+  failed.isDecryptionFailure = () => true;
+
+  const message = mapMessage(failed);
+
+  assert.equal(message.id, "$failed");
+  assert.equal(message.undecryptable, true);
+  assert.equal(message.body, "", "the internal placeholder must not reach the application");
+});
+
+test("a normal message is not flagged as undecryptable", () => {
+  const normal = new MatrixEvent({
+    type: "m.room.message",
+    event_id: "$normal",
+    sender: "@bob:example.org",
+    room_id: roomId,
+    origin_server_ts: 3000,
+    content: { msgtype: "m.text", body: "hola" }
+  });
+
+  const message = mapMessage(normal);
+
+  assert.equal(message.undecryptable, undefined);
+  assert.equal(message.body, "hola");
 });

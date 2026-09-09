@@ -101,18 +101,20 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   }
 
   const content = event.getContent<MatrixMessageContent>();
+  // The SDK puts its own "unable to decrypt" notice in the body, which is not something to show as a message.
+  const undecryptable = event.isDecryptionFailure();
   const relation = content["m.relates_to"];
   const isEdit = relation?.rel_type === RelationType.Replace;
   const editedBody = content["m.new_content"]?.body;
   const bodyValue = isEdit && typeof editedBody === "string" ? editedBody : content.body;
-  const body = typeof bodyValue === "string" ? bodyValue : undefined;
+  const body = undecryptable ? "" : (typeof bodyValue === "string" ? bodyValue : undefined);
   const relatedMessageId = relation?.event_id;
   const id = relatedMessageId ?? event.getId();
   const senderId = event.getSender();
   const conversationId = event.getRoomId();
   const transactionId = event.getUnsigned().transaction_id;
 
-  if (!body || !id || !senderId || !conversationId) {
+  if (body === undefined || (!body && !undecryptable) || !id || !senderId || !conversationId) {
     return undefined;
   }
 
@@ -128,7 +130,8 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     ...(transactionId ? { transactionId } : {}),
     ...(isEdit ? { editedAt: event.getTs() } : {}),
     ...(attachment ? { attachment } : {}),
-    ...(replyToId ? { replyToId } : {})
+    ...(replyToId ? { replyToId } : {}),
+    ...(undecryptable ? { undecryptable: true } : {})
   };
 
   return message;
