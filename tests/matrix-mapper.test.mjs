@@ -315,3 +315,29 @@ test("the participants of a conversation are those in it, not those who left", (
 
   assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
 });
+
+const { waitUntilRoomIsUsable } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
+
+function joiningRoom(readyAfter) {
+  let polls = 0;
+  return {
+    roomId,
+    get polls() { return polls; },
+    getMyMembership: () => (polls++ >= readyAfter ? "join" : "invite"),
+    currentState: { getStateEvents: () => (polls > readyAfter ? {} : null) }
+  };
+}
+
+test("a room just joined is only usable once its state has arrived", async () => {
+  const room = joiningRoom(2);
+
+  await waitUntilRoomIsUsable(room, 2000);
+
+  assert.ok(room.polls > 2, "it must keep looking until the room is ready");
+});
+
+test("waiting for a room that never becomes usable fails with a clear reason", async () => {
+  const never = { roomId, getMyMembership: () => "invite", currentState: { getStateEvents: () => null } };
+
+  await assert.rejects(waitUntilRoomIsUsable(never, 300), /not ready/);
+});

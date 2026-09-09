@@ -1,4 +1,4 @@
-import { ClientEvent, EventStatus, MatrixEvent, MsgType, type MatrixClient, type Room } from "matrix-js-sdk";
+import { ClientEvent, EventStatus, EventType, MatrixEvent, MsgType, type MatrixClient, type Room } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import type { Conversation, ConversationId, CreateConversationInput, Message, MessagePage } from "@relaykit/core";
 import { mapConversation, mapMessage } from "./matrix-mapper.js";
@@ -57,6 +57,21 @@ export function waitForRoom(client: MatrixClient, conversationId: ConversationId
     }, timeoutMs);
     client.on(ClientEvent.Room, onRoom);
   });
+}
+
+/**
+ * Joining is answered before the room state has been synced, and a room without state cannot be encrypted
+ * into. Waiting here means a conversation that was just joined can be used straight away.
+ */
+export async function waitUntilRoomIsUsable(room: Room, timeoutMs = 15000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const isJoined = room.getMyMembership() === "join";
+    const hasState = room.currentState.getStateEvents(EventType.RoomCreate, "") !== null;
+    if (isJoined && hasState) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error("The conversation is not ready yet");
 }
 
 export function sendMessage(

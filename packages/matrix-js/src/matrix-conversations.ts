@@ -1,5 +1,5 @@
 import { EventType, type MatrixClient, type Room } from "matrix-js-sdk";
-import { waitForRoom } from "./matrix-room-operations.js";
+import { waitForRoom, waitUntilRoomIsUsable } from "./matrix-room-operations.js";
 import type { Conversation, CreateConversationInput } from "@relaykit/core";
 import { mapConversation } from "./matrix-mapper.js";
 
@@ -86,9 +86,7 @@ export async function joinMatrixConversation(
   conversationId: string
 ): Promise<Conversation> {
   await client.joinRoom(conversationId);
-  const room = client.getRoom(conversationId);
-  if (!room) {
-    throw new Error("Matrix did not return the joined conversation");
-  }
+  const room = await waitForRoom(client, conversationId);
+  await waitUntilRoomIsUsable(room);
   return mapConversation(room);
 }
