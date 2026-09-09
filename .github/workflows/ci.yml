@@ -38,7 +38,11 @@ jobs:
         run: docker compose -f infrastructure/matrix/docker-compose.yml run --rm synapse generate
 
       - name: Raise rate limits for the test run
-        run: cat infrastructure/matrix/dev-rate-limits.yaml >> infrastructure/matrix/data/homeserver.yaml
+        run: |
+          docker compose -f infrastructure/matrix/docker-compose.yml run --rm -T --user root \
+            --entrypoint sh synapse -c \
+            'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' \
+            < infrastructure/matrix/dev-rate-limits.yaml
 
       - name: Start Synapse
         run: docker compose -f infrastructure/matrix/docker-compose.yml up -d

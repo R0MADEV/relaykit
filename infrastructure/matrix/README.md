@@ -17,8 +17,13 @@ docker compose -f infrastructure/matrix/docker-compose.yml run --rm synapse gene
 Los limites de peticiones por defecto rechazan la cantidad de salas y mensajes que crean los tests. Tras generar
 la configuracion, subirlos:
 
+El fichero generado pertenece al usuario del contenedor, asi que se escribe desde dentro:
+
 ```bash
-cat infrastructure/matrix/dev-rate-limits.yaml >> infrastructure/matrix/data/homeserver.yaml
+docker compose -f infrastructure/matrix/docker-compose.yml run --rm -T --user root \
+  --entrypoint sh synapse -c \
+  'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' \
+  < infrastructure/matrix/dev-rate-limits.yaml
 ```
 
 ## Arrancar Synapse
