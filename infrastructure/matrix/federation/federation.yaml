@@ -1,0 +1,27 @@
+# Federation between the two development servers. Self signed certificates are accepted because these
+# servers only exist on this machine. Never use this in production.
+federation_verify_certificates: false
+# The two servers ask each other for keys directly, so no external key server is involved.
+trusted_key_servers: []
+# Synapse refuses to federate towards private addresses, and the compose network is one of those.
+ip_range_whitelist:
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+suppress_key_server_warning: true
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client]
+        compress: false
+  - port: 8448
+    tls: true
+    type: http
+    resources:
+      - names: [federation]
+        compress: false
+tls_certificate_path: /data/tls.crt
+tls_private_key_path: /data/tls.key

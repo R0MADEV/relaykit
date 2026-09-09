@@ -64,6 +64,8 @@ npm run smoke:verification
 
 Se pueden usar otros usuarios mediante `MATRIX_USER_A`, `MATRIX_PASSWORD_A`, `MATRIX_USER_B` y `MATRIX_PASSWORD_B`.
 
+Para probar dos servidores federados hay un entorno aparte en `federation/`.
+
 ## Crear usuarios
 
 Ejecutar el comando dos veces para crear dos usuarios de prueba:

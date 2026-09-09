@@ -3,3 +3,5 @@ dist/
 .DS_Store
 *.tsbuildinfo
 infrastructure/matrix/data/
+infrastructure/matrix/federation/data1/
+infrastructure/matrix/federation/data2/

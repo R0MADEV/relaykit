@@ -96,6 +96,16 @@ jobs:
       - name: Run RelayKit SAS verification smoke check
         run: npm run smoke:verification
 
+      - name: Start the federated pair
+        run: npm run federation:up
+
+      - name: Run RelayKit federation smoke check
+        run: npm run smoke:federation
+
+      - name: Stop the federated pair
+        if: always()
+        run: docker compose -f infrastructure/matrix/federation/docker-compose.yml down -v
+
       - name: Stop Synapse
         if: always()
         run: docker compose -f infrastructure/matrix/docker-compose.yml down -v

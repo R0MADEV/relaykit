@@ -1,0 +1,24 @@
+# Two homeservers that talk to each other, to check that RelayKit works across servers.
+# Their names match the service names so each one resolves the other inside the compose network.
+services:
+  fed1:
+    image: matrixdotorg/synapse:latest
+    container_name: relaykit-fed1
+    environment:
+      SYNAPSE_SERVER_NAME: fed1
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - ./data1:/data
+    ports:
+      - "8018:8008"
+
+  fed2:
+    image: matrixdotorg/synapse:latest
+    container_name: relaykit-fed2
+    environment:
+      SYNAPSE_SERVER_NAME: fed2
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - ./data2:/data
+    ports:
+      - "8019:8008"
