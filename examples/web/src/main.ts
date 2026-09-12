@@ -1034,11 +1034,19 @@ class DemoApp {
     }
   }
 
-  /** Anything pressed while a call is going on. Nothing to do when there is no call, which is not an error. */
+  /**
+   * Anything pressed while a call is going on. Nothing to do when there is no call, which is not an error.
+   *
+   * The call is asked for again rather than taken from what was last drawn. These buttons decide what to ask
+   * for from how the call stands — silence it if it is speaking — and deciding that from a copy that is a
+   * moment out of date asks for the wrong thing, which reads as a button that undoes itself.
+   */
   private async duringTheCall(what: (call: Call, client: MessagingClient) => Promise<void>): Promise<void> {
     if (!this.call) return;
+    const going = (await this.client.calls.list()).find(item => item.id === this.call?.id);
+    if (!going) return;
     try {
-      await what(this.call, this.client);
+      await what(going, this.client);
     } catch (error) {
       this.setStatus(`No se pudo: ${(error as Error).message}`);
     }

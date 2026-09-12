@@ -6,7 +6,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const { spawn, execFileSync } = require("node:child_process");
 // Asking this machine for a real microphone never comes back, so the call step is given one made in the page.
-const { fitAMakeBelieveMicrophone } = require("./browser-harness.cjs");
 
 // Drives the example in a real browser, which is the one thing the tests cannot reach: the interface itself.
 //
@@ -14,6 +13,11 @@ const { fitAMakeBelieveMicrophone } = require("./browser-harness.cjs");
 // excepcion, asi que probar ahi no prueba lo que vera un usuario: sin origen seguro no existe
 // `crypto.subtle`, y sin eso el almacen cifrado no arranca. Un certificado propio basta para que el
 // contexto sea seguro de verdad, que es lo que hay que ejercitar.
+// There is no microphone on this machine, so Chromium is told to make up a tone of its own. It behaves like a
+// device, which is what the recording in the example asks for.
+app.commandLine.appendSwitch("use-fake-device-for-media-stream");
+app.commandLine.appendSwitch("use-fake-ui-for-media-stream");
+
 const root = path.join(__dirname, "..", "examples", "web", "dist");
 const detail = {};
 
@@ -91,6 +95,11 @@ async function run() {
   page.webContents.on("render-process-gone", (_event, details) => {
     report(false, `the page died: ${details.reason} (${details.exitCode})`);
   });
+  // Nobody is here to answer a permission prompt, so every media question is said yes to.
+  page.webContents.session.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(permission === "media");
+  });
+  page.webContents.session.setPermissionCheckHandler((_contents, permission) => permission === "media");
   const server = await serve();
   // El certificado es propio, asi que hay que aceptarlo: lo que se prueba es el contexto seguro, no quien
   // lo firma. Solo para este servidor y esta comprobacion.
@@ -115,7 +124,6 @@ async function run() {
       throw new Error(`${error.message}. The screen says: ${status}`);
     });
   detail.signedIn = true;
-  await fitAMakeBelieveMicrophone(page);
 
   // Opening a conversation with Bob, which is what the picker is for.
   await page.webContents.executeJavaScript(`

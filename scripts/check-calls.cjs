@@ -1,7 +1,7 @@
 "use strict";
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
-const { serve, acceptOwnCertificate, fitAMakeBelieveMicrophone, waitFor } = require("./browser-harness.cjs");
+const { serve, acceptOwnCertificate, waitFor } = require("./browser-harness.cjs");
 
 // Two browsers ringing each other, which is the only way a call can be checked at all.
 //
@@ -9,10 +9,13 @@ const { serve, acceptOwnCertificate, fitAMakeBelieveMicrophone, waitFor } = requ
 // because nobody is on the other side: a call with no answer never leaves `connecting`, so the negotiation
 // that follows an answer is never exercised and `answer` against a real homeserver is never run.
 //
-// Here alice rings and bob answers, and both have to reach `connected`. There is no camera and no microphone,
-// and asking the machine for one never comes back: the capture that Chromium does through macOS hangs here
-// even with its own made up devices, so the page is handed a microphone made in the page instead (see
-// `fitAMakeBelieveMicrophone`). What this checks is the call itself, not whether a real microphone opens.
+// Here alice rings and bob answers, and both have to reach `connected`. There is no camera and no microphone
+// on the machine, so Chromium is told to make up a tone and a moving picture of its own. Those behave like
+// devices in every way that matters: they have identifiers, they can be switched off and asked for again.
+//
+// This used to hand the page a microphone built inside it, and that quietly cost a feature: turning the
+// camera back on after putting it away needs the media asked for afresh, and a stream made in the page is not
+// a device to ask again for. It looked like the library could not bring a camera back. It could.
 app.commandLine.appendSwitch("use-fake-device-for-media-stream");
 app.commandLine.appendSwitch("use-fake-ui-for-media-stream");
 
@@ -55,7 +58,6 @@ async function open(who, address) {
     true;
   `);
   await waitFor(page, `${who} to be signed in`, `document.getElementById("app").hidden === false`, 40);
-  await fitAMakeBelieveMicrophone(page);
   return page;
 }
 
@@ -128,25 +130,11 @@ async function ring(alice, bob, { video }) {
     await pressing(button, saying, false);
     return took;
   };
-  // Anything that needs a new agreement with the other side does not finish here, and both known cases are
-  // the same one: bringing the camera back, and letting the microphone speak again in a video call, where the
-  // SDK goes and asks for the media afresh. In a voice call silencing needs no agreement — the track is
-  // switched off and on — so there it is checked both ways.
-  //
-  // Whether that is this made up microphone and camera or the real thing has not been established, so what is
-  // asserted is what has been seen to work, and the rest is written down rather than quietly skipped.
-  said.pressedSilence = video
-    ? await pressing("call-mute", "isMicrophoneMuted", true)
-    : await pressedBothWays("call-mute", "isMicrophoneMuted");
+  said.pressedSilence = await pressedBothWays("call-mute", "isMicrophoneMuted");
   said.pressedHold = await pressedBothWays("call-hold", "isOnHold");
-  // Putting the camera away is checked; bringing it back is not, and that is deliberate.
-  //
-  // Silencing a microphone only switches its track off, so letting it speak again is nothing. Putting the
-  // camera away stops the track and removes it, so bringing it back means agreeing a new one with the other
-  // side, and here that does not finish: the camera never comes back and the call carries on with sound only.
-  // Whether that is this made up camera or the real thing has not been established, so it is named rather
-  // than asserted either way. What is asserted is the direction that matters: asked to stop, it stops.
-  if (video) said.pressedCamera = await pressing("call-camera", "isCameraMuted", true);
+  // Both ways, and the way back is the one that matters: putting the camera away stops the track and removes
+  // it, so bringing it back means agreeing a new one with the other side.
+  if (video) said.pressedCamera = await pressedBothWays("call-camera", "isCameraMuted");
 
   // Silencing has to reach the track. A flag that says silenced while the microphone is still sending is
   // worse than no button at all, and only a real call can tell one from the other.
