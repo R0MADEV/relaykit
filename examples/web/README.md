@@ -27,6 +27,24 @@ indicador de escritura, historial hacia atras y reintento o cancelacion de los e
 
 "Abrir" usa `conversations.open`, que reutiliza la conversacion directa en vez de crear una nueva cada vez.
 
+## Llamadas y videoconferencia
+
+Hace falta LiveKit ademas de Synapse: `npm run livekit:up` (ver `infrastructure/livekit/README.md`). En
+`localhost` la demo ya sabe donde esta; en cualquier otro sitio se le dice con `?conference=<url del servicio>`.
+
+1. Abrir `http://localhost:5173` en **tres** ventanas que no compartan sesion (tres perfiles de Chrome, o
+   una normal, una de incognito y otro navegador). Entrar como `alice`, `bob` y `carol`.
+2. En la ventana de alice crear una conversacion con los otros dos (o abrir una directa con bob para una
+   llamada de dos). Bob y carol aceptan la invitacion.
+3. Alice pulsa **Videollamada**. A bob y a carol les suena: **Descolgar**. O, si la llamada ya esta en marcha,
+   **Entrar**, que no hace sonar a nadie.
+4. Cada ventana pinta una caja por persona, con la propia. Un borde verde marca a quien habla; el candado,
+   que lo que va por el servidor va cifrado y el servidor no puede leerlo.
+5. **Compartir pantalla** la pone aparte y grande en las demas ventanas. **Colgar** es salirse: la llamada
+   sigue para quien quede, y quien se queda solo lo ve y cuelga cuando quiera.
+
+El navegador pedira permiso de camara y microfono a cada ventana; en `localhost` no hace falta https.
+
 ## Verificacion manual en navegador
 
 Los tests automaticos cubren el SDK en Node, incluido el storage IndexedDB con un doble. Lo que solo se puede

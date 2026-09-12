@@ -15,6 +15,34 @@
         width: 240px;
         background: #000;
       }
+      /* One box per person. Whoever is talking gets a border, so a grid of faces says who to look at. */
+      #participants {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+      }
+      #participants figure {
+        margin: 0;
+        padding: 0.25rem;
+        border: 3px solid transparent;
+        border-radius: 8px;
+        background: #111;
+        color: #eee;
+      }
+      #participants figure.speaking {
+        border-color: #3fb950;
+      }
+      #participants video {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        background: #000;
+        border-radius: 4px;
+      }
+      #participants figcaption {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.1rem 0;
+      }
       :root {
         color-scheme: light dark;
         --line: color-mix(in srgb, currentColor 15%, transparent);
@@ -334,6 +362,7 @@
           <button id="kick" type="button">Expulsar</button>
           <button id="call" type="button">Llamar</button>
           <button id="video-call" type="button">Videollamada</button>
+          <button id="join-call" type="button">Entrar</button>
           <button id="leave" type="button">Salir</button>
         </div>
         <div id="call-panel" hidden>
@@ -344,8 +373,8 @@
           <button id="call-camera" type="button" hidden>Apagar cámara</button>
           <button id="call-screen" type="button">Compartir pantalla</button>
           <button id="hang-up" type="button">Colgar</button>
-          <!-- One element for both: a call with no picture still has to be heard. -->
-          <video id="call-media" autoplay playsinline></video>
+          <!-- One box per person on the call, this side included: a call between two is a grid of two. -->
+          <div id="participants"></div>
           <!-- A shared screen travels alongside the camera rather than instead of it, so it is drawn apart:
                the face small, the screen large, as any client does. -->
           <video id="call-screen-media" class="shared-screen" autoplay playsinline hidden></video>

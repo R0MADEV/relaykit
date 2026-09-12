@@ -110,14 +110,16 @@ async function ring(alice, bob, { video }) {
   // given a stream with live tracks on it, which is the whole point of a call.
   const playing = `
     (() => {
-      const media = document.getElementById("call-media").srcObject;
+      // The one box that is not this side's: on a call between two, the other person.
+      const theirs = document.querySelector("#participants figure:not([data-me]) video");
+      const media = theirs?.srcObject;
       if (!media) return false;
       const live = kinds => kinds.filter(track => track.readyState === "live").length;
       const heard = live(media.getAudioTracks());
       const seen = live(media.getVideoTracks());
       if (heard === 0) return false;
       if (${video} && seen === 0) return false;
-      return { heard, seen, onScreen: !document.getElementById("call-media").hidden };
+      return { heard, seen, onScreen: !theirs.hidden };
     })()
   `;
   said.alice = await waitFor(alice, `alice's screen to be playing bob's ${kind}`, playing);

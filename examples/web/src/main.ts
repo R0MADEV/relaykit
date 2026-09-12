@@ -60,6 +60,8 @@ class DemoApp {
     this.element("discover").addEventListener("click", () => void this.discover());
     this.element("call").addEventListener("click", () => void this.callThem(false));
     this.element("video-call").addEventListener("click", () => void this.callThem(true));
+    // Walking into a call already going on in this conversation, without ringing anybody.
+    this.element("join-call").addEventListener("click", () => void this.joinThem());
     this.element("answer").addEventListener("click", () => void this.answerThem());
     this.element("reject").addEventListener(
       "click",
@@ -161,6 +163,12 @@ class DemoApp {
     // pointing at a call that had ended made the next one arrive to a screen that thought it was busy.
     this.client.on("call.incoming", () => void this.drawTheCalls());
     this.client.on("call.changed", () => void this.drawTheCalls());
+    // Who is talking lights a border and nothing else: this arrives several times a second.
+    this.client.on("call.speaking", ({ userIds }) => {
+      for (const box of this.element("participants").querySelectorAll("figure")) {
+        box.classList.toggle("speaking", userIds.includes(box.dataset.user ?? ""));
+      }
+    });
     this.client.on("error", error => this.setStatus(`Error: ${error.message}`));
   }
 
@@ -1064,6 +1072,16 @@ class DemoApp {
     }
   }
 
+  private async joinThem(): Promise<void> {
+    if (!this.conversationId) return;
+    try {
+      this.call = await this.client.calls.join(this.conversationId, { video: true });
+      await this.drawTheCalls();
+    } catch (error) {
+      this.setStatus(`No se pudo entrar: ${(error as Error).message}`);
+    }
+  }
+
   private async answerThem(): Promise<void> {
     if (!this.call) return;
     // Answered as it was placed: whoever is calling with a camera is waiting to be seen as well as heard.
@@ -1150,6 +1168,7 @@ class DemoApp {
     if (!talkingOn) {
       this.element("answer").hidden = true;
       this.element("reject").hidden = true;
+      this.element("participants").replaceChildren();
     }
   }
 
@@ -1182,13 +1201,7 @@ class DemoApp {
           ? `Llamando: ${call.state}`
           : "Solo en la llamada";
 
-    // The stream goes to the element as it is. This is what the library hands over, and what a browser plays.
-    const media = this.element("call-media") as HTMLVideoElement;
-    media.srcObject = call.remoteMedia ?? null;
-    // A voice call has no picture, and an element kept for one that will never come is a hole in the screen.
-    // Hidden, not removed: it goes on playing what it was given, which is the whole point of a voice call.
-    const hasAPicture = (call.remoteMedia?.getVideoTracks().length ?? 0) > 0;
-    media.hidden = !hasAPicture;
+    this.drawParticipants(call);
 
     // A shared screen is a second thing to show. Theirs when somebody is showing you one, otherwise your own,
     // because showing a room you cannot see yourself is how people share the wrong window.
@@ -1196,6 +1209,45 @@ class DemoApp {
     const screen = this.element("call-screen-media") as HTMLVideoElement;
     screen.srcObject = shared ?? null;
     screen.hidden = !shared;
+  }
+
+  /**
+   * One box per person, this side included. The boxes are kept between repaints and only what changed is
+   * touched: giving a `<video>` the same stream again restarts it, and the call repaints often.
+   */
+  private drawParticipants(call: Call): void {
+    const grid = this.element("participants");
+    const seen = new Set<string>();
+    for (const person of call.participants) {
+      const key = `${person.userId}/${person.deviceId}`;
+      seen.add(key);
+      let box = grid.querySelector<HTMLElement>(`figure[data-key="${CSS.escape(key)}"]`);
+      if (!box) {
+        box = document.createElement("figure");
+        box.dataset.key = key;
+        box.dataset.user = person.userId;
+        if (person.userId === this.ownUserId) box.dataset.me = "true";
+        const video = document.createElement("video");
+        video.autoplay = true;
+        video.playsInline = true;
+        // Your own voice played back to you is an echo, not information.
+        video.muted = person.userId === this.ownUserId;
+        box.append(video, document.createElement("figcaption"));
+        grid.append(box);
+      }
+      const video = box.querySelector("video") as HTMLVideoElement;
+      if (video.srcObject !== (person.media ?? null)) video.srcObject = person.media ?? null;
+      // A box with no picture still has a voice in it: the name stays, the black rectangle goes.
+      video.hidden = (person.media?.getVideoTracks().length ?? 0) === 0;
+      const me = person.userId === this.ownUserId ? " (tú)" : "";
+      const silenced = person.isMicrophoneMuted ? " 🔇" : "";
+      const padlock = call.isEncrypted ? " 🔒" : "";
+      (box.querySelector("figcaption") as HTMLElement).textContent =
+        `${this.nameOf(person.userId)}${me}${silenced}${padlock}`;
+    }
+    for (const box of grid.querySelectorAll<HTMLElement>("figure")) {
+      if (!seen.has(box.dataset.key ?? "")) box.remove();
+    }
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {
@@ -1259,7 +1311,10 @@ function buildClient(): MessagingClient {
  */
 function whereConferencesAreCarried(): { conferenceServiceUrl?: string } {
   const said = new URLSearchParams(location.search).get("conference");
-  return said ? { conferenceServiceUrl: said } : {};
+  if (said) return { conferenceServiceUrl: said };
+  // On a development machine it is next door, on the port `infrastructure/livekit` publishes it on.
+  const isADevelopmentMachine = ["localhost", "127.0.0.1"].includes(location.hostname);
+  return isADevelopmentMachine ? { conferenceServiceUrl: "http://localhost:8091" } : {};
 }
 
 function readRememberedSession(): Session | undefined {
