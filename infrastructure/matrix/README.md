@@ -107,3 +107,37 @@ docker compose -f infrastructure/matrix/docker-compose.yml down
 ```
 
 Para borrar completamente los datos locales, eliminar manualmente `infrastructure/matrix/data/`.
+
+## Detras de un proxy con TLS
+
+El entorno de este repositorio se sirve por `http` en `localhost` para que funcione al clonarlo, sin
+depender de nada externo. El navegador trata `localhost` como origen seguro por excepcion, asi que eso
+basta para desarrollar, pero **no es lo que vera un usuario**: fuera de `localhost` y sin https no existe
+`crypto.subtle`, y sin eso no hay almacen cifrado. Por eso la comprobacion en navegador
+(`npm run check:web-demo`) se sirve por https y falla si el origen no es seguro.
+
+En el entorno de Irontec hay un Traefik con una CA propia (`dev-toolbox/docker/traefik`). Para llegar al
+homeserver por un nombre y con https, se anade un router y un servicio a `traefik.yml`:
+
+```yaml
+  routers:
+    relaykit-matrix:
+      rule: "Host(`matrix.localhost`)"
+      entryPoints:
+        - websec
+      service: relaykit-matrix
+      tls:
+        certResolver: ""
+
+  services:
+    relaykit-matrix:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8008"
+```
+
+Hace falta un certificado para `matrix.localhost` firmado por la CA, en `traefik/certs/relaykit/`, y
+anadirlo a la lista `tls.certificates`. A partir de ahi el homeserver es `https://matrix.localhost`.
+
+Esto no se incluye en el `docker-compose.yml` de este repositorio a proposito: la libreria no debe
+depender del entorno de una organizacion para poder levantarse.

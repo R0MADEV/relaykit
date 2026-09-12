@@ -1,21 +1,38 @@
 "use strict";
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
-const http = require("node:http");
+const https = require("node:https");
 const fs = require("node:fs");
-const { spawn } = require("node:child_process");
+const os = require("node:os");
+const { spawn, execFileSync } = require("node:child_process");
 
 // Drives the example in a real browser, which is the one thing the tests cannot reach: the interface itself.
-// Served over http rather than opened as a file: the encryption loads a WebAssembly module, and a file origin
-// is not allowed to.
+//
+// Served over https, no sobre http en localhost. El navegador trata localhost como origen seguro por
+// excepcion, asi que probar ahi no prueba lo que vera un usuario: sin origen seguro no existe
+// `crypto.subtle`, y sin eso el almacen cifrado no arranca. Un certificado propio basta para que el
+// contexto sea seguro de verdad, que es lo que hay que ejercitar.
 const root = path.join(__dirname, "..", "examples", "web", "dist");
 const detail = {};
 
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm" };
 
+/** Un certificado para esta comprobacion y nada mas. Se hace al vuelo y se tira al acabar. */
+function makeCertificate() {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "relaykit-tls-"));
+  const key = path.join(folder, "tls.key");
+  const certificate = path.join(folder, "tls.crt");
+  execFileSync("openssl", [
+    "req", "-x509", "-newkey", "rsa:2048", "-keyout", key, "-out", certificate,
+    "-days", "1", "-nodes", "-subj", "/CN=localhost"
+  ], { stdio: "ignore" });
+  return { key: fs.readFileSync(key), cert: fs.readFileSync(certificate), folder };
+}
+
 function serve() {
+  const identity = makeCertificate();
   return new Promise(resolve => {
-    const server = http.createServer((request, response) => {
+    const server = https.createServer({ key: identity.key, cert: identity.cert }, (request, response) => {
       const asked = new URL(request.url, "http://localhost").pathname;
       const file = path.join(root, asked === "/" ? "index.html" : asked);
       if (!file.startsWith(root) || !fs.existsSync(file)) {
@@ -73,7 +90,12 @@ async function run() {
     report(false, `the page died: ${details.reason} (${details.exitCode})`);
   });
   const server = await serve();
-  await page.loadURL(`http://127.0.0.1:${server.address().port}/`);
+  // El certificado es propio, asi que hay que aceptarlo: lo que se prueba es el contexto seguro, no quien
+  // lo firma. Solo para este servidor y esta comprobacion.
+  page.webContents.session.setCertificateVerifyProc((request, callback) => {
+    callback(request.hostname === "127.0.0.1" ? 0 : -3);
+  });
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
 
   await waitFor(page, "the sign in form", `document.getElementById("login-form") !== null`);
   detail.signInFormIsThere = true;
@@ -98,6 +120,16 @@ async function run() {
     document.getElementById("open-form").requestSubmit();
     true;
   `);
+  // Lo que el navegador concede solo en un origen seguro, y de lo que depende el almacen cifrado. Se
+  // comprueba a proposito: si alguien devuelve esta comprobacion a http, el fallo tiene que decir esto y no
+  // aparecer mas tarde disfrazado de otra cosa.
+  detail.secureContext = await page.webContents.executeJavaScript(
+    `window.isSecureContext === true && typeof crypto.subtle === "object"`
+  );
+  if (!detail.secureContext) {
+    throw new Error("La pagina no esta en un origen seguro, asi que no hay almacen cifrado que probar");
+  }
+
   await waitFor(page, "a conversation to be listed", `document.querySelectorAll("#conversations li").length > 0`);
   detail.conversationsListed = await page.webContents.executeJavaScript(
     `document.querySelectorAll("#conversations li").length`
