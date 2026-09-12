@@ -7,3 +7,4 @@ infrastructure/matrix/data/
 infrastructure/matrix/data-antes-*/
 infrastructure/matrix/federation/data1/
 infrastructure/matrix/federation/data2/
+infrastructure/livekit/certs/

@@ -3,6 +3,16 @@
 set -e
 cd "$(dirname "$0")"
 
+# Federation is spoken over TLS and nothing else, so the stand-in needs a certificate. Self-signed, and the
+# token service is told to accept it: this is a development machine and there is nobody to impersonate.
+if [ ! -f certs/federation.pem ]; then
+  mkdir -p certs
+  openssl req -x509 -newkey rsa:2048 -keyout certs/key.pem -out certs/cert.pem \
+    -days 365 -nodes -subj "/CN=localhost" 2>/dev/null
+  cat certs/key.pem certs/cert.pem > certs/federation.pem
+  rm certs/key.pem certs/cert.pem
+fi
+
 docker compose up -d
 
 attempt=0

@@ -70,6 +70,12 @@ jobs:
       - name: Run RelayKit call relay smoke check
         run: npm run smoke:turn
 
+      - name: Bring up the conference environment
+        run: npm run livekit:up
+
+      - name: Run RelayKit conference smoke check
+        run: npm run smoke:conference
+
       - name: Run RelayKit https smoke check
         run: npm run smoke:tls
 

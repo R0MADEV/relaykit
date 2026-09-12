@@ -29,15 +29,35 @@ Por eso un identificador de sala robado no mete a nadie.
 
 ## Lo que hay que saber
 
+Cuatro obstáculos, todos del entorno y ninguno de la librería. Los cuatro salieron a la primera ejecución del
+smoke, igual que pasó con la federación.
+
 - **`LIVEKIT_FULL_ACCESS_HOMESERVERS` es obligatorio.** El servicio se niega a arrancar sin él, y hace bien:
   uno que admitiera el homeserver de cualquiera admitiría a cualquiera. Aquí vale `localhost`, que es como se
   llama a sí mismo el Synapse de desarrollo.
-- **El rango de UDP es corto a propósito** (50000-50019). Docker Desktop publica los puertos UDP de uno en
-  uno, y mil de ellos tardan minutos en levantar.
-- **`--node-ip 127.0.0.1`**: sin eso el servidor reparte la dirección que tiene dentro de Docker, que no
-  significa nada para un navegador.
-- **El secreto tiene que medir 32 caracteres o más** o LiveKit no arranca.
+- **El servicio pregunta por federación, y federación es `https://<server_name>:8448`.** Con `server_name:
+  localhost`, dentro de su contenedor eso es él mismo, y ahí no hay nada. El síntoma fue un `401` con
+  `Connection refused (os error 111)` en su log. Lo resuelve `homeserver-federation`: un `socat` que
+  **comparte el namespace de red del servicio** — por eso *es* su localhost — escuchando en el 8448 con TLS y
+  reenviando al Synapse de fuera por el 8008. Funciona porque el Synapse de desarrollo sirve la API de
+  federación también en el 8008 (`resources: [client, federation]`), solo que sin TLS.
+- **`LIVEKIT_URL` hace dos trabajos con un valor.** El servicio llega al SFU por él para crear la sala, y le
+  entrega la misma cadena al navegador para conectarse. Dentro de Docker el SFU es `livekit`; para un
+  navegador es `localhost`. Solo un nombre puede ser cierto en los dos sitios, así que `sfu-as-localhost`
+  hace que `localhost:7880` también lo sea dentro. El síntoma fue `500 Unable to create room on SFU`.
 - **El puerto 8091 y no el 8090**: el 8090 ya estaba cogido en la máquina donde se montó esto.
+
+Y tres cosas que no son obstáculos pero conviene saber:
+
+- **La sala que ve el SFU es un hash**, no el identificador de Matrix. El servicio no le cuenta a la pieza que
+  lleva el vídeo en qué sala está nadie. El smoke no comprueba *cómo* hashea, que es asunto suyo: comprueba
+  que dos leaves para la misma conversación coinciden y que uno para otra no.
+- **La membresía se escribe hoy como `org.matrix.msc3401.call.member`**, con clave
+  `_@usuario:servidor_DISPOSITIVO_m.call`, aunque el SDK ya declara el nombre nuevo (`msc4143`). Es el SDK
+  quien la escribe, así que el día que cambie no hay nada que tocar aquí; el smoke pregunta por los dos.
+- **El SDK intenta primero `/_matrix/client/unstable/org.matrix.msc4143/rtc/transports`** para descubrir
+  dónde se lleva la conferencia, y Synapse responde `404`. Es ruido en el log, no un fallo: cae al
+  `.well-known`, que es lo que lee `matrix-rtc.ts`.
 
 ## Solo para desarrollo
 
@@ -56,8 +76,12 @@ En producción, el homeserver lo anuncia en su `.well-known/matrix/client`:
 Una máquina de desarrollo no tiene `.well-known` que anunciar nada, así que el adapter acepta
 `conferenceServiceUrl` para decírselo a mano.
 
-## Lo que está sin comprobar
+## Lo que se comprueba y lo que no
 
-El entorno levanta y el servicio de tokens responde. Lo que **no** se ha probado todavía es una conferencia de
-verdad: hacen falta tres navegadores, y eso va en `scripts/smoke-conference.mjs` y en la comprobación con
-Electron, que están pendientes.
+`npm run smoke:conference` prueba **la mitad Matrix contra servidores de verdad**: descubrir el foco, el
+intercambio OpenID → token contra el servicio real, que el token queda atado a esa sala y a ese dispositivo,
+que al entrar la sala lo dice y otra persona lo lee, y que al salir deja de decirlo. Es donde estaban todas
+las suposiciones, y todas fallaron al menos una vez antes de quedar bien.
+
+Lo que **no** prueba es la imagen y el sonido: eso necesita navegador, y va en la comprobación con Electron
+(`scripts/check-calls.cjs`), que sigue pendiente para conferencias.

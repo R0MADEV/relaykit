@@ -28,3 +28,29 @@ services:
       - "8091:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # The token service asks the homeserver who a token belongs to, and it asks the way federation is spoken:
+  # its own localhost, port 8448, over TLS. A homeserver for development is none of those things — it is on
+  # the machine outside, on 8008, in the clear — so this stands in the middle and translates.
+  #
+  # It shares the network namespace of the service on purpose: that is what makes this *be* its localhost.
+  homeserver-federation:
+    image: alpine/socat:latest
+    network_mode: "service:jwt"
+    depends_on:
+      - jwt
+    volumes:
+      - ./certs:/certs:ro
+    command: >-
+      openssl-listen:8448,reuseaddr,fork,cert=/certs/federation.pem,verify=0
+      TCP:host.docker.internal:8008
+
+  # `LIVEKIT_URL` is one value doing two jobs: the token service reaches the SFU through it to make the room,
+  # and it hands the same string to the browser to connect to. Inside Docker the SFU is `livekit`; to a
+  # browser it is `localhost`. Only one name is true in both places, so this makes it true in here too.
+  sfu-as-localhost:
+    image: alpine/socat:latest
+    network_mode: "service:jwt"
+    depends_on:
+      - jwt
+    command: TCP-LISTEN:7880,reuseaddr,fork TCP:livekit:7880

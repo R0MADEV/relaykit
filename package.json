@@ -38,6 +38,7 @@
     "smoke:participants": "node scripts/smoke-participants.mjs",
     "smoke:encrypted-chat": "node scripts/smoke-encrypted-chat.mjs",
     "smoke:turn": "node scripts/smoke-turn.mjs",
+    "smoke:conference": "node scripts/smoke-conference.mjs",
     "dendrite:up": "sh infrastructure/dendrite/up.sh",
     "smoke:another-homeserver": "node scripts/smoke-another-homeserver.mjs",
     "smoke:tls": "node scripts/smoke-tls.mjs",
