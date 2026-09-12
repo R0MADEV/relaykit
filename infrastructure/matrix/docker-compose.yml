@@ -30,7 +30,6 @@ services:
     ports:
       - "8090:8080"
 
-
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: relaykit-synapse
