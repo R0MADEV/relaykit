@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RelayKit</title>
     <style>
+      /* A shared screen is what somebody is actually looking at, so it gets the room: bigger than the face. */
+      #call-screen-media { width: 100%; max-width: 720px; background: #000; }
+      #call-media { width: 240px; background: #000; }
       :root {
         color-scheme: light dark;
         --line: color-mix(in srgb, currentColor 15%, transparent);
@@ -143,6 +146,9 @@
           <button id="hang-up" type="button">Colgar</button>
           <!-- One element for both: a call with no picture still has to be heard. -->
           <video id="call-media" autoplay playsinline></video>
+          <!-- A shared screen travels alongside the camera rather than instead of it, so it is drawn apart:
+               the face small, the screen large, as any client does. -->
+          <video id="call-screen-media" class="shared-screen" autoplay playsinline hidden></video>
           <!-- Digits, which is how anybody gets past "press one for". -->
           <div id="dialpad"></div>
           <form id="transfer-form">

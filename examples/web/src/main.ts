@@ -1165,6 +1165,13 @@ class DemoApp {
     // Hidden, not removed: it goes on playing what it was given, which is the whole point of a voice call.
     const hasAPicture = (call.remoteMedia?.getVideoTracks().length ?? 0) > 0;
     media.hidden = !hasAPicture;
+
+    // A shared screen is a second thing to show. Theirs when somebody is showing you one, otherwise your own,
+    // because showing a room you cannot see yourself is how people share the wrong window.
+    const shared = call.remoteScreen ?? call.ownScreen;
+    const screen = this.element("call-screen-media") as HTMLVideoElement;
+    screen.srcObject = shared ?? null;
+    screen.hidden = !shared;
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {

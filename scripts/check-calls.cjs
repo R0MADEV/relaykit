@@ -157,7 +157,28 @@ async function ring(alice, bob, { video }) {
       return live > 0 && { live, andStillTheirCamera: !!calls[0]?.remoteMedia };
     })
   `);
+  // Received is not shown. A screen that arrives and is not drawn is a screen nobody shared, as far as
+  // whoever is looking at it is concerned.
+  said.screenOnBobsScreen = await waitFor(bob, "the shared screen to be drawn on bob's screen", `
+    (() => {
+      const shown = document.getElementById("call-screen-media");
+      if (!shown || shown.hidden) return false;
+      const media = shown.srcObject;
+      const live = media ? media.getVideoTracks().filter(one => one.readyState === "live").length : 0;
+      return live > 0 && { live };
+    })()
+  `);
+  // And whoever is sharing sees what they are sharing, or they are showing a room they cannot see.
+  said.screenOnAlicesScreen = await waitFor(alice, "alice to see what she is sharing", `
+    (() => {
+      const shown = document.getElementById("call-screen-media");
+      return !!shown && !shown.hidden && !!shown.srcObject;
+    })()
+  `);
+
   said.showedTheScreen = await pressing("call-screen", "isSharingScreen", false);
+  // And it goes away when the sharing stops, rather than leaving a frozen picture on the screen.
+  await waitFor(bob, "the shared screen to go away", `document.getElementById("call-screen-media").hidden`);
 
   // Silencing has to reach the track. A flag that says silenced while the microphone is still sending is
   // worse than no button at all, and only a real call can tell one from the other.

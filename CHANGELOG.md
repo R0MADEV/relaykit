@@ -163,6 +163,9 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Corregido: se compartia la pantalla y no se veia. La libreria la entregaba (`remoteScreen`), pero el ejemplo
+  solo dibujaba la camara, asi que la pantalla llegaba y no la pintaba nadie. Ahora se dibuja aparte y mas
+  grande, quien comparte ve lo que esta compartiendo, y desaparece al dejar de compartir.
 - Transferencia atendida (`calls.joinCalls`): pasar una llamada a alguien con quien ya estas hablando. El
   primero espera, al segundo se le cuenta quien viene, y se unen las dos. La hace el SDK (`transferToCall`).
 - `calls.quality`: como va la llamada, con los numeros del propio navegador. Donde no hay numero no se inventa
