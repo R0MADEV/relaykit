@@ -82,30 +82,20 @@ para producción**, y el fichero lo dice.
 La base de datos de Synapse. Synapse trae SQLite por defecto y él mismo avisa de que SQLite es solo para
 pruebas: un entorno de desarrollo que no se parece al de producción mide cosas que no le pasan a nadie.
 
-### coturn — el relé de las llamadas
+### LiveKit — donde se llevan las llamadas
 
-Cuando dos personas están cada una detrás de su router, **no pueden verse**: las direcciones que se ofrecen
-(`192.168.1.133`) no significan nada fuera de su propia red. La llamada se queda en `connecting` para siempre.
+Una llamada no va entre los dos navegadores: cada uno sube su audio y su vídeo **una vez** a un SFU, LiveKit,
+y él lo reparte. Así una sala con diez personas cuesta a cada una lo mismo que una con dos. Matrix sigue
+mandando en la llamada — quién puede estar, quién está, las claves — y LiveKit **no sabe quién es nadie**:
+admite a quien le enseñe un token, y ese token lo emite un servicio (`lk-jwt-service`) que antes le pregunta
+al homeserver de quién es. Cada frame sale cifrado del navegador con claves que viajan por Matrix, así que el
+servidor reparte lo que no puede leer.
 
-coturn es un servidor con dirección alcanzable por el que **pasa** el audio y el vídeo. Los dos se conectan a él
-y él reenvía.
+El relé que antes ponía coturn ahora lo trae LiveKit dentro: en producción, `turns:` en el 443 con certificado
+de verdad es lo que salva una llamada en una oficina que bloquea UDP.
 
-El homeserver **no reenvía nada**: reparte credenciales temporales hechas con un secreto que comparte con
-coturn, y que caducan, porque un relé que cualquiera puede usar para siempre es un relé que cualquiera usará
-para todo.
-
-Sin esto, una llamada funciona entre dos ventanas del mismo ordenador y deja de funcionar en cuanto la prueban
-dos personas de verdad. Durante mucho tiempo el SDK dijo en cada llamada:
-
-```
-failed to get TURN credentials! Proceeding with call anyway...
-```
-
-Con coturn en pie, en una llamada real aparecen candidatos `typ relay`, que es el relé usándose y no solo
-anunciándose.
-
-**Solo para desarrollo tal como está**: el secreto está en el fichero, no hay TLS, y apuntar el relé a una red
-privada está denegado a propósito.
+Todo lo que hay que saber para levantarlo, y los cuatro obstáculos con los que se tropieza, están en
+[infrastructure/livekit/README.md](infrastructure/livekit/README.md).
 
 ### Dendrite — el segundo homeserver
 
@@ -137,7 +127,7 @@ una notificación **llega de verdad** y que lo dicho en una sala cifrada se qued
 | Pieza | Para qué |
 |---|---|
 | `node --test` | Unidades y contrato. Sin framework: viene con Node |
-| Docker Compose | Levanta Synapse, PostgreSQL, coturn y el gateway |
+| Docker Compose | Levanta Synapse, PostgreSQL y el gateway; LiveKit y su servicio de tokens van aparte |
 | Electron | Un navegador de verdad. Es el único sitio donde se puede probar WebRTC, `crypto.subtle` y la interfaz |
 | Vite | Construye y sirve el ejemplo web |
 | Synapse real | Las pruebas de humo no usan dobles: hablan con un homeserver |

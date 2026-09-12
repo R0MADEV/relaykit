@@ -46,6 +46,6 @@ test("and back to voice, still the same call", async () => {
   const going = (await client.calls.list()).find(item => item.id === call.id);
   assert.ok(going, "the call ended when the camera was put away");
   assert.equal(going.isCameraMuted, true);
-  assert.equal(going.state, "ringing", "putting the camera away should not change what the call is doing");
+  assert.equal(going.state, "connected", "putting the camera away should not change what the call is doing");
   await client.stop();
 });

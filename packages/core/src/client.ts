@@ -283,14 +283,8 @@ export class MessagingClient {
       this.callOperations.muteMicrophone(callId, muted),
     muteCamera: (callId: string, muted: boolean): Promise<void> =>
       this.callOperations.muteCamera(callId, muted),
-    hold: (callId: string, onHold: boolean): Promise<void> => this.callOperations.hold(callId, onHold),
-    pressDigit: (callId: string, digit: string): Promise<void> =>
-      this.callOperations.pressDigit(callId, digit),
     shareScreen: (callId: string, sharing: boolean): Promise<void> =>
       this.callOperations.shareScreen(callId, sharing),
-    transfer: (callId: string, userId: string): Promise<void> => this.callOperations.transfer(callId, userId),
-    joinCalls: (callId: string, otherCallId: string): Promise<void> =>
-      this.callOperations.joinCalls(callId, otherCallId),
     quality: (callId: string): Promise<CallQuality> => this.callOperations.quality(callId),
     useMicrophone: (deviceId: string): Promise<void> => this.callOperations.useMicrophone(deviceId),
     useCamera: (deviceId: string): Promise<void> => this.callOperations.useCamera(deviceId),
@@ -456,7 +450,6 @@ export class MessagingClient {
         onCallIncoming: call => this.events.emit("call.incoming", call),
         onCallChanged: call => this.events.emit("call.changed", call),
         onCallSpeaking: speaking => this.events.emit("call.speaking", speaking),
-        onCallTransferred: transfer => this.events.emit("call.transferred", transfer),
         onSessionEnded: () => {
           // Stopping first, so whatever the application does when told finds a client that is honestly stopped
           // rather than one that still looks alive and fails on the next thing it is asked.

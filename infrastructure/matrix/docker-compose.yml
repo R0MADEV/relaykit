@@ -30,18 +30,6 @@ services:
     ports:
       - "8090:8080"
 
-  # Somewhere for a call to be relayed through when the two sides cannot reach each other. Development only:
-  # the secret is in the configuration, there is no TLS, and it is open to whoever can reach it.
-  coturn:
-    image: coturn/coturn:alpine
-    container_name: relaykit-coturn
-    command: ["-c", "/etc/coturn/turnserver.conf"]
-    volumes:
-      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "49160-49200:49160-49200/udp"
 
   synapse:
     image: matrixdotorg/synapse:latest

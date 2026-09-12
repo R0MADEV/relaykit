@@ -67,9 +67,6 @@ jobs:
       - name: Run RelayKit encrypted chat smoke check
         run: npm run smoke:encrypted-chat
 
-      - name: Run RelayKit call relay smoke check
-        run: npm run smoke:turn
-
       - name: Bring up the conference environment
         run: npm run livekit:up
 

@@ -84,12 +84,6 @@ url_preview_ip_range_blacklist:
 # Somewhere to relay a call through when the two sides cannot reach each other directly. The homeserver does
 # not relay anything itself: it hands out credentials, made from the secret below, that expire.
 # NOT FOR PRODUCTION: there the secret belongs somewhere it cannot be read, and the relay speaks TLS.
-turn_uris:
-  - "turn:localhost:3478?transport=udp"
-  - "turn:localhost:3478?transport=tcp"
-turn_shared_secret: "relaykit-development-only"
-turn_user_lifetime: 86400000
-turn_allow_guests: false
 
 # Answering over https as well, which is how anything that is not a local experiment reaches a homeserver.
 # Everything else here is checked over http on localhost, and the browser treats that as a secure origin by

@@ -14,7 +14,6 @@ import type {
   Call,
   CallQuality,
   CallSpeaking,
-  CallTransfer,
   LinkPreview,
   MediaLimits,
   PlaceCallOptions,
@@ -75,7 +74,6 @@ export interface AdapterHandlers {
   readonly onCallIncoming?: (call: Call) => void;
   readonly onCallChanged?: (call: Call) => void;
   readonly onCallSpeaking?: (speaking: CallSpeaking) => void;
-  readonly onCallTransferred?: (transfer: CallTransfer) => void;
   readonly onVerificationRequested?: (session: VerificationSession) => void;
   readonly onVerificationChanged?: (session: VerificationSession) => void;
   readonly onError?: (error: Error) => void;
@@ -149,7 +147,7 @@ export interface MessagingAdapter {
   mediaLimits(): Promise<MediaLimits>;
   /** Stops a file on its way up. Says whether there was one to stop. */
   stopSendingFile(transactionId: string): Promise<boolean>;
-  /** Calls. The signalling goes over Matrix; the audio and the video do not. */
+  /** Calls. Who may be on one and who is goes over Matrix; the picture and the sound do not. */
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   /**
    * Entering the call of a conversation, which is already going on and rings nobody. Joining what is
@@ -162,13 +160,7 @@ export interface MessagingAdapter {
   rejectCall(callId: string): Promise<void>;
   muteCallMicrophone(callId: string, muted: boolean): Promise<void>;
   muteCallCamera(callId: string, muted: boolean): Promise<void>;
-  holdCall(callId: string, onHold: boolean): Promise<void>;
-  /** A digit pressed during a call, which is how anybody answers a menu. */
-  pressDigitInCall(callId: string, digit: string): Promise<void>;
   shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
-  transferCall(callId: string, userId: UserId): Promise<void>;
-  /** Joining two calls, which is handing one to somebody already on the line. */
-  joinCalls(callId: string, otherCallId: string): Promise<void>;
   callQuality(callId: string): Promise<CallQuality>;
   /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */
   useMicrophone(deviceId: string): Promise<void>;

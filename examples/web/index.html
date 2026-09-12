@@ -342,7 +342,6 @@
           <button id="reject" type="button" hidden>Rechazar</button>
           <button id="call-mute" type="button">Silenciar micro</button>
           <button id="call-camera" type="button" hidden>Apagar cámara</button>
-          <button id="call-hold" type="button">Espera</button>
           <button id="call-screen" type="button">Compartir pantalla</button>
           <button id="hang-up" type="button">Colgar</button>
           <!-- One element for both: a call with no picture still has to be heard. -->
@@ -350,16 +349,7 @@
           <!-- A shared screen travels alongside the camera rather than instead of it, so it is drawn apart:
                the face small, the screen large, as any client does. -->
           <video id="call-screen-media" class="shared-screen" autoplay playsinline hidden></video>
-          <!-- Digits, which is how anybody gets past "press one for". -->
-          <div id="dialpad"></div>
-          <form id="transfer-form">
-            <input id="transfer-to" placeholder="@quien:localhost" />
-            <button type="submit">Transferir</button>
-          </form>
         </div>
-        <!-- The other calls going on: a phone on a desk holds several, one being talked on and the rest
-             waiting. -->
-        <div id="other-calls"></div>
         <!-- Which microphone and camera to use. It belongs to the account, not to one call, so it is here and
              not inside the panel: it can be chosen before there is anybody to call. -->
         <div id="devices">

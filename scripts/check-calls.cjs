@@ -159,23 +159,7 @@ async function ring(alice, bob, { video }) {
     await pressing(button, saying, false);
     return took;
   };
-  // A digit pressed on the keypad. Nothing comes back — whatever is on the other end hears it, not this side
-  // — so what is required is that pressing one from the screen does not fail and does not end the call.
-  await alice.webContents.executeJavaScript(`
-    [...document.querySelectorAll("#dialpad button")].find(one => one.textContent === "5").click();
-    true;
-  `);
-  said.pressedADigit = await waitFor(
-    alice,
-    "the call to carry on after a digit",
-    `
-    window.relaykitDemo.client.calls.list().then(calls =>
-      calls.some(call => call.state === "connected") && !document.getElementById("status").textContent.startsWith("No se pudo"))
-  `
-  );
-
   said.pressedSilence = await pressedBothWays("call-mute", "isMicrophoneMuted");
-  said.pressedHold = await pressedBothWays("call-hold", "isOnHold");
   // Both ways, and the way back is the one that matters: putting the camera away stops the track and removes
   // it, so bringing it back means agreeing a new one with the other side.
   if (video) said.pressedCamera = await pressedBothWays("call-camera", "isCameraMuted");
@@ -251,19 +235,7 @@ async function ring(alice, bob, { video }) {
     throw new Error(`Letting it speak again did not reach the track: ${JSON.stringify(said.spokeAgain)}`);
   }
 
-  // Hold is told to the other side, so it is asked of both.
-
-  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
-
-  // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being
-  // touched.
-  await waitFor(
-    alice,
-    `alice's ${kind} call panel to go away`,
-    `document.getElementById("call-panel").hidden`
-  );
-  await waitFor(bob, `bob's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
-  said.hungUpOnBothSides = true;
+  await hangUpFromBothSides(alice, bob, said, kind);
 
   detail[kind] = said;
 }
@@ -274,20 +246,47 @@ async function ring(alice, bob, { video }) {
  */
 /** Hanging up, and the other side finding out without being touched. */
 async function finishOff(alice, bob, said, kind) {
+  await hangUpFromBothSides(alice, bob, said, kind);
+  detail[kind] = said;
+}
+
+/**
+ * Alice hangs up and the call goes on for bob, alone: a room does not end because somebody left it. What has
+ * to be true is that bob is told — his call shrinks to himself — and that when he hangs up too, both screens
+ * are clear. Whether an application ends a call left with one person on it is its decision, not the
+ * library's.
+ */
+async function hangUpFromBothSides(alice, bob, said, kind) {
   await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
   await waitFor(
     alice,
     `alice's ${kind} call panel to go away`,
     `document.getElementById("call-panel").hidden`
   );
+  said.bobWasLeftAlone = await waitFor(
+    bob,
+    `bob to be left alone on the ${kind} call`,
+    `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.length === 1 && calls[0].participants.length === 1 && calls[0].participants[0].userId)
+  `
+  );
+  await bob.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
   await waitFor(bob, `bob's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
   said.hungUpOnBothSides = true;
-  detail[kind] = said;
 }
 
+/**
+ * Not picking up. The one who was rung puts their screen away; the one who started the call is still on it,
+ * alone, until they hang up — a room does not end because somebody did not come.
+ */
 async function refuse(alice, bob) {
   await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  await waitFor(bob, "bob's screen to ring before refusing", `!document.getElementById("reject").hidden`);
+  await waitFor(
+    bob,
+    "bob's screen to ring before refusing",
+    `!document.getElementById("call-panel").hidden && !document.getElementById("reject").hidden`
+  );
   await bob.webContents.executeJavaScript(`document.getElementById("reject").click(); true;`);
 
   await waitFor(
@@ -295,9 +294,17 @@ async function refuse(alice, bob) {
     "bob's screen to put itself away after refusing",
     `document.getElementById("call-panel").hidden`
   );
+  detail.refusedAndStillOnIt = await waitFor(
+    alice,
+    "alice to still be on the call she started",
+    `
+    window.relaykitDemo.client.calls.list().then(calls => calls.length === 1 && calls[0].participants.length)
+  `
+  );
+  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
   await waitFor(
     alice,
-    "alice to be told the call was refused",
+    "alice's refused call to go away once she hangs up",
     `document.getElementById("call-panel").hidden`
   );
   detail.refused = true;
@@ -327,7 +334,7 @@ async function chooseDevicesAndUseThem(alice, bob, _conversationId) {
   await waitFor(
     bob,
     "bob's screen to ring for the device check",
-    `!document.getElementById("answer").hidden`
+    `!document.getElementById("call-panel").hidden && !document.getElementById("answer").hidden`
   );
   await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
 
@@ -347,9 +354,7 @@ async function chooseDevicesAndUseThem(alice, bob, _conversationId) {
   detail.microphoneAsked = picked;
   detail.microphoneUsed = used;
 
-  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
-  await waitFor(alice, "the device call to be over", `document.getElementById("call-panel").hidden`);
-  await waitFor(bob, "bob's device call to be over", `document.getElementById("call-panel").hidden`);
+  await hangUpFromBothSides(alice, bob, detail, "device");
 }
 
 async function chooseDevices(page) {
@@ -400,72 +405,6 @@ async function leaveNothingGoingOn(pages) {
 }
 
 /**
- * Passing a call on, which takes three people and is the only way to know it does anything.
- *
- * The SDK sends the message and hangs up; nothing in it acts on that message when it arrives. So a transfer
- * that is not passed on to whoever draws the screen is one side hanging up and the other simply cut off, and
- * from the side that transferred it looks exactly like it worked.
- */
-async function passItOn(alice, bob, address) {
-  const carol = await open("carol", address);
-
-  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  await waitFor(
-    bob,
-    "bob's screen to ring before being passed on",
-    `!document.getElementById("answer").hidden`
-  );
-  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
-  await waitFor(
-    alice,
-    "the call to be answered before passing it on",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => calls[0]?.state === "connected")
-  `
-  );
-
-  await alice.webContents.executeJavaScript(`
-    document.getElementById("transfer-to").value = "@carol:localhost";
-    document.getElementById("transfer-form").requestSubmit();
-    true;
-  `);
-
-  // What has to happen: carol's screen rings, without carol having done anything at all.
-  detail.carolWasRung = await waitFor(
-    carol,
-    "carol to be rung by the transfer",
-    `
-    !document.getElementById("answer").hidden && document.getElementById("call-state").textContent
-  `
-  );
-  await carol.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
-  detail.carolCouldHear = await waitFor(
-    carol,
-    "carol to be playing something",
-    `
-    (() => {
-      const media = document.getElementById("call-media").srcObject;
-      const live = media ? media.getAudioTracks().filter(one => one.readyState === "live").length : 0;
-      return live > 0 && { live };
-    })()
-  `
-  );
-
-  // And the one who passed it on is out of it: that is what transferring means.
-  await waitFor(
-    alice,
-    "alice to be out of the call she passed on",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => calls.length === 0)
-  `
-  );
-  detail.aliceLeftTheCall = true;
-
-  await leaveNothingGoingOn([alice, bob, carol]);
-  carol.destroy();
-}
-
-/**
  * A voice call that becomes a video call without ending, and goes back, which is what anybody on a phone
  * expects: you are talking, you turn the camera on, the other side starts seeing you, you turn it off and
  * carry on talking.
@@ -478,7 +417,7 @@ async function turnTheCameraOnMidCall(alice, bob) {
   await waitFor(
     bob,
     "bob's screen to ring before the camera goes on",
-    `!document.getElementById("answer").hidden`
+    `!document.getElementById("call-panel").hidden && !document.getElementById("answer").hidden`
   );
   await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
 
@@ -516,6 +455,19 @@ async function turnTheCameraOnMidCall(alice, bob) {
   }
 
   // And the other side has to actually see it, which is the whole point.
+  // What bob sees of everybody, for when he does not see alice: a timeout says nothing about why.
+  const bobsView = () =>
+    bob.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.list().then(calls => calls.map(call => ({
+      state: call.state,
+      people: call.participants.map(one => ({
+        who: one.userId,
+        audio: one.media ? one.media.getAudioTracks().map(track => track.readyState) : [],
+        video: one.media ? one.media.getVideoTracks().map(track => track.readyState) : [],
+        cameraMuted: one.isCameraMuted
+      }))
+    })))
+  `);
   detail.bobStartedSeeingHer = await waitFor(
     bob,
     "bob to start seeing alice",
@@ -526,7 +478,9 @@ async function turnTheCameraOnMidCall(alice, bob) {
       return live > 0 && { live };
     })
   `
-  );
+  ).catch(async error => {
+    throw new Error(`${error.message}; bob sees ${JSON.stringify(await bobsView())}`);
+  });
 
   // Off again, and still talking: the same call, still connected, still heard.
   await alice.webContents.executeJavaScript(`
@@ -548,206 +502,6 @@ async function turnTheCameraOnMidCall(alice, bob) {
     window.relaykitDemo.client.calls.hangUp(${JSON.stringify(started)}).then(() => true)
   `);
   await leaveNothingGoingOn([alice, bob]);
-}
-
-/**
- * Two calls at once, which is what a phone on a desk does: talking to one person, somebody else rings, the
- * first waits, and moving between them loses neither.
- */
-async function twoAtOnce(alice, bob, address) {
-  const carol = await open("carol", address);
-
-  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  await waitFor(
-    bob,
-    "bob's screen to ring before carol butts in",
-    `!document.getElementById("answer").hidden`
-  );
-  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
-  const withBob = await waitFor(
-    alice,
-    "the call with bob to be connected",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => calls[0]?.state === "connected" && calls[0].id)
-  `
-  );
-
-  // Carol rings while that one is going on.
-  await carol.webContents.executeJavaScript(`
-    document.getElementById("participant").value = "@alice:localhost";
-    document.getElementById("open-form").requestSubmit();
-    true;
-  `);
-  await waitFor(
-    carol,
-    "carol's conversation with alice",
-    `
-    window.relaykitDemo.client.conversations.list()
-      .then(list => list.some(item => item.isDirect && item.participantIds.includes("@alice:localhost")))
-  `
-  );
-  await carol.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-
-  // Alice's screen has to show it without losing the one she is on.
-  detail.carolWaitedHerTurn = await waitFor(
-    alice,
-    "carol to show up as another call",
-    `
-    (() => {
-      const rows = document.querySelectorAll("#other-calls .other-call");
-      return rows.length > 0 && rows[0].textContent;
-    })()
-  `
-  );
-  await alice.webContents.executeJavaScript(`
-    document.querySelector("#other-calls .other-call button").click(); true;
-  `);
-
-  // Both are going on: the one just taken up is talking, the first is waiting.
-  detail.bothAtOnce = await waitFor(
-    alice,
-    "both calls to be going on, one of them waiting",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => {
-      if (calls.length !== 2) return false;
-      const held = calls.filter(call => call.isOnHold);
-      const talking = calls.filter(call => !call.isOnHold);
-      return held.length === 1 && talking.length === 1
-        && { waiting: held[0].id, talking: talking[0].id };
-    })
-  `
-  );
-  if (detail.bothAtOnce.waiting !== withBob) {
-    throw new Error("Taking up the new call did not leave the one being talked on waiting");
-  }
-
-  // And back to bob, which has to leave carol waiting instead.
-  await alice.webContents.executeJavaScript(`
-    document.querySelector("#other-calls .other-call button").click(); true;
-  `);
-  detail.wentBackToTheFirst = await waitFor(
-    alice,
-    "the first call to be the one being talked on again",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => {
-      const bobs = calls.find(call => call.id === ${JSON.stringify(withBob)});
-      return calls.length === 2 && bobs?.isOnHold === false && calls.filter(call => call.isOnHold).length === 1;
-    })
-  `
-  );
-
-  // Hanging one up leaves the other going: that is the whole point of holding them apart.
-  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
-  detail.theOtherSurvived = await waitFor(
-    alice,
-    "the other call to still be going on",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => calls.length === 1 && calls[0].id)
-  `
-  );
-  await leaveNothingGoingOn([alice, bob, carol]);
-  carol.destroy();
-}
-
-/**
- * Handing a call to somebody already on the line, which is what transferring a call at work means: bob is
- * talking to alice, alice rings carol to say who is coming, and then the two of them are joined and alice
- * steps out.
- *
- * Different from passing on a name: nobody is rung out of nowhere, because both of them are already talking.
- */
-async function handOverProperly(alice, bob, address) {
-  const carol = await open("carol", address);
-
-  const answer = async (who, why) => {
-    await waitFor(who, `${why}`, `!document.getElementById("answer").hidden`);
-    await who.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
-  };
-
-  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  await answer(bob, "bob to be rung before being handed over");
-
-  // A second call, to the person the first one is going to.
-  await alice.webContents.executeJavaScript(`
-    document.getElementById("participant").value = "@carol:localhost";
-    document.getElementById("open-form").requestSubmit();
-    true;
-  `);
-  await waitFor(
-    alice,
-    "the conversation with carol",
-    `
-    window.relaykitDemo.client.conversations.list()
-      .then(list => list.some(item => item.isDirect && item.participantIds.includes("@carol:localhost")))
-  `
-  );
-  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  await answer(carol, "carol to be rung to be told who is coming");
-
-  const both = await waitFor(
-    alice,
-    "alice to be on both calls",
-    `
-    window.relaykitDemo.client.calls.list().then(calls =>
-      calls.length === 2 && calls.every(call => call.state === "connected") && calls.map(call => call.id))
-  `
-  );
-
-  // And the two are joined.
-  await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.joinCalls(${JSON.stringify(both[0])}, ${JSON.stringify(both[1])})
-      .then(() => true)
-  `);
-
-  // Alice steps out of both, and bob and carol are left with each other.
-  detail.aliceSteppedOut = await waitFor(
-    alice,
-    "alice to be out of both calls",
-    `
-    window.relaykitDemo.client.calls.list().then(calls => calls.length === 0)
-  `
-  );
-  // Who bob ends up talking to, asked of the conversation the call is in rather than of who rang: a call
-  // left over from before would answer the weaker question just as well.
-  detail.bobAndCarolLeftTalking = await waitFor(
-    bob,
-    "bob to end up in a call with carol",
-    `
-    window.relaykitDemo.client.calls.list().then(async calls => {
-      const conversations = await window.relaykitDemo.client.conversations.list();
-      const withCarol = calls.find(call => {
-        const room = conversations.find(item => item.id === call.conversationId);
-        return room?.participantIds.includes("@carol:localhost");
-      });
-      return withCarol ? { state: withCarol.state } : false;
-    })
-  `
-  );
-
-  // Carol answers, because being handed a call still means somebody picking it up, and then the two of them
-  // are talking with alice nowhere in it.
-  await answer(carol, "carol to be rung by bob after the hand over");
-  detail.bobAndCarolConnected = await waitFor(
-    bob,
-    "bob and carol to be talking",
-    `
-    window.relaykitDemo.client.calls.list().then(async calls => {
-      const conversations = await window.relaykitDemo.client.conversations.list();
-      const withCarol = calls.find(call => {
-        const room = conversations.find(item => item.id === call.conversationId);
-        return room?.participantIds.includes("@carol:localhost");
-      });
-      if (withCarol?.state !== "connected") return false;
-      const heard = withCarol.remoteMedia
-        ? withCarol.remoteMedia.getAudioTracks().filter(one => one.readyState === "live").length
-        : 0;
-      return heard > 0 && { heard };
-    })
-  `
-  );
-
-  await leaveNothingGoingOn([alice, bob, carol]);
-  carol.destroy();
 }
 
 /**
@@ -799,13 +553,13 @@ async function holdAConference(alice, bob, address) {
   // Bob keeps what rings, so that a room starting a call can be told apart from bob asking to enter one.
   await bob.webContents.executeJavaScript(`
     window.rung = null;
-    window.relaykitDemo.client.on("call.incoming", call => { if (call.kind === "conference") window.rung = call; });
+    window.relaykitDemo.client.on("call.incoming", call => { window.rung = call; });
     true;
   `);
 
   const conferenceOf = `
     window.relaykitDemo.client.calls.list().then(calls =>
-      calls.find(call => call.kind === "conference" && call.conversationId === ${JSON.stringify(conversationId)}) ?? false)
+      calls.find(call => call.conversationId === ${JSON.stringify(conversationId)}) ?? false)
   `;
   await alice.webContents.executeJavaScript(`
     window.relaykitDemo.client.calls.join(${JSON.stringify(conversationId)}, { video: true }).then(() => true)
@@ -900,7 +654,7 @@ async function holdAConference(alice, bob, address) {
     alice,
     "alice to be out of the conference",
     `
-    window.relaykitDemo.client.calls.list().then(calls => !calls.some(call => call.kind === "conference"))
+    window.relaykitDemo.client.calls.list().then(calls => !calls.some(call => call.conversationId === ${JSON.stringify(conversationId)}))
   `
   );
 
@@ -925,19 +679,36 @@ async function run() {
     true;
   `);
 
-  // Opened the way a person opens it: the picker, not the API. What is being checked is that a call can be
-  // placed and answered from the screen, so the screen is what is used.
-  await alice.webContents.executeJavaScript(`
-    document.getElementById("participant").value = "@bob:localhost";
-    document.getElementById("open-form").requestSubmit();
-    true;
+  // A conversation of its own for each run. One reused across runs collects the memberships of every run
+  // that was killed halfway and whatever an old bug did to it, and a check that fails for last week's
+  // reasons checks nothing. Made directly rather than through the picker, which would find the old one, and
+  // then chosen on the screen the way a person chooses one: by clicking its row.
+  const title = `calls ${Date.now()}`;
+  const conversationId = await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.conversations
+      .create({ participantIds: ["@bob:localhost"], direct: true, title: ${JSON.stringify(title)} })
+      .then(conversation => conversation.id)
   `);
-  const conversationId = await waitFor(
+  await waitFor(
     alice,
-    "the conversation with bob",
+    "the new conversation to show up in alice's list",
     `
-    window.relaykitDemo.client.conversations.list()
-      .then(list => list.find(item => item.isDirect && item.participantIds.includes("@bob:localhost"))?.id ?? false)
+    (() => {
+      const row = [...document.querySelectorAll("#conversations li")]
+        .find(item => item.querySelector(".name")?.textContent === ${JSON.stringify(title)});
+      if (!row) return false;
+      row.click();
+      return true;
+    })()
+  `
+  );
+  await waitFor(
+    alice,
+    "the new conversation to be the one on alice's screen",
+    `
+    [...document.querySelectorAll("#conversations li")]
+      .some(item => item.getAttribute("aria-current") === "true"
+        && item.querySelector(".name")?.textContent === ${JSON.stringify(title)})
   `
   );
   detail.conversationId = conversationId;
@@ -968,7 +739,10 @@ async function run() {
 
   // Everything, or one thing by name while it is being worked on: eight minutes of what already passes is a
   // long way to walk to the one step that does not.
-  const only = process.env.RELAYKIT_CALLS_ONLY;
+  // One or several by name, in the order given: `RELAYKIT_CALLS_ONLY=devices,camera` walks the same path
+  // as the whole run does between those two, which is how a step that passes alone and fails after
+  // another is caught.
+  const only = process.env.RELAYKIT_CALLS_ONLY?.split(",").map(name => name.trim());
   const steps = {
     voice: () => ring(alice, bob, { video: false }),
     video: () => ring(alice, bob, { video: true }),
@@ -977,21 +751,22 @@ async function run() {
       await chooseDevices(alice);
       await chooseDevicesAndUseThem(alice, bob, conversationId);
     },
-    transfer: () => passItOn(alice, bob, address),
     camera: () => turnTheCameraOnMidCall(alice, bob),
-    two: () => twoAtOnce(alice, bob, address),
-    handover: () => handOverProperly(alice, bob, address),
     conference: () => holdAConference(alice, bob, address)
   };
-  if (only !== undefined && !(only in steps)) {
-    throw new Error(`There is no step called ${only}; there are ${Object.keys(steps).join(", ")}`);
+  const unknown = (only ?? []).filter(name => !(name in steps));
+  if (unknown.length > 0) {
+    throw new Error(
+      `There is no step called ${unknown.join(", ")}; there are ${Object.keys(steps).join(", ")}`
+    );
   }
-  for (const [name, step] of Object.entries(steps)) {
-    if (only === undefined || only === name) await step();
-  }
+  for (const name of only ?? Object.keys(steps)) await steps[name]();
 
   server.close();
-  report(true, "two browsers rang each other by voice and by video, and three held an encrypted conference");
+  report(
+    true,
+    "two browsers rang each other by voice and by video, and three held a call together, all of it encrypted"
+  );
 }
 
 app.whenReady().then(() => run().catch(error => report(false, error.message)));

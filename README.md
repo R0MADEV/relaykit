@@ -661,9 +661,9 @@ client.on("call.speaking", ({ userIds }) => { /* a quién iluminar */ });
 await client.calls.hangUp(call.id);
 ```
 
-Una llamada directa va entre los dos dispositivos. Una conferencia la lleva un SFU (LiveKit) al que Matrix
-sigue mandando: quién puede entrar, quién está dentro y las claves con las que cada navegador cifra lo que
-manda, de modo que el servidor reparte lo que no puede leer. Para probarlo en local, [infrastructure/livekit](./infrastructure/livekit/README.md).
+Una llamada es una sala, tenga dos personas o diez: la lleva un SFU (LiveKit) al que Matrix sigue mandando —
+quién puede entrar, quién está dentro y las claves con las que cada navegador cifra lo que manda, de modo que
+el servidor reparte lo que no puede leer. Para probarlo en local, [infrastructure/livekit](./infrastructure/livekit/README.md).
 
 ## Alcance
 
@@ -676,7 +676,7 @@ RelayKit se encarga de la experiencia de mensajería del cliente:
 - persistencia local
 - eventos tipados
 - multimedia
-- llamadas directas y videoconferencias cifradas
+- llamadas y videoconferencias cifradas, de dos personas o de muchas
 - integración con E2EE de Matrix
 
 En el navegador, `@relaykit/web` configura IndexedDB automáticamente cuando existe una sesión identificada. Los cuerpos

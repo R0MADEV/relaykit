@@ -2,7 +2,7 @@
 
 Para quien construye la interfaz. Qué se pide, qué vuelve y qué avisa sola.
 
-Para las piezas de debajo (Synapse, coturn, el SDK), ver [PIEZAS.md](PIEZAS.md).
+Para las piezas de debajo (Synapse, LiveKit, el SDK), ver [PIEZAS.md](PIEZAS.md).
 
 ---
 
@@ -70,19 +70,19 @@ queda más. Enviar funciona sin conexión: el mensaje se guarda y sale solo cuan
 
 ```
 place         join          answer        hangUp        reject
-muteMicrophone              muteCamera    hold          shareScreen
-transfer      useMicrophone useCamera     list
+muteMicrophone              muteCamera    shareScreen
+useMicrophone useCamera     quality       list
 ```
 
-**Rechazar no es colgar**: al otro lado se le dice otra cosa. **Poner en espera no es silenciar**: en espera al
-otro se le avisa y deja de oír y de ver.
+**Una llamada es una sala, tenga dos personas o diez.** `place` te mete en ella el primero y hace sonar a los
+demás; `join` entra en una que ya está en marcha sin hacer sonar a nadie; `answer` es entrar en la que te
+sonó. **Colgar es salir**: la llamada sigue para quien quede. **Rechazar no es colgar**: la llamada sigue sin
+ti y simplemente dejas de oír hablar de ella.
 
-**`place` suena; `join` no.** Una llamada directa se marca y alguien la contesta. Una **conferencia** ya está
-en marcha en una conversación y se entra en ella con `join(conversationId)`: nadie descuelga, y sigue sin ti
-cuando cuelgas. Una llamada de dos personas es una conferencia con dos dentro, así que es el mismo `Call`
-y no hay otro sitio donde mirar. Lo que no tiene sentido en una sala — espera, transferencia, teclas — se
-rechaza con `NOT_SUPPORTED`. El audio y el vídeo de una conferencia los lleva un servidor que **no puede
-leerlos**: las claves viajan por Matrix y cada frame sale cifrado del navegador.
+El audio y el vídeo los lleva un servidor (LiveKit) que **no puede leerlos**: las claves viajan por Matrix y
+cada frame sale cifrado del navegador. Matrix sigue mandando: quién puede estar, quién está, y las claves.
+
+No hay espera, ni transferencia, ni teclas: eso es vocabulario de teléfono, y el teléfono no va por aquí.
 
 La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegador con `enumerateDevices()`.
 `useMicrophone(deviceId)` es la parte que sí es nuestra.
@@ -158,17 +158,18 @@ alias?  replacedBy?  replaces?
 ### `Call`
 
 ```ts
-id  conversationId  callerId  isVideo  state  startedAt  kind  isEncrypted?
-participants  ownMedia?  remoteMedia?  hasRemoteMedia?
-isMicrophoneMuted  isCameraMuted  isOnHold  isSharingScreen
+id  conversationId  callerId  isVideo  state  startedAt  isEncrypted?  wentWrong?
+participants  ownMedia?  ownScreen?  remoteMedia?  remoteScreen?
+isMicrophoneMuted  isCameraMuted  isSharingScreen
 ```
 
-`kind` es `"direct"` o `"conference"`. `participants` es **todo el mundo, tú incluido**, cada uno con su
-`media` y su `screen` para pintar una caja por persona; en una llamada directa `remoteMedia` es el atajo para
-la única otra caja. `isEncrypted` es lo que dibuja el candado, y falta mientras no se sabe (antes de entrar).
+`participants` es **todo el mundo, tú incluido**, cada uno con su `media` y su `screen` para pintar una caja
+por persona. `remoteMedia` y `remoteScreen` son el atajo para cuando hay exactamente otra persona, que es lo
+que son casi todas las llamadas. `isEncrypted` es lo que dibuja el candado, y falta mientras no se sabe (antes
+de entrar). `callerId` es quien la empezó.
 
-`state` es `"ringing" | "connecting" | "connected" | "ended"`. No son los estados internos del SDK: son los
-cuatro que una pantalla dibuja distinto.
+`state` es `"ringing" | "connecting" | "connected" | "ended"`. `ringing` es una llamada en marcha en una
+conversación tuya en la que aún no estás; `connected`, que estás en ella — solo, si acabas de empezarla.
 
 `ownMedia` y `remoteMedia` son **`MediaStream` del navegador**, listos para un elemento:
 

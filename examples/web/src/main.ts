@@ -78,24 +78,8 @@ class DemoApp {
       "click",
       () => void this.duringTheCall((call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted))
     );
-    this.element("call-hold").addEventListener(
-      "click",
-      () => void this.duringTheCall((call, client) => client.calls.hold(call.id, !call.isOnHold))
-    );
-    // A keypad, built once. Pressing one sends it down whatever call is being talked on.
-    this.element("dialpad").replaceChildren(
-      ...[..."123456789*0#"].map(digit =>
-        this.button(
-          digit,
-          () => void this.duringTheCall((call, client) => client.calls.pressDigit(call.id, digit))
-        )
-      )
-    );
     this.select("microphone").addEventListener("change", () => void this.chooseDevice("microphone"));
     this.select("camera").addEventListener("change", () => void this.chooseDevice("camera"));
-    this.onSubmit("transfer-form", () =>
-      this.duringTheCall((call, client) => client.calls.transfer(call.id, this.input("transfer-to").value))
-    );
     this.element("call-screen").addEventListener(
       "click",
       () =>
@@ -177,20 +161,6 @@ class DemoApp {
     // pointing at a call that had ended made the next one arrive to a screen that thought it was busy.
     this.client.on("call.incoming", () => void this.drawTheCalls());
     this.client.on("call.changed", () => void this.drawTheCalls());
-    // Being asked to pass a call on: whoever transferred it has already hung up, so this side rings the
-    // person it names. Ringing them is a decision, which is why the library says it and does not do it.
-    this.client.on("call.transferred", async transfer => {
-      // Two of these arrive when a call is handed to somebody already on the line, and they say different
-      // things: one side rings, the other is about to be rung and only has to wait. Ringing when told to wait
-      // has both of them calling each other and neither being answered.
-      if (transfer.waitForThem) {
-        this.setStatus(`${this.nameOf(transfer.toUserId)} te va a llamar`);
-        return;
-      }
-      this.setStatus(`Pasando la llamada a ${this.nameOf(transfer.toUserId)}`);
-      const conversation = await this.client.conversations.open(transfer.toUserId);
-      await this.callThem(false, conversation.id);
-    });
     this.client.on("error", error => this.setStatus(`Error: ${error.message}`));
   }
 
@@ -1079,8 +1049,8 @@ class DemoApp {
   }
 
   /**
-   * Ringing somebody. Only the signalling travels over Matrix: the audio and the video go straight between the
-   * two devices.
+   * Starting a call: this side is the first one on it, and the room rings everybody else in the
+   * conversation. Matrix says who they are; a server that cannot read the picture carries it.
    */
   private async callThem(video: boolean, into = this.conversationId): Promise<void> {
     if (!into) return;
@@ -1169,46 +1139,17 @@ class DemoApp {
     const going = await this.client.calls.list();
     const talkingOn =
       going.find(call => call.id === this.call?.id) ??
-      going.find(call => !call.isOnHold && call.state !== "ringing") ??
+      going.find(call => call.state !== "ringing") ??
       going[0];
     if (this.call && !talkingOn) void this.fillInDevices();
     this.call = talkingOn;
     if (talkingOn) this.showCall(talkingOn);
     this.element("call-panel").hidden = !talkingOn;
-    await this.showOtherCalls(going);
-  }
-
-  /**
-   * The calls that are not the one being talked on: waiting to be answered, or held while this one goes on.
-   * Each can be taken up, which holds whichever was being talked on — a phone does not talk on two at once.
-   */
-  private async showOtherCalls(going: readonly Call[]): Promise<void> {
-    const others = going.filter(call => call.id !== this.call?.id);
-    this.element("other-calls").replaceChildren(
-      ...others.map(call => {
-        const row = document.createElement("div");
-        row.className = "other-call";
-        row.textContent = `${this.nameOf(call.callerId)} · ${call.state}${call.isOnHold ? " · en espera" : ""}`;
-        row.append(
-          this.button(call.state === "ringing" ? "Descolgar" : "Pasar a esta", () => void this.takeUp(call))
-        );
-        return row;
-      })
-    );
-  }
-
-  /** Taking up another call: whatever was being talked on waits, and this one carries on. */
-  private async takeUp(call: Call): Promise<void> {
-    const talking = this.call;
-    try {
-      if (talking && talking.id !== call.id) await this.client.calls.hold(talking.id, true);
-      const taken =
-        call.state === "ringing" ? await this.client.calls.answer(call.id, { video: call.isVideo }) : call;
-      if (taken.isOnHold) await this.client.calls.hold(taken.id, false);
-      this.call = taken;
-      await this.drawTheCalls();
-    } catch (error) {
-      this.setStatus(`No se pudo: ${(error as Error).message}`);
+    // Nothing to pick up when there is nothing: buttons left showing inside a hidden panel are what the next
+    // call finds already pressed.
+    if (!talkingOn) {
+      this.element("answer").hidden = true;
+      this.element("reject").hidden = true;
     }
   }
 
@@ -1222,7 +1163,6 @@ class DemoApp {
     this.element("reject").hidden = !beingRung;
     // A button has to say what pressing it will do, or nobody knows whether it is already pressed.
     this.element("call-mute").textContent = call.isMicrophoneMuted ? "Hablar" : "Silenciar micro";
-    this.element("call-hold").textContent = call.isOnHold ? "Reanudar" : "Espera";
     this.element("call-screen").textContent = call.isSharingScreen
       ? "Dejar de compartir"
       : "Compartir pantalla";
@@ -1231,13 +1171,16 @@ class DemoApp {
     camera.textContent = call.isCameraMuted ? "Encender cámara" : "Apagar cámara";
     // Naming whoever placed it only says something when it was not this side: "calling myself" is nonsense.
     if (call.wentWrong) this.setStatus(`La llamada fallo: ${call.wentWrong}`);
-    this.element("call-state").textContent = call.isOnHoldByThem
-      ? `${this.nameOf(call.talkingTo ?? call.callerId)} te ha puesto en espera`
-      : beingRung
-        ? `${this.nameOf(call.callerId)} te llama`
+    // Alone on a call you started is still ringing the others; with anybody else on it, you are talking.
+    const others = call.participants.filter(one => one.userId !== this.ownUserId);
+    const names = others.map(one => this.nameOf(one.userId)).join(", ");
+    this.element("call-state").textContent = beingRung
+      ? `${this.nameOf(call.callerId)} te llama`
+      : others.length > 0
+        ? `En llamada con ${names}: ${call.state}`
         : placedByMe
           ? `Llamando: ${call.state}`
-          : `Hablando con ${this.nameOf(call.callerId)}: ${call.state}`;
+          : "Solo en la llamada";
 
     // The stream goes to the element as it is. This is what the library hands over, and what a browser plays.
     const media = this.element("call-media") as HTMLVideoElement;

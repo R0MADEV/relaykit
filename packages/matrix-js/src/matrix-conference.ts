@@ -36,6 +36,9 @@ export class MatrixConference {
   private speaking: ((speaking: CallSpeaking) => void) | undefined;
   private announce: ((call: Call) => void) | undefined;
   private stopFollowing: (() => void) | undefined;
+  /** The account's choice, remembered: a microphone picked before a call is the one the call goes out on. */
+  private chosenMicrophone: { deviceId: string } | undefined;
+  private chosenCamera: { deviceId: string } | undefined;
 
   constructor(private readonly rtc: MatrixRtc) {}
 
@@ -95,12 +98,20 @@ export class MatrixConference {
    * Entering the conference of a conversation. Joining what is already joined gives back the same call: a
    * screen opened twice must not put the same person in the room twice.
    */
-  async join(client: MatrixClient, conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+  async join(
+    client: MatrixClient,
+    conversationId: ConversationId,
+    options: PlaceCallOptions,
+    { ring }: { ring: boolean }
+  ): Promise<Call> {
     const callId = callIdFor(conversationId);
     const already = this.joined.get(callId);
     if (already) return this.describe(callId, already);
 
     const transport = this.rtc.findTransport(client);
+    // Before anything else: a room from before calls lets only admins on one, and this is the one moment
+    // somebody who can change that is standing in it with a reason to.
+    await this.rtc.openTheDoorToCalls(client, conversationId);
     const ticket = await this.rtc.ticketFor(client, transport, conversationId);
     // Loaded only now: an application that does chat and never opens a conference should not carry the whole
     // media engine in its bundle for a thing it does not use.
@@ -165,17 +176,32 @@ export class MatrixConference {
     // Said in the room only once this side is really connected: announcing first would have everybody
     // else's screen show somebody who never arrived, if the connection failed. Asking the SDK to manage the
     // keys is what makes it make one for this side and share it with the rest.
-    session.joinRoomSession([transport], undefined, { manageMediaKeys: true });
+    // Ringing is the SDK's notification, sent along with the membership: starting a call rings the others,
+    // walking into one already going on does not.
+    session.joinRoomSession([transport], undefined, {
+      manageMediaKeys: true,
+      // Whether there is a picture, said in the room: whoever is rung has to make room on the screen before
+      // any frame arrives, and this is the only place they can learn it from.
+      callIntent: options.video === true ? "video" : "audio",
+      ...(ring ? { notificationType: "ring" } : {})
+    });
     // Keys the SDK already had before anybody was listening — everybody else's, for a call joined late.
     session.reemitEncryptionKeys();
     // Nothing is sent before this side's own key is in: a frame encrypted with no key is a frame dropped, and
     // the first seconds of every call would be silence. Bounded, because a key that never comes should show
     // up as a call nobody can hear, not as a join that never returns.
     await Promise.race([ownKey, new Promise<void>(resolve => setTimeout(resolve, ownKeyPatienceMs))]);
-    await going.room.localParticipant.setMicrophoneEnabled(true);
-    if (options.video === true) await going.room.localParticipant.setCameraEnabled(true);
+    await going.room.localParticipant.setMicrophoneEnabled(true, this.chosenMicrophone);
+    if (options.video === true) await going.room.localParticipant.setCameraEnabled(true, this.chosenCamera);
     this.joined.set(callId, going);
     return this.describe(callId, going);
+  }
+
+  /** Picking up what rang: the call the room announced is entered, and it stops being a thing apart. */
+  async answer(client: MatrixClient, callId: string, options: PlaceCallOptions): Promise<Call> {
+    const ringing = this.announced.get(callId);
+    if (!ringing) throw new SdkError("INVALID_INPUT", "That call is not ringing here");
+    return this.join(client, ringing.conversationId, options, { ring: false });
   }
 
   /**
@@ -194,9 +220,10 @@ export class MatrixConference {
     const going = this.joined.get(callId);
     if (!going) return;
     this.joined.delete(callId);
-    const ended = { ...this.describe(callId, going), state: "ended" as const };
+    // Over for this side the moment it hangs up, and said so at once: taking the connection and the room's
+    // account of it down is network work, and a screen must not stay on a call waiting for a write to land.
+    this.report?.({ ...this.describe(callId, going), state: "ended" });
     await walkOutOf(going);
-    this.report?.(ended);
   }
 
   /** Silencing is not leaving: this stops publishing, and the rest carry on hearing each other. */
@@ -213,14 +240,16 @@ export class MatrixConference {
     await this.require(callId).room.localParticipant.setScreenShareEnabled(on);
   }
 
-  /** Which microphone from now on, in every conference this side is in: it is the account's choice. */
+  /** Which microphone from now on: in every call this side is on, and in the next one. */
   async useMicrophone(deviceId: string): Promise<void> {
+    this.chosenMicrophone = { deviceId };
     await Promise.all(
       [...this.joined.values()].map(going => going.room.switchActiveDevice("audioinput", deviceId))
     );
   }
 
   async useCamera(deviceId: string): Promise<void> {
+    this.chosenCamera = { deviceId };
     await Promise.all(
       [...this.joined.values()].map(going => going.room.switchActiveDevice("videoinput", deviceId))
     );
@@ -266,8 +295,12 @@ export class MatrixConference {
     const changed = (): void => this.report?.(this.describe(callId, going));
     going.room.on(events.ParticipantConnected, changed);
     going.room.on(events.ParticipantDisconnected, changed);
+    going.room.on(events.TrackPublished, changed);
     going.room.on(events.TrackSubscribed, changed);
     going.room.on(events.TrackUnsubscribed, changed);
+    // After the publication is gone, not only after its track is: unsubscribed arrives while the engine still
+    // lists it, and a screen that stopped being shared would stay on everybody else's screen.
+    going.room.on(events.TrackUnpublished, changed);
     going.room.on(events.TrackMuted, changed);
     going.room.on(events.TrackUnmuted, changed);
     going.room.on(events.LocalTrackPublished, changed);
@@ -298,13 +331,17 @@ export class MatrixConference {
     const participants = everybody.map(participant => describeParticipant(participant, going));
     // This side is the first of them by construction, so what it is showing is read from there rather than
     // worked out a second time from the same tracks.
-    const [ownAsAParticipant] = participants;
+    const [ownAsAParticipant, ...others] = participants;
     const ownMedia = ownAsAParticipant?.media;
     const ownScreen = ownAsAParticipant?.screen;
+    // The shortcut for the call between two that most calls are: the one other person's, when there is one.
+    const theOther = others.length === 1 ? others[0] : undefined;
     const somebodyHasACameraOn = participants.some(participant => !participant.isCameraMuted);
     return {
       ...(ownMedia === undefined ? {} : { ownMedia }),
       ...(ownScreen === undefined ? {} : { ownScreen }),
+      ...(theOther?.media === undefined ? {} : { remoteMedia: theOther.media }),
+      ...(theOther?.screen === undefined ? {} : { remoteScreen: theOther.screen }),
       id: callId,
       conversationId: going.conversationId,
       callerId: going.startedBy,
@@ -313,15 +350,11 @@ export class MatrixConference {
       isVideo: somebodyHasACameraOn,
       state: "connected",
       startedAt: going.startedAt,
-      kind: "conference",
       participants,
       // What this side sends is encrypted before it leaves the browser; the SFU carries what it cannot read.
       isEncrypted: going.room.isE2EEEnabled,
       isMicrophoneMuted: !own.isMicrophoneEnabled,
       isCameraMuted: !own.isCameraEnabled,
-      // A room has no other end to make wait, which is why holding is refused before it ever reaches here.
-      isOnHold: false,
-      isOnHoldByThem: false,
       isSharingScreen: ownScreen !== undefined
     };
   }
@@ -342,15 +375,13 @@ export class MatrixConference {
       id: callId,
       conversationId: going.conversationId,
       callerId: participants[0]?.userId ?? "",
-      isVideo: false,
+      // What the people already on it agreed it is, which is what a screen ringing has to make room for.
+      isVideo: going.session.getConsensusCallIntent() === "video",
       state: "ringing",
       startedAt: going.startedAt,
-      kind: "conference",
       participants,
       isMicrophoneMuted: false,
       isCameraMuted: false,
-      isOnHold: false,
-      isOnHoldByThem: false,
       isSharingScreen: false
     };
   }
@@ -392,9 +423,15 @@ function isThisDevice(client: MatrixClient, member: { userId: string; deviceId: 
 async function walkOutOf(going: Joined): Promise<void> {
   going.stopListening();
   await going.room.disconnect();
-  await going.session.leaveRoomSession();
+  // A session the room refused, or one already left, has nothing to take down; asking it to warns and does
+  // nothing, and a log full of that hides the warning that matters. Bounded: a homeserver that will not take
+  // the leave should not keep a client hanging for it, and the membership expires on its own.
+  if (going.session.isJoined()) await going.session.leaveRoomSession(leavePatienceMs);
   await going.session.stop();
 }
+
+/** How long to wait for the room to take this side's leave before moving on without it. */
+const leavePatienceMs = 5000;
 
 /** What is kept about a conference this side is in. The SFU and the SDK keep everything else. */
 interface Joined {

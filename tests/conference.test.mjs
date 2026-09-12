@@ -23,20 +23,10 @@ test("a conference is joined without ringing anybody", async () => {
   const call = await client.calls.join(conversation.id);
 
   assert.equal(call.conversationId, conversation.id);
-  assert.equal(call.kind, "conference");
   // Nobody has to answer, so there is nothing to wait for.
   assert.equal(call.state, "connected");
   // A screen draws a padlock on this, and a conference that cannot say so is one that is not.
   assert.equal(call.isEncrypted, true);
-  await client.stop();
-});
-
-test("a placed call is a direct one, so a screen knows it can be refused", async () => {
-  const { client, conversation } = await startClient();
-
-  const call = await client.calls.place(conversation.id, {});
-
-  assert.equal(call.kind, "direct");
   await client.stop();
 });
 
@@ -107,24 +97,6 @@ test("joining a conversation that is not there is refused", async () => {
   await client.stop();
 });
 
-test("a conference is left, not put on hold", async () => {
-  const { client, conversation } = await startClient();
-  const call = await client.calls.join(conversation.id);
-
-  // Nobody is waiting on the other end of a room, so there is nothing to make wait.
-  await assert.rejects(client.calls.hold(call.id, true), { code: "NOT_SUPPORTED" });
-  await client.stop();
-});
-
-test("a conference cannot be handed to somebody, because it is not a line", async () => {
-  const { client, conversation } = await startClient();
-  const call = await client.calls.join(conversation.id);
-
-  await assert.rejects(client.calls.transfer(call.id, "carol"), { code: "NOT_SUPPORTED" });
-  await assert.rejects(client.calls.pressDigit(call.id, "1"), { code: "NOT_SUPPORTED" });
-  await client.stop();
-});
-
 test("who is talking is told apart, so a grid is not repainted for it", async () => {
   const { adapter, client, conversation } = await startClient();
   const call = await client.calls.join(conversation.id);
@@ -146,7 +118,6 @@ test("a conference somebody else starts is announced, so a screen can offer to j
   adapter.startConferenceAs(conversation.id, "bob");
 
   const call = await announced;
-  assert.equal(call.kind, "conference");
   // Going on without this side, which for a room is what ringing means: there is something to join.
   assert.equal(call.state, "ringing");
   assert.deepEqual(

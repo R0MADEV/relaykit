@@ -1,7 +1,6 @@
 import type { MatrixEvent } from "matrix-js-sdk";
 import { EventType, type Room } from "matrix-js-sdk";
-import type { MCallReplacesEvent } from "matrix-js-sdk/lib/webrtc/callEventTypes.js";
-import type { AdapterHandlers, CallTransfer, Message } from "@relaykit/core";
+import type { AdapterHandlers, Message } from "@relaykit/core";
 import {
   isMessageEdit,
   mapConversation,
@@ -33,47 +32,6 @@ export function handleTimeline(
   handleTimelineEvent(event, room, toStartOfTimeline, handlers, context, false);
 }
 
-/**
- * How long after it was said a transfer still means anything. A call the SDK places gives itself a minute to
- * be answered, and a transfer is an instruction to ring somebody now: past that, whatever it was about is
- * over.
- */
-const stillWorthRinging = 60 * 1000;
-
-/**
- * The SDK's own event and its own shape: nothing here is guessed at from a string.
- *
- * Old ones ring nobody. They arrive again every time a client catches up — replaying sync from storage, or
- * coming back after being away — and acting on one rings somebody out of nowhere about a call that ended long
- * ago. The SDK ignores stale incoming calls for the same reason.
- */
-export function mapTransfer(
-  event: MatrixEvent,
-  room: Pick<Room, "roomId">,
-  where: { readonly caughtUp: boolean }
-): CallTransfer | undefined {
-  if (event.getType() !== EventType.CallReplaces) return undefined;
-  // Nothing read while catching up rings anybody. Signing in replays what was said while you were away, and
-  // acting on a transfer found there rings somebody about a call that finished before this one started.
-  // Being recent is not enough: a transfer from a minute ago is recent and still over. The SDK holds incoming
-  // calls back until the first sync is done, for exactly this reason.
-  if (!where.caughtUp) return undefined;
-  if (event.getLocalAge() > stillWorthRinging) return undefined;
-  const said = event.getContent() as MCallReplacesEvent;
-  const target = said.target_user;
-  if (!target?.id) return undefined;
-  return {
-    conversationId: room.roomId,
-    callId: said.call_id,
-    toUserId: target.id,
-    // Handing a call to somebody already on the line reaches both of them and says different things: one is
-    // told to ring, the other to expect a ring. Reading both the same way has one ringing somebody who is
-    // about to ring them, and neither being answered.
-    waitForThem: said.await_call !== undefined,
-    ...(target.display_name ? { toDisplayName: target.display_name } : {})
-  };
-}
-
 function handleTimelineEvent(
   event: MatrixEvent,
   room: Room | undefined,
@@ -98,13 +56,6 @@ function handleTimelineEvent(
   }
 
   handlers.onConversationUpdated?.(mapConversation(room));
-  // Being asked to pass a call on. The SDK sends this and hangs up, and does nothing with it when it
-  // arrives: without telling somebody, a transfer is one side hanging up and the other simply cut off.
-  const passedOn = mapTransfer(event, room, { caughtUp: context.caughtUp() });
-  if (passedOn) {
-    handlers.onCallTransferred?.(passedOn);
-    return;
-  }
   const reaction = mapReaction(event);
   if (reaction) {
     handlers.onReactionAdded?.(reaction);

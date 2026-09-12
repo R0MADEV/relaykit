@@ -3,6 +3,28 @@
 Este proyecto sigue [SemVer](https://semver.org/lang/es/). Hasta 1.0.0 la API publica puede cambiar entre versiones
 menores; los cambios incompatibles se listan aqui.
 
+## Sin publicar
+
+### Cambiado
+
+- **Una sola forma de llamar.** Toda llamada, de dos personas o de muchas, va por un SFU (LiveKit) con
+  MatrixRTC: Matrix dice quién puede estar y quién está, y reparte las claves con las que cada navegador cifra
+  lo que manda. `place` te mete en la llamada el primero y hace sonar a los demás; `join` entra en una en
+  marcha; `answer` es entrar en la que te sonó; colgar es salir y la llamada sigue para quien quede.
+- Las conversaciones nuevas dejan a todos sus miembros decir que están en una llamada, y en las antiguas lo
+  abre el primer administrador que empiece una — antes solo podía entrar en su propia llamada quien había
+  creado la sala.
+- `Call` gana `participants` (todo el mundo, cada uno con su `media`), `isEncrypted` y `ownScreen`; el evento
+  `call.speaking` dice quién habla sin repintar la llamada entera; `call.incoming` suena también cuando una
+  llamada empieza en una conversación tuya.
+
+### Quitado
+
+- Las llamadas 1:1 entre navegadores (`m.call.*` del SDK) y con ellas `hold`, `transfer`, `pressDigit`,
+  `joinCalls`, el evento `call.transferred`, `CallTransfer`, `Call.kind`, `isOnHold`, `isOnHoldByThem`,
+  `talkingTo` y `hasRemoteMedia`. Era vocabulario de teléfono; el teléfono no va por aquí.
+- coturn del entorno de desarrollo: el relé lo trae LiveKit dentro.
+
 ## 0.1.0-alpha.1 - 2026-09-07
 
 Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit/matrix-js`,

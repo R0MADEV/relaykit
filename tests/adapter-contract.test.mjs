@@ -264,14 +264,13 @@ function runContract(name, setup) {
     const callsArePossible = typeof globalThis.RTCPeerConnection === "function" || name === "in-memory";
 
     it("places a call into a conversation and hangs it up", { skip: !callsArePossible }, async () => {
-      // Only the signalling is checked here: audio and video go straight between devices, and there are no
-      // devices on either side of this. What has to be true is that placing it says a call is going on and
-      // hanging up says it is not.
+      // What has to be true is that starting it says a call is going on and hanging up says it is not; there
+      // are no devices on either side of this to carry anything.
       const call = await adapter.placeCall(conversationId, { video: false });
 
       assert.equal(call.conversationId, conversationId);
       assert.equal(call.isVideo, false);
-      assert.ok(["ringing", "connecting"].includes(call.state), `odd state: ${call.state}`);
+      assert.equal(call.state, "connected", "whoever starts a call is the first one on it");
       assert.ok(
         (await adapter.listCalls()).some(item => item.id === call.id),
         "the call was not going on"
@@ -294,7 +293,7 @@ function runContract(name, setup) {
       }
     );
 
-    it("what somebody does during a call: silence, camera, hold", { skip: !callsArePossible }, async () => {
+    it("what somebody does during a call: silence, camera", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, { video: true });
 
       const asItStands = async () => (await adapter.listCalls()).find(item => item.id === call.id);
@@ -304,14 +303,10 @@ function runContract(name, setup) {
       assert.equal((await asItStands()).isMicrophoneMuted, true);
       await adapter.muteCallCamera(call.id, true);
       assert.equal((await asItStands()).isCameraMuted, true);
-      await adapter.holdCall(call.id, true);
-      assert.equal((await asItStands()).isOnHold, true);
 
       // And back, because a button that only goes one way is half a button.
       await adapter.muteCallMicrophone(call.id, false);
-      await adapter.holdCall(call.id, false);
       assert.equal((await asItStands()).isMicrophoneMuted, false);
-      assert.equal((await asItStands()).isOnHold, false);
 
       await adapter.hangUpCall(call.id);
     });
@@ -324,23 +319,8 @@ function runContract(name, setup) {
 
       // A call that starts again every time it is read is a call nothing can time.
       assert.equal(laterOn.startedAt, call.startedAt);
-      assert.equal(laterOn.isOnHoldByThem, false);
       await adapter.hangUpCall(call.id);
     });
-
-    it(
-      "takes a digit pressed during the call, and refuses what is not one",
-      { skip: !callsArePossible },
-      async () => {
-        const call = await adapter.placeCall(conversationId, {});
-
-        // Nothing comes back: a digit is heard by whatever is on the other end, not by this side. What is
-        // required is that pressing one is not a failure, and that nonsense is refused.
-        await adapter.pressDigitInCall(call.id, "7");
-
-        await adapter.hangUpCall(call.id);
-      }
-    );
 
     it(
       "says how a call is going, or says nothing rather than zeroes",

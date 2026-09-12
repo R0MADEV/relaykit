@@ -71,12 +71,10 @@ const nothingTouchedYet = {
   isEncrypted: true,
   isMicrophoneMuted: false,
   isCameraMuted: false,
-  isOnHold: false,
-  isOnHoldByThem: false,
   isSharingScreen: false
 } as const;
 
-/** Nobody is in a call that is still ringing: they arrive when it is answered. */
+/** Nobody is on a call yet: whoever starts it is the first to walk in. */
 const nobodyYet: readonly CallParticipant[] = [];
 
 export class InMemoryAdapter implements MessagingAdapter {
@@ -616,11 +614,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly polls = new Map<MessageId, Poll>();
   private readonly liveLocations = new Map<string, LiveLocation>();
   private readonly calls = new Map<string, Call>();
-  /** Conferences still going on that this side walked out of, which are not this side's any more. */
+  /** Calls still going on that this side walked out of, which are not this side's any more. */
   private readonly left = new Set<string>();
   /** What the next call would be made with. Kept so a test can see that choosing one was taken notice of. */
-  /** What has been pressed during calls, so a test can see that pressing arrived somewhere. */
-  readonly digitsPressed: string[] = [];
   private chosenMicrophone: string | undefined;
   private chosenCamera: string | undefined;
   private readonly pollVotes = new Map<MessageId, Map<UserId, string>>();
@@ -854,54 +850,47 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
+  /**
+   * Starting a call is entering it first. Ringing the others is the homeserver's doing and a double has none,
+   * so here it is the same as walking in; a test that wants somebody to be rung has `startConferenceAs`.
+   */
   async placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    // Calling a conversation that is not here is not a call that failed: there was never anybody to call.
-    if (!this.conversations.some(item => item.id === conversationId)) {
-      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
-    }
-    const call: Call = {
-      id: `memory-call-${this.nextMessageId++}`,
-      conversationId,
-      callerId: this.requireUserId(),
-      isVideo: options.video === true,
-      state: "ringing",
-      startedAt: Date.now(),
-      kind: "direct",
-      participants: nobodyYet,
-      ...nothingTouchedYet
-    };
-    this.calls.set(call.id, call);
-    return call;
+    return this.joinCall(conversationId, options);
   }
 
   /**
-   * A conference is entered, not started: if one is already going on in that conversation this joins that
-   * one, because a screen opened twice must not put the same person in twice.
+   * A call is entered, not started: if one is already going on in that conversation this joins that one,
+   * because a screen opened twice must not put the same person in twice.
    */
   async joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     if (!this.conversations.some(item => item.id === conversationId)) {
-      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to join");
+      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
     }
-    const going = [...this.calls.values()].find(
-      call => call.conversationId === conversationId && call.kind === "conference"
-    );
+    const going = [...this.calls.values()].find(call => call.conversationId === conversationId);
     if (going) return this.enter(going);
     const started: Call = {
       id: `memory-call-${this.nextMessageId++}`,
       conversationId,
       callerId: this.requireUserId(),
       isVideo: options.video === true,
-      // Nobody has to answer a room, so there is nothing to wait for.
       state: "connected",
       startedAt: Date.now(),
-      kind: "conference",
       participants: nobodyYet,
       ...nothingTouchedYet
     };
     return this.enter(started);
   }
 
-  /** Walking in, whether the conference was already going on or has just been started by walking in. */
+  /** Picking up what rang is walking into it. */
+  async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    const answered = this.enter(call);
+    this.handlers.onCallChanged?.(answered);
+    return answered;
+  }
+
+  /** Walking in, whether the call was already going on or has just been started by walking in. */
   private enter(call: Call): Call {
     this.left.delete(call.id);
     // Ringing was it going on without this side. With this side in it there is nothing left to wait for.
@@ -927,23 +916,15 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
-  async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
-    const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
-    const answered: Call = { ...call, state: "connected" };
-    this.calls.set(callId, answered);
-    this.handlers.onCallChanged?.(answered);
-    return answered;
-  }
-
-  /** A call that is over stops being one that is going on, so it leaves the list rather than lingering. */
+  /**
+   * Leaving is not ending it: whoever is still on it carries on, and coming back has to find the same call.
+   * Only a call nobody is left on stops going on.
+   */
   async hangUpCall(callId: string): Promise<void> {
     const call = this.calls.get(callId);
     if (!call) return;
     const others = call.participants.filter(participant => participant.userId !== this.requireUserId());
-    const carriesOn = call.kind === "conference" && others.length > 0;
-    if (carriesOn) {
-      // Leaving is not ending it: the rest are still talking, and coming back has to find the same call.
+    if (others.length > 0) {
       this.calls.set(callId, { ...call, participants: others });
       this.left.add(callId);
       this.handlers.onCallChanged?.({ ...call, participants: others, state: "ended" });
@@ -953,9 +934,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.handlers.onCallChanged?.({ ...call, state: "ended" });
   }
 
+  /** Not picking up: the call goes on without this side, which stops being told about it. */
   async rejectCall(callId: string): Promise<void> {
-    // Refusing ends it here just as hanging up does. What differs is what the other side is told, and a double
-    // has no other side to tell.
     await this.hangUpCall(callId);
   }
 
@@ -968,30 +948,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.changeCall(callId, { isCameraMuted: muted, ...(muted ? {} : { isVideo: true }) });
   }
 
-  /** Kept so a screen can show what was pressed; a double has nothing on the other end to listen. */
-  async pressDigitInCall(callId: string, digit: string): Promise<void> {
-    const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
-    this.digitsPressed.push(digit);
-  }
-
-  async holdCall(callId: string, onHold: boolean): Promise<void> {
-    this.changeCall(callId, { isOnHold: onHold });
-  }
-
   async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
     this.changeCall(callId, { isSharingScreen: sharing });
-  }
-
-  /** Handing it over ends it here: whoever transferred it is no longer in the call. */
-  async transferCall(callId: string, _userId: UserId): Promise<void> {
-    await this.hangUpCall(callId);
-  }
-
-  /** Joining two ends both here: the two people carry on together and this side steps out. */
-  async joinCalls(callId: string, otherCallId: string): Promise<void> {
-    await this.hangUpCall(callId);
-    await this.hangUpCall(otherCallId);
   }
 
   /** A double has no line to measure, so it says nothing rather than making numbers up. */
@@ -1017,41 +975,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async listCalls(): Promise<readonly Call[]> {
-    // What this side is in, which is what a screen paints. A conference left goes on without it.
+    // What this side is in or is being rung for, which is what a screen paints. A call left goes on without it.
     return [...this.calls.values()].filter(call => !this.left.has(call.id));
   }
 
-  /** Test helper: somebody passes their call here on to somebody else. */
-  receiveTransfer(conversationId: ConversationId, toUserId: UserId): void {
-    this.handlers.onCallTransferred?.({
-      conversationId,
-      callId: `memory-call-${this.nextMessageId++}`,
-      toUserId,
-      waitForThem: false
-    });
-  }
-
-  /** Test helper: somebody else calls this conversation. */
-  receiveCall(conversationId: ConversationId, callerId: UserId, options: PlaceCallOptions): Call {
-    const call: Call = {
-      id: `memory-call-${this.nextMessageId++}`,
-      conversationId,
-      callerId,
-      isVideo: options.video === true,
-      state: "ringing",
-      startedAt: Date.now(),
-      kind: "direct",
-      participants: nobodyYet,
-      ...nothingTouchedYet
-    };
-    this.calls.set(call.id, call);
-    this.handlers.onCallIncoming?.(call);
-    return call;
-  }
-
   /**
-   * Test helper: somebody else starts a conference in this conversation. It rings here the way a room
-   * rings: not asking to be answered, but there to be joined.
+   * Test helper: somebody else starts a call in this conversation. It rings here the way a room rings: not
+   * asking to be answered, but there to be joined.
    */
   startConferenceAs(conversationId: ConversationId, userId: UserId): Call {
     const started: Call = {
@@ -1061,7 +991,6 @@ export class InMemoryAdapter implements MessagingAdapter {
       isVideo: false,
       state: "ringing",
       startedAt: Date.now(),
-      kind: "conference",
       participants: nobodyYet,
       ...nothingTouchedYet
     };
@@ -1071,7 +1000,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     return going;
   }
 
-  /** Test helper: the last of them leaves, and a conference nobody is in is not going on any more. */
+  /** Test helper: the last of them leaves, and a call nobody is on is not going on any more. */
   endConference(callId: string): void {
     const call = this.calls.get(callId);
     if (!call) return;
@@ -1080,7 +1009,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.handlers.onCallChanged?.({ ...call, participants: nobodyYet, state: "ended" });
   }
 
-  /** Test helper: somebody else walks into a conference that is already going on. */
+  /** Test helper: somebody else walks into a call that is already going on. */
   joinCallAs(callId: string, userId: UserId): void {
     const call = this.calls.get(callId);
     if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
@@ -1089,7 +1018,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.handlers.onCallChanged?.(joined);
   }
 
-  /** Test helper: whether a call is still going on at all, which is not the same as this side being in it. */
+  /** Test helper: whether a call is still going on at all, which is not the same as this side being on it. */
   callIsGoingOn(callId: string): boolean {
     return this.calls.has(callId);
   }

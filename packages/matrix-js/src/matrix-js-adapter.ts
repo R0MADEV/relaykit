@@ -543,109 +543,58 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.reaching(conversationId, () => listMatrixPolls(this.runtime.getClient(), conversationId));
   }
 
+  /** Starting a call is entering it first, and having the room ring everybody else in it. */
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     return this.reaching(conversationId, async () =>
-      this.runtime.calls.place(this.runtime.getClient(), conversationId, options)
+      this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: true })
     );
   }
 
   joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     return this.reaching(conversationId, async () =>
-      this.runtime.conference.join(this.runtime.getClient(), conversationId, options)
+      this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: false })
     );
   }
 
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call> {
-    return this.run(() => this.runtime.calls.answer(callId, options));
+    return this.run(() => this.runtime.conference.answer(this.runtime.getClient(), callId, options));
   }
 
   async hangUpCall(callId: string): Promise<void> {
-    await this.forCall(
-      callId,
-      async () => this.runtime.calls.hangUp(callId),
-      () => this.runtime.conference.leave(callId)
-    );
+    await this.run(() => this.runtime.conference.leave(callId));
   }
 
+  /** Not picking up is walking away from what rang: it goes on, and this side stops being told. */
   async rejectCall(callId: string): Promise<void> {
-    await this.run(() => this.runtime.calls.reject(callId));
+    await this.run(() => this.runtime.conference.leave(callId));
   }
 
   async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.forCall(
-      callId,
-      () => this.runtime.calls.muteMicrophone(callId, muted),
-      () => this.runtime.conference.setMicrophone(callId, !muted)
-    );
+    await this.run(() => this.runtime.conference.setMicrophone(callId, !muted));
   }
 
   async muteCallCamera(callId: string, muted: boolean): Promise<void> {
-    await this.forCall(
-      callId,
-      () => this.runtime.calls.muteCamera(callId, muted),
-      () => this.runtime.conference.setCamera(callId, !muted)
-    );
-  }
-
-  async pressDigitInCall(callId: string, digit: string): Promise<void> {
-    await this.run(() => this.runtime.calls.pressDigit(callId, digit));
-  }
-
-  async holdCall(callId: string, onHold: boolean): Promise<void> {
-    await this.run(() => this.runtime.calls.hold(callId, onHold));
+    await this.run(() => this.runtime.conference.setCamera(callId, !muted));
   }
 
   async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
-    await this.forCall(
-      callId,
-      () => this.runtime.calls.shareScreen(callId, sharing),
-      () => this.runtime.conference.setScreenShare(callId, sharing)
-    );
-  }
-
-  async joinCalls(callId: string, otherCallId: string): Promise<void> {
-    await this.run(() => this.runtime.calls.joinCalls(callId, otherCallId));
+    await this.run(() => this.runtime.conference.setScreenShare(callId, sharing));
   }
 
   async callQuality(callId: string): Promise<CallQuality> {
-    return this.forCall(
-      callId,
-      () => this.runtime.calls.quality(callId),
-      () => this.runtime.conference.quality(callId)
-    );
-  }
-
-  async transferCall(callId: string, userId: string): Promise<void> {
-    await this.run(() => this.runtime.calls.transfer(callId, userId));
+    return this.run(() => this.runtime.conference.quality(callId));
   }
 
   async useMicrophone(deviceId: string): Promise<void> {
-    // The account's choice, not one call's: whatever is going on, either way it is carried, switches.
-    await this.run(async () => {
-      await this.runtime.calls.useMicrophone(this.runtime.getClient(), deviceId);
-      await this.runtime.conference.useMicrophone(deviceId);
-    });
+    await this.run(() => this.runtime.conference.useMicrophone(deviceId));
   }
 
   async useCamera(deviceId: string): Promise<void> {
-    await this.run(async () => {
-      await this.runtime.calls.useCamera(this.runtime.getClient(), deviceId);
-      await this.runtime.conference.useCamera(deviceId);
-    });
+    await this.run(() => this.runtime.conference.useCamera(deviceId));
   }
 
   async listCalls(): Promise<readonly Call[]> {
-    // One list, whichever way each of them is carried: a screen paints what is going on, not how.
-    return [...this.runtime.calls.list(), ...this.runtime.conference.list()];
-  }
-
-  /**
-   * The same thing asked of a direct call and of a conference is done two different ways underneath. Which
-   * one it is, is something the call id already knows, so an application never has to say.
-   */
-  private forCall<T>(callId: string, ofDirect: () => Promise<T>, ofConference: () => Promise<T>): Promise<T> {
-    const isAConference = this.runtime.conference.isGoingOn(callId);
-    return this.run(isAConference ? ofConference : ofDirect);
+    return this.runtime.conference.list();
   }
 
   async stopSendingFile(transactionId: string): Promise<boolean> {

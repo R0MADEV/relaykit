@@ -384,28 +384,12 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new SdkError("NOT_CONFIGURED", "Cannot put the camera away");
   }
 
-  async pressDigitInCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot press a digit");
-  }
-
-  async holdCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot hold a call");
-  }
-
   async shareScreenInCall(): Promise<void> {
     throw new SdkError("NOT_CONFIGURED", "Cannot show the screen");
   }
 
-  async joinCalls(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot join two calls");
-  }
-
   async callQuality(): Promise<CallQuality> {
     throw new SdkError("NOT_CONFIGURED", "Cannot say how a call is going");
-  }
-
-  async transferCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot transfer a call");
   }
 
   async useMicrophone(): Promise<void> {

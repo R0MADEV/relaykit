@@ -321,8 +321,10 @@ export interface LinkPreview {
 }
 
 /**
- * A call happening now between the people of a conversation. What travels over Matrix is the signalling: the
- * audio and the video go straight between the devices, so nothing of what is said passes through here.
+ * A call going on now among the people of a conversation. Matrix says who may be on it and who is; the
+ * picture and the sound are carried by a server that cannot read them, because every frame leaves each
+ * browser encrypted with keys that travel over Matrix. Two people on a call are a call with two on it: there
+ * is one shape, however many there are.
  */
 export interface Call {
   readonly id: string;
@@ -332,26 +334,16 @@ export interface Call {
   readonly isVideo: boolean;
   readonly state: CallState;
   readonly startedAt: number;
-  /** Which of the two things this is, because what can be done to each of them differs. */
-  readonly kind: CallKind;
   /**
    * Everybody on the call, this side included. A call between two people is a conference with two in it, so
    * there is one list and not a special case: whoever draws a grid draws this, however many there are.
    */
   readonly participants: readonly CallParticipant[];
-  /** Present once there is something to show, which is not the same moment as answering. */
-  readonly hasRemoteMedia?: boolean;
   /** Silenced here: the other side stops hearing, and the call carries on. */
   readonly isMicrophoneMuted: boolean;
   readonly isCameraMuted: boolean;
-  /** On hold the other side is told, and stops hearing and seeing. Not the same as being silenced. */
-  readonly isOnHold: boolean;
-  /** The other way round: they are the ones who stepped away, and there is nothing to do but wait. */
-  readonly isOnHoldByThem: boolean;
   /** What went wrong, when something did. A call that ends for a reason should be able to say which. */
   readonly wentWrong?: string;
-  /** Who is really on the other end, when the call says so: after being passed on, it is not who was rung. */
-  readonly talkingTo?: UserId;
   readonly isSharingScreen: boolean;
   /**
    * Whether what is said can be read only by the people on the call. A direct call goes between the two
@@ -371,6 +363,9 @@ export interface Call {
   /**
    * A shared screen is a second thing to show, not a swap of the camera: both travel at once, so they are
    * handed over apart and a screen can draw the face small and the screen large, as any client does.
+   *
+   * `remoteMedia` and `remoteScreen` are the other person's when there is exactly one: the shortcut for the
+   * call between two that most calls are. With more, `participants` is where everybody's is.
    */
   readonly ownScreen?: MediaStream;
   readonly remoteScreen?: MediaStream;
@@ -381,13 +376,6 @@ export interface Call {
  * way and knowing which side placed it is what `callerId` is for.
  */
 export type CallState = "ringing" | "connecting" | "connected" | "ended";
-
-/**
- * A direct call is rung and answered, and ends when one side hangs up. A conference is entered and left, was
- * already going on, and carries on without whoever leaves. Holding, transferring and pressing digits belong
- * to the first: there is nobody on the other end of a room to make wait.
- */
-export type CallKind = "direct" | "conference";
 
 /**
  * Somebody on a call. The device and not only the person, because the same account can be in from the laptop
@@ -430,14 +418,6 @@ export interface CallQuality {
   readonly roundTripMs?: number;
 }
 
-export interface CallTransfer {
-  readonly conversationId: ConversationId;
-  readonly callId: string;
-  readonly toUserId: UserId;
-  readonly toDisplayName?: string;
-  /** They are about to ring: waiting is the whole job. Otherwise it is this side that rings them. */
-  readonly waitForThem: boolean;
-}
 export const callStates: readonly CallState[] = ["ringing", "connecting", "connected", "ended"];
 
 export interface PlaceCallOptions {

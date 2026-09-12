@@ -11,54 +11,49 @@ export class CallOperations {
   constructor(private readonly context: CallOperationsContext) {}
 
   /**
-   * Calling the people of a conversation. The signalling goes over Matrix, which is why a conversation is
-   * needed at all: it is what says who is being called and who may answer.
+   * Starting a call in a conversation and ringing the people in it. Matrix is what says who they are and who
+   * may pick up, which is why a conversation is needed at all.
    */
   async place(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    if (!conversationId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A call needs a conversation to place it into");
-    }
-    return this.context.adapter.placeCall(conversationId, options);
+    return this.context.adapter.placeCall(this.requireConversation(conversationId), options);
   }
 
   /**
-   * Entering the call of a conversation instead of starting one: it is already going on and nobody is rung.
-   * A call between two people is a conference with two in it, so what comes back is the same `Call`.
+   * Entering the call of a conversation that is already going on, without ringing anybody. Two people on a
+   * call are a call with two on it, so what comes back is the same `Call` either way.
    */
   async join(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    if (!conversationId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A call needs a conversation to join");
-    }
-    return this.context.adapter.joinCall(conversationId, options);
+    return this.context.adapter.joinCall(this.requireConversation(conversationId), options);
   }
 
   /**
-   * Answering with video when the call was placed without it is not the same call: the other side was never
-   * told to make room on the screen. Whoever answers decides only about their own camera.
+   * Picking up what rang. Answering with video when the call was placed without it is not the same call:
+   * the others were never told to make room on the screen. Whoever answers decides only about their own
+   * camera.
    */
   async answer(callId: string, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
     return this.context.adapter.answerCall(this.require(callId), options);
   }
 
-  /** Hanging up a call that is already over is not a failure: it is what somebody pressing twice does. */
+  /**
+   * Leaving. The call carries on for whoever is still on it, and hanging up one that is already over is not a
+   * failure: it is what somebody pressing twice does.
+   */
   async hangUp(callId: string): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.hangUpCall(this.require(callId));
   }
 
-  /**
-   * Refusing a call is not hanging it up. Whoever is being rung and does not want to answer has the other side
-   * told so, and the call can be shown as refused instead of as one that was answered and cut off.
-   */
+  /** Not picking up what rang. The call goes on without this side, which simply stops being told about it. */
   async reject(callId: string): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.rejectCall(this.require(callId));
   }
 
-  /** Silenced: the other side stops hearing, and the call carries on. */
+  /** Silenced: the others stop hearing this side, and the call carries on. */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.muteCallMicrophone(this.require(callId), muted);
@@ -69,54 +64,9 @@ export class CallOperations {
     await this.context.adapter.muteCallCamera(this.require(callId), muted);
   }
 
-  /** On hold the other side is told, and stops hearing and seeing. Not the same as being silenced. */
-  async hold(callId: string, onHold: boolean): Promise<void> {
-    this.context.assertStarted();
-    const id = await this.directOnly(callId, "A conference is left, not put on hold");
-    await this.context.adapter.holdCall(id, onHold);
-  }
-
-  /**
-   * A digit pressed during a call. Menus on the other end listen for these, and a webphone without them
-   * cannot get past "press one for".
-   */
-  async pressDigit(callId: string, digit: string): Promise<void> {
-    this.context.assertStarted();
-    if (!/^[0-9*#A-D]$/i.test(digit)) {
-      throw new SdkError("INVALID_INPUT", "A telephone has digits 0 to 9, star, hash and A to D");
-    }
-    const id = await this.directOnly(callId, "A conference has no menu to press digits at");
-    await this.context.adapter.pressDigitInCall(id, digit);
-  }
-
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.shareScreenInCall(this.require(callId), sharing);
-  }
-
-  /** Handing the call to somebody else, who then talks to whoever was on the other end. */
-  async transfer(callId: string, userId: string): Promise<void> {
-    this.context.assertStarted();
-    if (!userId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A call can only be transferred to somebody");
-    }
-    const id = await this.directOnly(callId, "A conference cannot be handed on: it is a room, not a line");
-    await this.context.adapter.transferCall(id, userId);
-  }
-
-  /**
-   * Handing a call to somebody already on the line: the first person waits, the second is rung and told who
-   * is coming, and then the two are joined and this side steps out.
-   */
-  async joinCalls(callId: string, otherCallId: string): Promise<void> {
-    this.context.assertStarted();
-    if (this.require(callId) === this.require(otherCallId)) {
-      throw new SdkError("INVALID_INPUT", "A call cannot be handed to itself");
-    }
-    const cannot = "A conference cannot be joined to another call";
-    await this.directOnly(callId, cannot);
-    await this.directOnly(otherCallId, cannot);
-    await this.context.adapter.joinCalls(callId, otherCallId);
   }
 
   /** How a call is going, for a screen that wants to say why somebody cannot be heard. */
@@ -142,16 +92,11 @@ export class CallOperations {
     return this.context.adapter.listCalls();
   }
 
-  /**
-   * Holding, transferring and pressing digits are things done to a line with somebody on the other end. A
-   * conference has no other end, so they are refused here rather than in every adapter.
-   */
-  private async directOnly(callId: string, whatItIsNot: string): Promise<string> {
-    const id = this.require(callId);
-    const going = await this.context.adapter.listCalls();
-    const isConference = going.find(call => call.id === id)?.kind === "conference";
-    if (isConference) throw new SdkError("NOT_SUPPORTED", whatItIsNot);
-    return id;
+  private requireConversation(conversationId: ConversationId): ConversationId {
+    if (!conversationId.trim()) {
+      throw new SdkError("INVALID_INPUT", "A call needs a conversation to happen in");
+    }
+    return conversationId;
   }
 
   private requireDevice(deviceId: string): string {
