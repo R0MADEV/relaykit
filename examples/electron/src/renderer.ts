@@ -107,6 +107,33 @@ async function run(): Promise<void> {
   const downloaded = await restored.media.download(sent.attachment!);
   detail.attachmentRoundTrip = downloaded.length === data.length && downloaded.every((byte, index) => byte === data[index]);
 
+  // What sending costs against the real IndexedDB of a browser, which is the number that matters. The tests
+  // measure against a JavaScript stand-in, and that one is far slower than the real thing.
+  const howMany = 20;
+  const startedSending = performance.now();
+  for (let index = 0; index < howMany; index += 1) {
+    await restored.messages.send(conversation.id, `medida ${index}`);
+  }
+  detail.millisecondsPerSend = Number(((performance.now() - startedSending) / howMany).toFixed(2));
+
+  // Opening a conversation is all local, so this is the number the storage work actually moves.
+  await restored.messages.list(conversation.id);
+  const startedOpening = performance.now();
+  await restored.messages.list(conversation.id);
+  detail.millisecondsToOpenAConversation = Number((performance.now() - startedOpening).toFixed(2));
+
+  // Changing the secret against the real IndexedDB of a browser, which is where the transactions and the schema
+  // behave for real. Everything kept has to still be readable afterwards.
+  step("storage.rekey");
+  const before = await previous.getMessages(conversation.id);
+  await previous.rekey(`${storageSecret}-rotated`);
+  const after = await previous.getMessages(conversation.id);
+  detail.messagesBeforeRekey = before.length;
+  detail.messagesAfterRekey = after.length;
+  detail.rekeyKeptEverything = before.length > 0 && before.length === after.length
+    && before.every((message, index) => message.body === after[index]?.body);
+  await previous.rekey(storageSecret);
+
   const databases = await relaykitDatabases();
   detail.databasesAfterRestoreFlow = databases;
   const stored = databases[0] ? await readStoredMessages(databases[0]) : [];
@@ -115,7 +142,8 @@ async function run(): Promise<void> {
   await restored.stop();
 
   const persistedOnLoginFlow = (detail.databasesAfterLoginFlow as string[]).length > 0;
-  const ok = detail.storageSecretIsStable === true
+  const ok = detail.rekeyKeptEverything === true
+    && detail.storageSecretIsStable === true
     && detail.attachmentRoundTrip === true
     && detail.storedBodiesAreEncrypted === true
     && (detail.restoredMessages as number) > 0
