@@ -57,12 +57,27 @@ export class MatrixCalls {
    * What somebody does during a call. Every one of these is the SDK's own: it is what knows how to stop a
    * track without dropping the call, what to tell the other side, and how to renegotiate afterwards.
    */
+  /**
+   * What the SDK answers is how the call ended up, not whether it did as it was told, and those differ: with
+   * no microphone on the machine, or in the middle of agreeing something with the other side, it leaves
+   * things as they were and says so.
+   *
+   * So what came back is compared with what was asked. Throwing that answer away leaves a button that
+   * reports success while the microphone carries on sending, which of all the ways to be wrong about a call
+   * is the worst one.
+   */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, call => call.setMicrophoneMuted(muted));
+    await this.changing(callId, async call => {
+      if (await call.setMicrophoneMuted(muted) === muted) return;
+      throw new Error(`The call could not be ${muted ? "silenced" : "let speak again"} just now`);
+    });
   }
 
   async muteCamera(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, call => call.setLocalVideoMuted(muted));
+    await this.changing(callId, async call => {
+      if (await call.setLocalVideoMuted(muted) === muted) return;
+      throw new Error(`The camera could not be ${muted ? "put away" : "brought back"} just now`);
+    });
   }
 
   /** On hold the other side is told, and stops hearing and seeing, which is not the same as being silenced. */

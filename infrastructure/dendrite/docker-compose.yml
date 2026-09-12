@@ -1,0 +1,35 @@
+services:
+  dendrite-postgres:
+    image: postgres:16-alpine
+    container_name: relaykit-dendrite-postgres
+    environment:
+      POSTGRES_USER: dendrite
+      POSTGRES_PASSWORD: dendrite
+      POSTGRES_DB: dendrite
+    volumes:
+      - dendrite-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dendrite"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  dendrite:
+    image: matrixdotorg/dendrite-monolith:latest
+    container_name: relaykit-dendrite
+    # Dendrite refuses open registration without saying so out loud, and it is right to. This is a homeserver
+    # that lives for the length of a test run on a machine nobody else can reach.
+    command: ["--config", "/etc/dendrite/dendrite.yaml", "-really-enable-open-registration"]
+    volumes:
+      - ./dendrite.yaml:/etc/dendrite/dendrite.yaml:ro
+      - ./data:/etc/dendrite/keys
+      - dendrite-data:/var/dendrite
+    ports:
+      - "8108:8008"
+    depends_on:
+      dendrite-postgres:
+        condition: service_healthy
+
+volumes:
+  dendrite-postgres-data:
+  dendrite-data:

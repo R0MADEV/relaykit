@@ -33,7 +33,8 @@ async function main() {
     existing = createClient();
     await existing.login({ homeserver, username: "alice", password: "alice-password", deviceName: "RelayKit registration smoke" });
     await existing.start();
-    const conversation = await newcomer.conversations.open("@alice:localhost");
+    // The same server the newcomer just joined, whatever it calls itself.
+    const conversation = await newcomer.conversations.open(`@alice:${session.userId.split(":")[1]}`);
     await waitFor("Alice to be invited", async () => {
       const conversations = await existing.conversations.list();
       return conversations.find(item => item.id === conversation.id);

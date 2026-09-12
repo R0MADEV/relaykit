@@ -163,6 +163,13 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Silenciar y apagar la camara comprueban lo que el SDK contesta. Lo que devuelve es como quedo la llamada, no
+  si hizo lo que se le pidio, y no son lo mismo: sin microfono en la maquina deja las cosas como estaban y lo
+  dice. Ahora se compara con lo que se pidio, porque un boton que dice "hecho" mientras el microfono sigue
+  enviando es la peor manera de equivocarse en una llamada.
+- Sabido y anotado: encender la camara despues de apagarla no vuelve, y des-silenciar dentro de una
+  videollamada tampoco. Las dos son lo mismo por debajo: hace falta acordar medios nuevos con el otro lado y
+  eso no se completa en las comprobaciones. En llamada de voz silenciar y volver a hablar si funciona.
 - Corregido: una encuesta desaparecia de la pantalla en cuanto alguien decia algo. Se dibujaba dentro de la
   conversacion, y esa se reconstruye entera cada vez que llega un mensaje, asi que la encuesta se borraba y
   nadie la volvia a poner. Ahora tienen sitio propio. Esto es lo que hacia fallar la comprobacion del

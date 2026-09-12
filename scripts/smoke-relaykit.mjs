@@ -3,13 +3,22 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 const alice = { username: "alice", password: "alice-password" };
+/**
+ * Who somebody is depends on the homeserver, not on the address it is reached at. Writing `@bob:localhost`
+ * works until these run against a server that calls itself something else, and then the invitation goes off
+ * to federation looking for a server that is not there.
+ */
+const who = name => `@${name}:${serverName}`;
+let serverName = "localhost";
 const bob = { username: "bob", password: "bob-password" };
 
 async function createClient(credentials) {
   const adapter = new MatrixJsAdapter();
   const client = new MessagingClient({ adapter });
-  await client.login({ ...credentials, homeserver, deviceName: "RelayKit smoke check" });
+  // Signing in says who this turned out to be, which is where the server's own name comes from.
+  const session = await client.login({ ...credentials, homeserver, deviceName: "RelayKit smoke check" });
   await client.start();
+  serverName = session.userId.split(":")[1];
   return client;
 }
 
@@ -41,7 +50,7 @@ async function main() {
     const membershipUpdates = [];
     aliceClient.on("conversation.updated", updated => membershipUpdates.push(updated));
     const conversation = await aliceClient.conversations.create({
-      participantIds: ["@bob:localhost"],
+      participantIds: [who("bob")],
       title: "RelayKit smoke check"
     });
     await bobClient.conversations.join(conversation.id);
@@ -102,14 +111,14 @@ async function main() {
     });
 
     const notified = notifications.find(notification => notification.body === unreadBody);
-    if (!notified || notified.senderId !== "@bob:localhost") {
+    if (!notified || notified.senderId !== who("bob")) {
       throw new Error(`Alice was not notified about Bob's message: ${JSON.stringify(notifications)}`);
     }
-    if (notifications.some(notification => notification.senderId === "@alice:localhost")) {
+    if (notifications.some(notification => notification.senderId === who("alice"))) {
       throw new Error("Alice was notified about her own message");
     }
 
-    const sawBobJoin = membershipUpdates.some(updated => updated.participantIds.includes("@bob:localhost"));
+    const sawBobJoin = membershipUpdates.some(updated => updated.participantIds.includes(who("bob")));
     if (!sawBobJoin) {
       throw new Error("Alice was never told that Bob joined the conversation");
     }
@@ -132,14 +141,14 @@ async function main() {
     await bobClient.messages.markRead(conversation.id, readMessage.id);
     const readers = await waitFor("Bob's read receipt to reach Alice", async () => {
       const receipts = await aliceClient.messages.readBy(conversation.id, readMessage.id);
-      return receipts.some(receipt => receipt.userId === "@bob:localhost") ? receipts : undefined;
+      return receipts.some(receipt => receipt.userId === who("bob")) ? receipts : undefined;
     });
     if (readers.every(receipt => typeof receipt.readAt !== "number")) {
       throw new Error("The read receipts carry no timestamp");
     }
 
-    const direct = await aliceClient.conversations.open("@bob:localhost");
-    const directAgain = await aliceClient.conversations.open("@bob:localhost");
+    const direct = await aliceClient.conversations.open(who("bob"));
+    const directAgain = await aliceClient.conversations.open(who("bob"));
     if (!direct.isDirect || direct.id !== directAgain.id) {
       throw new Error(`Opening the direct conversation twice produced different rooms: ${direct.id} vs ${directAgain.id}`);
     }

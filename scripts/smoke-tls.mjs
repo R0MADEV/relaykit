@@ -1,4 +1,23 @@
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createClient } from "matrix-js-sdk";
+
+/**
+ * The certificate signs itself, so this has to be told to trust it, and that can only be said before Node
+ * starts. Rather than leave that to however this happens to be launched — which made it fail when run
+ * directly and pass through npm — it is said here and this starts again.
+ *
+ * Told to trust one certificate, not told to stop checking: turning verification off would be checking that
+ * something answers on a port, which is not the question.
+ */
+const certificate = process.env.RELAYKIT_TLS_CERT ?? "infrastructure/matrix/data/tls.crt";
+if (!process.env.NODE_EXTRA_CA_CERTS && existsSync(certificate)) {
+  const again = spawnSync(process.execPath, [...process.argv.slice(1)], {
+    env: { ...process.env, NODE_EXTRA_CA_CERTS: certificate },
+    stdio: "inherit"
+  });
+  process.exit(again.status ?? 1);
+}
 
 // The homeserver answering over https, which is how any application that is not a local experiment will
 // reach it.

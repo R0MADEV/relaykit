@@ -107,6 +107,24 @@ anunciándose.
 **Solo para desarrollo tal como está**: el secreto está en el fichero, no hay TLS, y apuntar el relé a una red
 privada está denegado a propósito.
 
+### Dendrite — el segundo homeserver
+
+Otra implementación de servidor Matrix, del mismo equipo que Synapse pero escrita en Go. Hace lo mismo:
+guardar conversaciones, repartir mensajes, federar.
+
+No está para desarrollar contra él, sino para **comprobar que la biblioteca no es una biblioteca para
+Synapse**. Se levanta aparte (`infrastructure/dendrite/up.sh`, puerto 8108) y las mismas pruebas de humo se
+ejecutan contra él sin tocar una línea, apuntando con `MATRIX_HOMESERVER`.
+
+Lo que enseña es justo lo que hay que saber:
+
+- La **ventana deslizante** (MSC3575) es de Synapse. Aquí no existe, y por eso en RelayKit es opcional: sin
+  `conversationWindow` se usa el `/sync` de siempre, que implementa cualquier homeserver.
+- Dendrite trae la **presencia apagada** y **las miniaturas** no funcionan igual.
+
+Una aplicación que tenga que correr contra cualquier homeserver sabe entonces qué puede dar por hecho y qué
+no, en vez de descubrirlo en producción.
+
 ### El gateway de notificaciones
 
 Un contenedor mínimo que apunta lo que le llega. No es parte de la biblioteca: está para poder comprobar que

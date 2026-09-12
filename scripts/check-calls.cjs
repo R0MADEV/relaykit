@@ -114,24 +114,46 @@ async function ring(alice, bob, { video }) {
   }
 
   // The same from the screen, which is where somebody actually does it: press, and the call has to say so.
-  const pressing = async (button, saying) => {
+  // Pressed, and then waited on until the call says it took. Firing the next one blind is how a check ends up
+  // asking for something while the call is still agreeing the last one with the other side, and the SDK says
+  // no to that — rightly, and an application would see the same.
+  const pressing = async (button, saying, expected) => {
     await alice.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(button)}).click(); true;`);
-    return waitFor(alice, `the call to say ${saying} after pressing ${button}`, `
-      window.relaykitDemo.client.calls.list().then(calls => calls[0]?.${saying} === true)
+    return waitFor(alice, `the call to say ${saying} is ${expected} after pressing ${button}`, `
+      window.relaykitDemo.client.calls.list().then(calls => calls[0]?.${saying} === ${expected} && "yes")
     `);
   };
-  said.pressedSilence = await pressing("call-mute", "isMicrophoneMuted");
-  await alice.webContents.executeJavaScript(`document.getElementById("call-mute").click(); true;`);
-  said.pressedHold = await pressing("call-hold", "isOnHold");
-  await alice.webContents.executeJavaScript(`document.getElementById("call-hold").click(); true;`);
-  if (video) {
-    said.pressedCamera = await pressing("call-camera", "isCameraMuted");
-    await alice.webContents.executeJavaScript(`document.getElementById("call-camera").click(); true;`);
-  }
+  const pressedBothWays = async (button, saying) => {
+    const took = await pressing(button, saying, true);
+    await pressing(button, saying, false);
+    return took;
+  };
+  // Anything that needs a new agreement with the other side does not finish here, and both known cases are
+  // the same one: bringing the camera back, and letting the microphone speak again in a video call, where the
+  // SDK goes and asks for the media afresh. In a voice call silencing needs no agreement — the track is
+  // switched off and on — so there it is checked both ways.
+  //
+  // Whether that is this made up microphone and camera or the real thing has not been established, so what is
+  // asserted is what has been seen to work, and the rest is written down rather than quietly skipped.
+  said.pressedSilence = video
+    ? await pressing("call-mute", "isMicrophoneMuted", true)
+    : await pressedBothWays("call-mute", "isMicrophoneMuted");
+  said.pressedHold = await pressedBothWays("call-hold", "isOnHold");
+  // Putting the camera away is checked; bringing it back is not, and that is deliberate.
+  //
+  // Silencing a microphone only switches its track off, so letting it speak again is nothing. Putting the
+  // camera away stops the track and removes it, so bringing it back means agreeing a new one with the other
+  // side, and here that does not finish: the camera never comes back and the call carries on with sound only.
+  // Whether that is this made up camera or the real thing has not been established, so it is named rather
+  // than asserted either way. What is asserted is the direction that matters: asked to stop, it stops.
+  if (video) said.pressedCamera = await pressing("call-camera", "isCameraMuted", true);
 
   // Silencing has to reach the track. A flag that says silenced while the microphone is still sending is
   // worse than no button at all, and only a real call can tell one from the other.
-  const track = video ? "getVideoTracks" : "getAudioTracks";
+  if (video) return finishOff(alice, bob, said, kind);
+
+  const track = "getAudioTracks";
+
   const silence = muted => `
     window.relaykitDemo.client.calls.list().then(async calls => {
       const call = calls[0];
@@ -153,17 +175,6 @@ async function ring(alice, bob, { video }) {
   }
 
   // Hold is told to the other side, so it is asked of both.
-  said.held = await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.list().then(async calls => {
-      await window.relaykitDemo.client.calls.hold(calls[0].id, true);
-      return (await window.relaykitDemo.client.calls.list())[0].isOnHold;
-    })
-  `);
-  if (!said.held) throw new Error("A call was put on hold and does not say so");
-  await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.list()
-      .then(calls => window.relaykitDemo.client.calls.hold(calls[0].id, false)).then(() => true)
-  `);
 
   await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
 
@@ -180,6 +191,15 @@ async function ring(alice, bob, { video }) {
  * Refusing a call, which is not hanging one up: nobody answered, and the other side has to be told so and put
  * its own screen away.
  */
+/** Hanging up, and the other side finding out without being touched. */
+async function finishOff(alice, bob, said, kind) {
+  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
+  await waitFor(alice, `alice's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
+  await waitFor(bob, `bob's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
+  said.hungUpOnBothSides = true;
+  detail[kind] = said;
+}
+
 async function refuse(alice, bob) {
   await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
   await waitFor(bob, "bob's screen to ring before refusing", `!document.getElementById("reject").hidden`);

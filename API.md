@@ -181,6 +181,16 @@ después de estar conectada. Escucha `call.changed` y vuelve a asignar `srcObjec
 **Silenciar y la espera no cambian el estado** de la llamada, pero sí la llamada: también llegan por
 `call.changed`.
 
+**Silenciar el micro y apagar la cámara no son lo mismo por debajo.** Silenciar apaga la pista y volver a
+hablar la enciende. Apagar la cámara **detiene y quita** la pista, así que encenderla obliga a acordar una
+nueva con el otro lado. En nuestras comprobaciones eso **no llega a completarse**: la cámara no vuelve y la
+llamada sigue solo con sonido. No está establecido si es la cámara sintética de las pruebas o pasa igual con
+una de verdad. Si tu interfaz ofrece encender la cámara, **pruébalo con una cámara real antes de fiarte**.
+
+Lo mismo pasa con des-silenciar dentro de una **videollamada**: ahí el SDK también va a pedir el micrófono de
+nuevo, y vuelve a ser un acuerdo nuevo. En una llamada de voz silenciar y volver a hablar funciona y está
+comprobado en las dos direcciones.
+
 **La copia local es una comodidad, no la verdad.** Si el almacén falla, se informa y se sigue.
 
 **Hace falta origen seguro.** Sin `https` no hay `crypto.subtle`, y sin eso no hay copia local cifrada.

@@ -181,3 +181,34 @@ test("silencing, holding and the rest are announced, or the screen never finds o
   assert.equal(told[0].isMicrophoneMuted, true);
   assert.equal(told[1].isOnHold, true);
 });
+
+/**
+ * What the SDK answers is how the call ended up, not whether it did as it was told. With no microphone on the
+ * machine it leaves things as they were and says so, and a call that stayed unsilenced answers `false` to
+ * having been silenced.
+ *
+ * Reading that as success leaves a button that reports done while the microphone carries on sending, which of
+ * all the ways to be wrong about a call is the worst one.
+ */
+test("being refused a silence is said out loud, not reported as done", async () => {
+  const asked = [];
+  // Whatever it is asked, it stays as it was: nothing was silenced and nothing was put away.
+  const call = { ...fakeCall(asked), setMicrophoneMuted: () => false, setLocalVideoMuted: () => false };
+  const client = {
+    createCall: () => call,
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => ({ setAudioInput: () => undefined, setVideoInput: () => undefined }),
+    on: () => undefined
+  };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, () => undefined);
+  await calls.place(client, "!room:localhost", { video: true });
+
+  await assert.rejects(() => calls.muteMicrophone("call-1", true), /could not be silenced/i);
+  await assert.rejects(() => calls.muteCamera("call-1", true), /camera could not be put away/i);
+
+  // And the other way round: asked to let it speak again, a call that is not silenced answers `false`, and
+  // that is the call doing exactly as it was told.
+  await calls.muteMicrophone("call-1", false);
+  await calls.muteCamera("call-1", false);
+});
