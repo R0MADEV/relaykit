@@ -373,6 +373,11 @@ export type CallState = "ringing" | "connecting" | "connected" | "ended";
  * Being asked to pass a call on. Whoever transferred it has already hung up: what arrives is the name of the
  * person to ring instead, and ringing them is a decision, not something that should happen by itself.
  */
+/** What the homeserver will accept. Asked once and kept: it does not change while somebody is using it. */
+export interface MediaLimits {
+  readonly maxUploadBytes: number;
+}
+
 /** How a call is going, as the browser reports it. Absent where there is nothing to say. */
 export interface CallQuality {
   readonly packetsLost?: number;

@@ -15,6 +15,7 @@ import type {
   CallQuality,
   CallTransfer,
   LinkPreview,
+  MediaLimits,
   PlaceCallOptions,
   LiveLocation,
   ShareLocationInput,
@@ -135,6 +136,8 @@ export interface MessagingAdapter {
   downloadAttachment(media: MediaRef): Promise<Uint8Array>;
   /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
   previewLink(url: string): Promise<LinkPreview>;
+  /** What the homeserver will take, so nothing is sent that it is going to refuse. */
+  mediaLimits(): Promise<MediaLimits>;
   /** Calls. The signalling goes over Matrix; the audio and the video do not. */
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;

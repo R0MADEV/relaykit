@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import type { MessagingAdapter } from "./adapter.js";
-import type { LinkPreview, MediaRef } from "./models.js";
+import type { LinkPreview, MediaLimits, MediaRef } from "./models.js";
 
 export interface MediaOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -15,6 +15,19 @@ const previewFreshMs = 30 * 60 * 1000;
 
 export class MediaOperations {
   private readonly previews = new Map<string, { readonly preview: LinkPreview; readonly askedAt: number }>();
+  /** Asked once: what a homeserver will take does not change while somebody is using the application. */
+  private known: MediaLimits | undefined;
+
+  /**
+   * What the homeserver will take, so nothing is sent that it is going to refuse. Not asking means the only
+   * way to find out is to upload something over a phone connection and be told no at the end, which is the
+   * worst possible moment to find out.
+   */
+  async limits(): Promise<MediaLimits> {
+    this.context.assertStarted();
+    this.known ??= await this.context.adapter.mediaLimits();
+    return this.known;
+  }
 
   /** Insertion order is the order of this map, so the first entry is the one to drop. */
   private readonly cache = new Map<string, Uint8Array>();

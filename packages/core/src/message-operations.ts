@@ -30,10 +30,13 @@ import type {
   SendMessageOptions,
   Session,
   MarkReadOptions,
-  ThreadSummary
+  ThreadSummary,
+  MediaLimits
 } from "./models.js";
 
 export interface MessageOperationsContext {
+  /** What the homeserver will take, so nothing is sent that it is going to refuse. */
+  readonly whatTheHomeserverTakes: () => Promise<MediaLimits>;
   /** Told when a conversation is read, so whatever keeps the "unread" mark can take it off. */
   readonly wasRead?: (conversationId: ConversationId) => Promise<void>;
   readonly adapter: MessagingAdapter;
@@ -205,8 +208,24 @@ export class MessageOperations {
     return this.outbox.send(conversationId, body, options);
   }
 
-  sendFile(conversationId: ConversationId, file: FileInput, options: SendFileOptions = {}): Promise<Message> {
+  async sendFile(conversationId: ConversationId, file: FileInput, options: SendFileOptions = {}): Promise<Message> {
+    await this.refuseWhatIsTooBig(file);
     return this.outbox.sendFile(conversationId, file, options);
+  }
+
+  /**
+   * Refused here rather than after sending it. Every homeserver has a limit and says what it is; without
+   * asking, the only way to find out is to upload something over a phone connection and be told no at the
+   * end, with nothing to show for it.
+   */
+  private async refuseWhatIsTooBig(file: FileInput): Promise<void> {
+    const allowed = (await this.context.whatTheHomeserverTakes()).maxUploadBytes;
+    const size = file.data.byteLength;
+    if (size <= allowed) return;
+    throw new SdkError(
+      "INVALID_INPUT",
+      `This homeserver takes files up to ${allowed} bytes and this one is ${size}`
+    );
   }
 
   sendSticker(conversationId: ConversationId, sticker: FileInput): Promise<Message> {

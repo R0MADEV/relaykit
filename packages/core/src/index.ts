@@ -77,6 +77,7 @@ export type {
   CallTransfer,
   CallState,
   LinkPreview,
+  MediaLimits,
   PlaceCallOptions,
   LiveLocation,
   ShareLocationInput,

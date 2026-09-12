@@ -163,6 +163,9 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- `media.limits()`: lo que el homeserver acepta, preguntado con su propio metodo (`getMediaConfig`). Enviar un
+  archivo comprueba el tamano **antes** de gastarlo: un fichero rechazado despues de subirlo son diez minutos
+  de la conexion de alguien para nada, y enterarse al final es el peor momento. Synapse dice 50 MB.
 - Auditoria del chat contra el SDK:
   - Lo que un mensaje relaciona (que edita, que responde, de que hilo cuelga) se lee ahora en los dos sitios
     donde puede venir. La especificacion permite mandarlo solo fuera del cifrado y el SDK lo lee solo de ahi;

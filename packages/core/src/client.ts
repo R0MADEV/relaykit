@@ -24,6 +24,7 @@ import type {
   Call,
   CallQuality,
   LinkPreview,
+  MediaLimits,
   LiveLocation,
   PlaceCallOptions,
   MarkReadOptions,
@@ -291,7 +292,8 @@ export class MessagingClient {
   };
   readonly media = {
     download: (media: MediaRef): Promise<Uint8Array> => this.mediaOperations.download(media),
-    preview: (url: string): Promise<LinkPreview> => this.mediaOperations.preview(url)
+    preview: (url: string): Promise<LinkPreview> => this.mediaOperations.preview(url),
+    limits: (): Promise<MediaLimits> => this.mediaOperations.limits()
   };
   readonly verification = {
     request: (userId: string, deviceId?: string, options?: VerificationRequestOptions) =>
@@ -341,6 +343,7 @@ export class MessagingClient {
       emitMessageReceived: message => this.events.emit("message.received", message),
       // Built after this one, so it is reached when it is needed rather than when this is put together.
       wasRead: conversationId => this.conversationOperations.clearUnreadMark(conversationId),
+      whatTheHomeserverTakes: () => this.mediaOperations.limits(),
       cachedMessagesPerConversation: config.cache?.messagesPerConversation ?? defaultCachedMessages,
       rememberedMessages: config.cache?.seenMessages ?? defaultRememberedMessages,
       ...(storage ? { storage } : {})

@@ -87,7 +87,7 @@ La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegado
 | `client.reactions` | `add`, `remove` |
 | `client.polls` | `start`, `vote`, `close`, `list` |
 | `client.location` | `start`, `update`, `stop`, `list` — ubicación en vivo |
-| `client.media` | `download`, `preview` (previsualización de enlaces) |
+| `client.media` | `download`, `preview` (previsualización de enlaces), `limits` (lo que el servidor acepta) |
 | `client.presence` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
 | `client.devices` | `list`, `rename`, `verify`, `revoke`, `signOut`, `verification` |
 | `client.verification` | `request`, `qrCode`, `scan`, `accept`, `confirm`, `reject`, `cancel` |

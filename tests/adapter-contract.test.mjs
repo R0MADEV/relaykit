@@ -508,6 +508,15 @@ function runContract(name, setup) {
       assert.ok(waiting.every(item => typeof item.isMention === "boolean"));
     });
 
+    it("says what the homeserver will take, before anybody sends it", async () => {
+      const limits = await adapter.mediaLimits();
+
+      // A number, and a believable one. Sending something a homeserver will refuse is a connection spent for
+      // nothing, and finding out at the end is the worst moment to find out.
+      assert.equal(typeof limits.maxUploadBytes, "number");
+      assert.ok(limits.maxUploadBytes > 0, `it takes files up to ${limits.maxUploadBytes} bytes`);
+    });
+
     it("finds people by name, without knowing their identifier", async () => {
       // Inviting somebody you can only name by their full identifier is not something anybody can do from a
       // screen. The directory is how a person is found by the name they go by.

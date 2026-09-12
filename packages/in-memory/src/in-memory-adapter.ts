@@ -5,6 +5,7 @@ import type {
   Notification,
   ThreadSummary,
   LinkPreview,
+  MediaLimits,
   Poll,
   StartPollInput,
   LiveLocation,
@@ -941,6 +942,11 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** With no homeserver to ask, this double knows about one link and no others. */
+  /** A double takes what fits in a browser's memory; the number is here so a test has one to reason about. */
+  async mediaLimits(): Promise<MediaLimits> {
+    return { maxUploadBytes: 100 * 1024 * 1024 };
+  }
+
   async previewLink(url: string): Promise<LinkPreview> {
     if (url === "https://ejemplo.test/articulo") {
       return { url, title: "Un articulo de ejemplo", description: "De lo que va el articulo" };

@@ -41,6 +41,7 @@ import type {
   Notification,
   ThreadSummary,
   LinkPreview,
+  MediaLimits,
   Poll,
   StartPollInput,
   LiveLocation,
@@ -119,7 +120,7 @@ import {
   renameMatrixConversation,
   setMatrixFavourite
 } from "./matrix-conversations.js";
-import { downloadMatrixAttachment, previewMatrixLink, sendMatrixAttachment } from "./matrix-media.js";
+import { downloadMatrixAttachment, previewMatrixLink, sendMatrixAttachment, askWhatTheHomeserverTakes} from "./matrix-media.js";
 import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
 import {
   listMatrixLiveLocations,
@@ -508,6 +509,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   async listCalls(): Promise<readonly Call[]> {
     return this.runtime.calls.list();
+  }
+
+  async mediaLimits(): Promise<MediaLimits> {
+    return this.run(() => askWhatTheHomeserverTakes(this.runtime.getClient()));
   }
 
   previewLink(url: string): Promise<LinkPreview> {

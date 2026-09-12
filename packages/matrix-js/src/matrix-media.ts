@@ -8,7 +8,7 @@ import {
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
-import type { ConversationId, FileInput, LinkPreview, MediaRef, Message, ThumbnailInput } from "@relaykit/core";
+import type { ConversationId, FileInput, LinkPreview, MediaRef, Message, ThumbnailInput, MediaLimits} from "@relaykit/core";
 import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
 
 /** What `Attachment.source` carries for the Matrix adapter. */
@@ -188,4 +188,17 @@ function msgTypeFor(mimeType: string): string {
 
 function toArrayBuffer(data: Uint8Array): ArrayBuffer {
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+}
+
+/**
+ * What this homeserver will take. Its own answer, asked with its own method: every homeserver has a limit and
+ * publishes it, and a file refused after being sent is ten minutes of somebody's connection for nothing.
+ *
+ * A homeserver that will not say is taken at its word rather than guessed at: when there is no number, there
+ * is no limit to enforce here, and the send finds out the usual way.
+ */
+export async function askWhatTheHomeserverTakes(client: MatrixClient): Promise<MediaLimits> {
+  const said = await client.getMediaConfig().catch(() => ({}));
+  const allowed = (said as { "m.upload.size"?: unknown })["m.upload.size"];
+  return { maxUploadBytes: typeof allowed === "number" ? allowed : Number.MAX_SAFE_INTEGER };
 }

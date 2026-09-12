@@ -29,6 +29,7 @@ import type {
   NotificationLevel,
   UserId,
   LinkPreview,
+  MediaLimits,
   Poll,
   LiveLocation,
   Call,
@@ -410,6 +411,10 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async listCalls(): Promise<readonly Call[]> {
     throw new SdkError("NOT_CONFIGURED", "Cannot list calls");
+  }
+
+  async mediaLimits(): Promise<MediaLimits> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot ask what the homeserver takes");
   }
 
   async previewLink(): Promise<LinkPreview> {
