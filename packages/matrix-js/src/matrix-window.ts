@@ -96,7 +96,13 @@ const whatAConversationIs: [string, string][] = [
   [EventType.RoomAvatar, ""],
   [EventType.RoomCanonicalAlias, ""],
   [EventType.RoomJoinRules, ""],
-  [EventType.RoomEncryption, ""]
+  [EventType.RoomEncryption, ""],
+  // Whether a conference is going on in it, and who is on it. A window brings only the state it is asked
+  // for, and without these the SDK's own session sees an empty room: nobody's screen rings, and whoever
+  // joined never sees their own membership come back, so the key that is made once it does never is. Both
+  // names, because the SDK writes the older one today and already declares the settled one.
+  [EventType.GroupCallMemberPrefix, "*"],
+  [EventType.RTCMembership, "*"]
 ];
 
 /**
