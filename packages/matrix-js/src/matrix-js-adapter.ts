@@ -1,6 +1,20 @@
 import type {
   AvatarImage,
+  ConversationPermissions,
+  ConversationRole,
+  CreateSpaceInput,
+  NotificationLevel,
+  PublicConversation,
+  VerificationRequestOptions,
+  PushRegistration,
+  HistoryVisibility,
+  JoinRule,
+  KnockOptions,
+  SendContent,
+  Space,
+  Device,
   MediaRef,
+  SignOutOptions,
   ReadReceipt,
   User,
   FileInput,
@@ -12,6 +26,7 @@ import type {
   Message,
   Session,
   LoginCredentials,
+  RegisterCredentials,
   Reaction,
   DeviceVerification,
   CryptoStatus,
@@ -21,9 +36,20 @@ import type {
   PresenceUpdate,
   RecoverySetup,
   RecoverySetupOptions,
-  VerificationSession
+  VerificationSession,
+  MarkReadOptions,
+  Notification,
+  ThreadSummary,
+  LinkPreview,
+  Poll,
+  StartPollInput,
+  LiveLocation,
+  ShareLocationInput,
+  GeoLocation
 } from "@relaykit/core";
-import { loginWithPassword } from "./matrix-auth.js";
+import { ReceiptType } from "matrix-js-sdk";
+import { SdkError } from "@relaykit/core";
+import { loginWithPassword, registerWithPassword } from "./matrix-auth.js";
 import type { MatrixJsAdapterOptions } from "./types.js";
 import { deleteMatrixMessage, editMatrixMessage, findMessage } from "./matrix-message-mutations.js";
 import { addMatrixReaction, removeMatrixReaction } from "./matrix-reactions.js";
@@ -40,17 +66,72 @@ import {
   createConversation,
   joinConversation,
   listMatrixConversations,
+  listMatrixThread,
   loadMoreMessages,
+  searchMatrixMessages,
   sendMessage
 } from "./matrix-room-operations.js";
+import { readMatrixPermissions, setMatrixRole } from "./matrix-permissions.js";
+import {
+  discoverMatrixConversations,
+  knockMatrixConversation,
+  listMatrixKeywords,
+  listMatrixPinnedMessages,
+  listMatrixPushRegistrations,
+  markMatrixRead,
+  listMatrixThreads,
+  listMatrixMutedUsers,
+  setMatrixUserMuted,
+  getMatrixNotificationLevel,
+  setMatrixNotificationLevel,
+  listMatrixPending,
+  setMatrixUnread,
+  pinMatrixMessage,
+  publishMatrixConversation,
+  registerMatrixPush,
+  setMatrixAlias,
+  stopWatchingForMatrixKeyword,
+  upgradeMatrixConversation,
+  watchForMatrixKeyword,
+  setMatrixHistoryVisibility,
+  setMatrixJoinRule,
+  setMatrixConversationAvatar,
+  setMatrixNotifications,
+  setMatrixTopic,
+  unpinMatrixMessage,
+  unregisterMatrixPush
+} from "./matrix-details.js";
+import {
+  addToMatrixSpace,
+  createMatrixSpace,
+  listMatrixSpaceConversations,
+  listMatrixSpaces,
+  removeFromMatrixSpace
+} from "./matrix-spaces.js";
 import { MatrixRuntime } from "./matrix-runtime.js";
 import {
+  changeMatrixMembership,
   inviteToMatrixConversation,
   leaveMatrixConversation,
-  renameMatrixConversation
+  renameMatrixConversation,
+  setMatrixFavourite
 } from "./matrix-conversations.js";
-import { downloadMatrixAttachment, sendMatrixAttachment } from "./matrix-media.js";
-import { getMatrixAvatar, getMatrixProfile } from "./matrix-profiles.js";
+import { downloadMatrixAttachment, previewMatrixLink, sendMatrixAttachment } from "./matrix-media.js";
+import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
+import {
+  listMatrixLiveLocations,
+  startMatrixLiveLocation,
+  stopMatrixLiveLocation,
+  updateMatrixLiveLocation
+} from "./matrix-location.js";
+import {
+  getMatrixAvatar,
+  searchMatrixUsers,
+  getMatrixProfile,
+  listMatrixDevices,
+  setMatrixAvatar,
+  signOutMatrixDevices
+} from "./matrix-profiles.js";
 import { withTranslatedErrors } from "./matrix-errors.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
@@ -58,6 +139,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   constructor(options: MatrixJsAdapterOptions = {}) {
     this.runtime = new MatrixRuntime(options);
+  }
+
+  async register(credentials: RegisterCredentials): Promise<Session> {
+    return this.run(() => registerWithPassword(credentials));
   }
 
   async login(credentials: LoginCredentials): Promise<Session> {
@@ -76,7 +161,9 @@ export class MatrixJsAdapter implements MessagingAdapter {
     await this.run(() => this.runtime.logout());
   }
 
-  async listConversations(): Promise<readonly Conversation[]> {
+  async listConversations(upTo?: number): Promise<readonly Conversation[]> {
+    // Asking for more than the window holds widens it and waits for what is missing to arrive.
+    if (upTo !== undefined) await this.runtime.widenTheWindow(upTo);
     return this.run(async () => listMatrixConversations(this.runtime.getClient()));
   }
 
@@ -85,19 +172,19 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async leaveConversation(conversationId: ConversationId): Promise<void> {
-    await this.run(() => leaveMatrixConversation(this.runtime.getClient(), conversationId));
+    await this.reaching(conversationId, () => leaveMatrixConversation(this.runtime.getClient(), conversationId));
   }
 
   async inviteToConversation(conversationId: ConversationId, userId: string): Promise<Conversation> {
-    return this.run(() => inviteToMatrixConversation(this.runtime.getClient(), conversationId, userId));
+    return this.reaching(conversationId, () => inviteToMatrixConversation(this.runtime.getClient(), conversationId, userId));
   }
 
   async renameConversation(conversationId: ConversationId, title: string): Promise<Conversation> {
-    return this.run(() => renameMatrixConversation(this.runtime.getClient(), conversationId, title));
+    return this.reaching(conversationId, () => renameMatrixConversation(this.runtime.getClient(), conversationId, title));
   }
 
   async setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void> {
-    await this.run(() => this.runtime.getClient().sendTyping(conversationId, isTyping, timeoutMs));
+    await this.reaching(conversationId, () => this.runtime.getClient().sendTyping(conversationId, isTyping, timeoutMs));
   }
 
   async setPresence(update: PresenceUpdate): Promise<void> {
@@ -112,32 +199,248 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {
-    return this.run(() => listMatrixMessages(this.runtime.getClient(), conversationId));
+    return this.reaching(conversationId, () => listMatrixMessages(this.runtime.getClient(), conversationId));
   }
 
   async loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage> {
-    return this.run(() => loadMoreMessages(this.runtime.getClient(), conversationId, limit));
+    return this.reaching(conversationId, () => loadMoreMessages(this.runtime.getClient(), conversationId, limit));
   }
 
-  async sendMessage(conversationId: ConversationId, body: string, transactionId?: string, replyToId?: string): Promise<Message> {
-    return this.run(() => sendMessage(this.runtime.getClient(), conversationId, body, transactionId, replyToId));
+  async sendMessage(conversationId: ConversationId, body: string, options: SendContent = {}): Promise<Message> {
+    return this.reaching(conversationId, () => sendMessage(this.runtime.getClient(), conversationId, body, options));
   }
 
-  sendAttachment(
+  rotateConversationKeys(conversationId: ConversationId): Promise<void> {
+    return this.reaching(conversationId, async () => {
+      const crypto = this.runtime.getClient().getCrypto();
+      if (!crypto) throw new SdkError("NOT_CONFIGURED", "This session has no encryption");
+      await crypto.forceDiscardSession(conversationId);
+    });
+  }
+
+  upgradeConversation(conversationId: ConversationId): Promise<Conversation> {
+    return this.reaching(conversationId, () => upgradeMatrixConversation(this.runtime.getClient(), conversationId));
+  }
+
+  setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixAlias(this.runtime.getClient(), conversationId, alias));
+  }
+
+  publishConversation(conversationId: ConversationId, listed: boolean): Promise<void> {
+    return this.reaching(conversationId, () => publishMatrixConversation(this.runtime.getClient(), conversationId, listed));
+  }
+
+  discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]> {
+    return this.run(() => discoverMatrixConversations(this.runtime.getClient(), query));
+  }
+
+  reportMessage(conversationId: ConversationId, messageId: string, reason: string): Promise<void> {
+    // The score says how bad it is, and -100 is the worst the protocol allows.
+    return this.reaching(conversationId, async () => {
+      await this.runtime.getClient().reportEvent(conversationId, messageId, -100, reason);
+    });
+  }
+
+  setJoinRule(conversationId: ConversationId, rule: JoinRule): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixJoinRule(this.runtime.getClient(), conversationId, rule));
+  }
+
+  setHistoryVisibility(conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixHistoryVisibility(this.runtime.getClient(), conversationId, visibility));
+  }
+
+  knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void> {
+    return this.run(() => knockMatrixConversation(this.runtime.getClient(), conversationId, options));
+  }
+
+  watchForKeyword(word: string): Promise<void> {
+    return this.run(() => watchForMatrixKeyword(this.runtime.getClient(), word));
+  }
+
+  stopWatchingForKeyword(word: string): Promise<void> {
+    return this.run(() => stopWatchingForMatrixKeyword(this.runtime.getClient(), word));
+  }
+
+  listKeywords(): Promise<readonly string[]> {
+    return this.run(() => listMatrixKeywords(this.runtime.getClient()));
+  }
+
+  registerPush(registration: PushRegistration): Promise<void> {
+    return this.run(() => registerMatrixPush(this.runtime.getClient(), registration));
+  }
+
+  listPushRegistrations(): Promise<readonly PushRegistration[]> {
+    return this.run(() => listMatrixPushRegistrations(this.runtime.getClient()));
+  }
+
+  unregisterPush(deviceToken: string): Promise<void> {
+    return this.run(() => unregisterMatrixPush(this.runtime.getClient(), deviceToken));
+  }
+
+  setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixTopic(this.runtime.getClient(), conversationId, topic));
+  }
+
+  setConversationAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixConversationAvatar(this.runtime.getClient(), conversationId, image));
+  }
+
+  setConversationNotifications(conversationId: ConversationId, level: NotificationLevel): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixNotifications(this.runtime.getClient(), conversationId, level));
+  }
+
+  pinMessage(conversationId: ConversationId, messageId: string): Promise<void> {
+    return this.reaching(conversationId, () => pinMatrixMessage(this.runtime.getClient(), conversationId, messageId));
+  }
+
+  unpinMessage(conversationId: ConversationId, messageId: string): Promise<void> {
+    return this.reaching(conversationId, () => unpinMatrixMessage(this.runtime.getClient(), conversationId, messageId));
+  }
+
+  listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]> {
+    return this.reaching(conversationId, () => listMatrixPinnedMessages(this.runtime.getClient(), conversationId));
+  }
+
+  async listSpaces(): Promise<readonly Space[]> {
+    return this.run(async () => listMatrixSpaces(this.runtime.getClient()));
+  }
+
+  createSpace(input: CreateSpaceInput): Promise<Space> {
+    return this.run(() => createMatrixSpace(this.runtime.getClient(), input));
+  }
+
+  addToSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
+    return this.run(() => addToMatrixSpace(this.runtime.getClient(), spaceId, conversationId));
+  }
+
+  removeFromSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
+    return this.run(() => removeFromMatrixSpace(this.runtime.getClient(), spaceId, conversationId));
+  }
+
+  async listSpaceConversations(spaceId: ConversationId): Promise<readonly Conversation[]> {
+    return this.run(async () => listMatrixSpaceConversations(this.runtime.getClient(), spaceId));
+  }
+
+  searchMessages(query: string): Promise<readonly Message[]> {
+    return this.run(() => searchMatrixMessages(this.runtime.getClient(), query));
+  }
+
+  async listThread(conversationId: ConversationId, rootId: string): Promise<readonly Message[]> {
+    return this.reaching(conversationId, () => listMatrixThread(this.runtime.getClient(), conversationId, rootId));
+  }
+
+  getPermissions(conversationId: ConversationId): Promise<ConversationPermissions> {
+    return this.reaching(conversationId, () => readMatrixPermissions(this.runtime.getClient(), conversationId));
+  }
+
+  setRole(conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> {
+    return this.reaching(conversationId, () => setMatrixRole(this.runtime.getClient(), conversationId, userId, role));
+  }
+
+  async sendAttachment(
     conversationId: ConversationId,
     file: FileInput,
     transactionId?: string,
     onProgress?: (fraction: number) => void
   ): Promise<Message> {
-    return this.run(() => sendMatrixAttachment(this.runtime.getClient(), conversationId, file, transactionId, onProgress));
+    return this.reaching(conversationId, () =>
+      sendMatrixAttachment(this.runtime.getClient(), conversationId, file, transactionId, onProgress)
+    );
   }
 
-  getProfile(userId: string): Promise<User> {
-    return this.run(() => getMatrixProfile(this.runtime.getClient(), userId));
+  removeFromConversation(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> {
+    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "kick", reason));
   }
 
-  getAvatar(userId: string): Promise<AvatarImage | undefined> {
-    return this.run(() => getMatrixAvatar(this.runtime.getClient(), userId));
+  banFromConversation(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> {
+    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "ban", reason));
+  }
+
+  unbanFromConversation(conversationId: ConversationId, userId: string): Promise<Conversation> {
+    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "unban"));
+  }
+
+  setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixFavourite(this.runtime.getClient(), conversationId, favourite));
+  }
+
+  listIgnoredUsers(): Promise<readonly string[]> {
+    return this.run(async () => this.runtime.getClient().getIgnoredUsers());
+  }
+
+  setIgnoredUsers(userIds: readonly string[]): Promise<void> {
+    return this.run(async () => { await this.runtime.getClient().setIgnoredUsers([...userIds]); });
+  }
+
+  setDisplayName(displayName: string): Promise<void> {
+    return this.run(async () => { await this.runtime.getClient().setDisplayName(displayName); });
+  }
+
+  setAvatar(image: AvatarImage): Promise<void> {
+    return this.run(() => setMatrixAvatar(this.runtime.getClient(), image));
+  }
+
+  listDevices(): Promise<readonly Device[]> {
+    return this.run(() => listMatrixDevices(this.runtime.getClient()));
+  }
+
+  renameDevice(deviceId: string, displayName: string): Promise<void> {
+    return this.run(async () => { await this.runtime.getClient().setDeviceDetails(deviceId, { display_name: displayName }); });
+  }
+
+  signOutDevices(deviceIds: readonly string[], options: SignOutOptions): Promise<void> {
+    return this.run(() => signOutMatrixDevices(this.runtime.getClient(), deviceIds, options));
+  }
+
+  getProfile(userId: string, conversationId?: ConversationId): Promise<User> {
+    return this.run(() => getMatrixProfile(this.runtime.getClient(), userId, conversationId));
+  }
+
+  getAvatar(userId: string, conversationId?: ConversationId, size?: number): Promise<AvatarImage | undefined> {
+    return this.run(() => getMatrixAvatar(this.runtime.getClient(), userId, conversationId, size));
+  }
+
+  searchUsers(query: string, limit: number): Promise<readonly User[]> {
+    return this.run(() => searchMatrixUsers(this.runtime.getClient(), query, limit));
+  }
+
+  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
+    return this.reaching(conversationId, () =>
+      startMatrixLiveLocation(this.runtime.getClient(), conversationId, input));
+  }
+
+  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
+    return this.run(() => updateMatrixLiveLocation(this.runtime.getClient(), sharingId, position));
+  }
+
+  stopLiveLocation(sharingId: string): Promise<void> {
+    return this.run(() => stopMatrixLiveLocation(this.runtime.getClient(), sharingId));
+  }
+
+  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
+    return this.reaching(conversationId, () =>
+      listMatrixLiveLocations(this.runtime.getClient(), conversationId));
+  }
+
+  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
+    return this.reaching(conversationId, () => startMatrixPoll(this.runtime.getClient(), conversationId, input));
+  }
+
+  voteInPoll(conversationId: ConversationId, pollId: string, answerId: string): Promise<void> {
+    return this.reaching(conversationId, () =>
+      voteInMatrixPoll(this.runtime.getClient(), conversationId, pollId, answerId));
+  }
+
+  closePoll(conversationId: ConversationId, pollId: string): Promise<void> {
+    return this.reaching(conversationId, () => closeMatrixPoll(this.runtime.getClient(), conversationId, pollId));
+  }
+
+  listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
+    return this.reaching(conversationId, () => listMatrixPolls(this.runtime.getClient(), conversationId));
+  }
+
+  previewLink(url: string): Promise<LinkPreview> {
+    return this.run(() => previewMatrixLink(this.runtime.getClient(), url));
   }
 
   downloadAttachment(media: MediaRef): Promise<Uint8Array> {
@@ -145,24 +448,28 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async editMessage(conversationId: ConversationId, messageId: string, body: string): Promise<Message> {
-    const client = this.runtime.getClient();
-    const message = findMessage(await this.listMessages(conversationId), messageId);
-    return this.run(() => editMatrixMessage(client, conversationId, message, body));
+    return this.reaching(conversationId, async () => {
+      const client = this.runtime.getClient();
+      const message = findMessage(await this.listMessages(conversationId), messageId);
+      return editMatrixMessage(client, conversationId, message, body);
+    });
   }
 
   async deleteMessage(conversationId: ConversationId, messageId: string): Promise<Message> {
-    const client = this.runtime.getClient();
-    const message = findMessage(await this.listMessages(conversationId), messageId);
-    return this.run(() => deleteMatrixMessage(client, conversationId, message));
+    return this.reaching(conversationId, async () => {
+      const client = this.runtime.getClient();
+      const message = findMessage(await this.listMessages(conversationId), messageId);
+      return deleteMatrixMessage(client, conversationId, message);
+    });
   }
 
   async getReadReceipts(conversationId: ConversationId, messageId: string): Promise<readonly ReadReceipt[]> {
-    return this.run(async () => {
+    return this.reaching(conversationId, async () => {
       const room = this.runtime.getClient().getRoom(conversationId);
       const event = room?.findEventById(messageId);
       if (!room || !event) return [];
       return room.getReceiptsForEvent(event)
-        .filter(receipt => receipt.type === "m.read")
+        .filter(receipt => receipt.type === ReceiptType.Read)
         .map(receipt => ({
           conversationId,
           messageId,
@@ -172,20 +479,44 @@ export class MatrixJsAdapter implements MessagingAdapter {
     });
   }
 
-  async markMessageRead(conversationId: ConversationId, messageId: string): Promise<void> {
-    const event = this.runtime.getClient().getRoom(conversationId)?.findEventById(messageId);
-    if (!event) {
-      throw new Error("The message does not exist");
-    }
-    await this.run(() => this.runtime.getClient().sendReadReceipt(event));
+  async markMessageRead(conversationId: ConversationId, messageId: string, options: MarkReadOptions = {}): Promise<void> {
+    await this.reaching(conversationId, () => markMatrixRead(this.runtime.getClient(), conversationId, messageId, options));
+  }
+
+  setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation> {
+    return this.reaching(conversationId, () => setMatrixUnread(this.runtime.getClient(), conversationId, unread));
+  }
+
+  listPendingNotifications(limit: number): Promise<readonly Notification[]> {
+    return this.run(() => listMatrixPending(this.runtime.getClient(), limit));
+  }
+
+  listThreads(conversationId: ConversationId): Promise<readonly ThreadSummary[]> {
+    return this.reaching(conversationId, () => listMatrixThreads(this.runtime.getClient(), conversationId));
+  }
+
+  listMutedUsers(): Promise<readonly string[]> {
+    return this.run(() => listMatrixMutedUsers(this.runtime.getClient()));
+  }
+
+  setUserMuted(userId: string, muted: boolean): Promise<void> {
+    return this.run(() => setMatrixUserMuted(this.runtime.getClient(), userId, muted));
+  }
+
+  getNotificationLevel(): Promise<NotificationLevel> {
+    return this.run(() => getMatrixNotificationLevel(this.runtime.getClient()));
+  }
+
+  setNotificationLevel(level: NotificationLevel): Promise<void> {
+    return this.run(() => setMatrixNotificationLevel(this.runtime.getClient(), level));
   }
 
   async addReaction(conversationId: ConversationId, messageId: string, key: string): Promise<Reaction> {
-    return this.run(() => addMatrixReaction(this.runtime.getClient(), conversationId, messageId, key));
+    return this.reaching(conversationId, () => addMatrixReaction(this.runtime.getClient(), conversationId, messageId, key));
   }
 
   async removeReaction(conversationId: ConversationId, reactionId: string): Promise<void> {
-    await this.run(() => removeMatrixReaction(this.runtime.getClient(), conversationId, reactionId));
+    await this.reaching(conversationId, () => removeMatrixReaction(this.runtime.getClient(), conversationId, reactionId));
   }
 
   async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined> {
@@ -212,8 +543,20 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(() => recoverWithKey(this.runtime.getClient(), this.runtime.secretStorageKeys, recoveryKey));
   }
 
-  requestVerification(userId: string, deviceId?: string): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.request(userId, deviceId));
+  requestVerification(
+    userId: string,
+    deviceId?: string,
+    options?: VerificationRequestOptions
+  ): Promise<VerificationSession> {
+    return this.run(() => this.runtime.verification.request(userId, deviceId, options));
+  }
+
+  getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined> {
+    return this.run(() => this.runtime.verification.qrCode(sessionId));
+  }
+
+  scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
+    return this.run(() => this.runtime.verification.scan(sessionId, code));
   }
 
   acceptVerification(sessionId: string): Promise<VerificationSession> {
@@ -235,5 +578,17 @@ export class MatrixJsAdapter implements MessagingAdapter {
   /** Single exit point for homeserver errors, so Matrix details never reach the public API. */
   private run<Result>(operation: () => Promise<Result>): Promise<Result> {
     return withTranslatedErrors(operation);
+  }
+
+  /**
+   * The same, for anything done to a conversation that is already joined. When only a window over the
+   * conversations is synced, one that fell outside it is not held locally, and everything that waits for it
+   * would wait forever. Reaching for it first is what makes the window invisible to whoever uses this.
+   */
+  private reaching<Result>(conversationId: ConversationId, operation: () => Promise<Result>): Promise<Result> {
+    return this.run(async () => {
+      await this.runtime.reachFor(conversationId);
+      return operation();
+    });
   }
 }

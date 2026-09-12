@@ -3,8 +3,10 @@ export type { MessagingStorage } from "./storage.js";
 export { MessagingClient } from "./client.js";
 export type { ClientEvents } from "./events.js";
 export type { CacheOptions, MessagingClientConfig } from "./client-config.js";
+export type { StartOptions } from "./client-lifecycle.js";
 export { EventBus, type ClientEventMap, type EventListener, type EventName } from "./events.js";
 export { SdkError, type SdkErrorCode } from "./errors.js";
+export { joinRules, historyVisibilities, notificationLevels, presenceStates, maxStatusMessageLength, verificationMethods } from "./models.js";
 export { createConversationList, createMessageTimeline, type LiveCollection } from "./live.js";
 export type {
   Attachment,
@@ -21,9 +23,29 @@ export type {
   Message,
   MessageId,
   LoginCredentials,
+  RegisterCredentials,
   MessageStatus,
   MessagePage,
+  MessageKind,
+  SendContent,
+  Mentions,
+  ConversationPermissions,
+  ConversationRole,
+  NotificationLevel,
+  PushRegistration,
+  JoinRule,
+  HistoryVisibility,
+  KnockOptions,
+  PublicConversation,
+  VerificationMethod,
+  VerificationRequestOptions,
+  GeoLocation,
+  VoiceInfo,
+  CreateSpaceInput,
+  Space,
   MessageSearchOptions,
+  ListMessagesOptions,
+  ListConversationsOptions,
   Reaction,
   OutboxOperation,
   OutboxStatus,
@@ -43,9 +65,22 @@ export type {
   User,
   UserId,
   AvatarImage,
+  Device,
+  SignOutOptions,
   Notification,
   VerificationEmoji,
   VerificationPhase,
   VerificationSas,
-  VerificationSession
+  VerificationSession,
+  LinkPreview,
+  LiveLocation,
+  ShareLocationInput,
+  Poll,
+  PollAnswer,
+  StartPollInput,
+  MarkReadOptions,
+  ThreadSummary,
+  PendingNotificationsOptions,
+  SearchUsersOptions,
+  AvatarOptions
 } from "./models.js";

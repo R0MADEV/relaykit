@@ -20,6 +20,22 @@ function collect(client, eventName) {
   return received;
 }
 
+/**
+ * Lo que llega de fuera se guarda antes de avisar, y guardar no es instantaneo. Esperar a que llegue dice lo
+ * mismo que contarlo, sin depender de cuantos saltos de microtarea hagan falta para escribirlo.
+ */
+function waitFor(received, howMany = 1) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + 1000;
+    const look = () => {
+      if (received.length >= howMany) return resolve(received);
+      if (Date.now() > deadline) return reject(new Error(`nunca llegaron ${howMany}, hay ${received.length}`));
+      setTimeout(look, 1);
+    };
+    look();
+  });
+}
+
 test("a remote deletion is persisted and emitted as message.updated", async () => {
   const { adapter, storage, client, conversation } = await startClient();
   const sent = await client.messages.send(conversation.id, "to be redacted");
@@ -27,6 +43,7 @@ test("a remote deletion is persisted and emitted as message.updated", async () =
 
   await adapter.deleteMessage(conversation.id, sent.id);
 
+  await waitFor(updates);
   assert.equal(updates.length, 1);
   assert.equal(updates[0].id, sent.id);
   assert.ok(updates[0].deletedAt);
@@ -41,6 +58,7 @@ test("a remote edit is persisted and emitted as message.updated", async () => {
 
   await adapter.editMessage(conversation.id, sent.id, "after");
 
+  await waitFor(updates);
   assert.equal(updates.length, 1);
   assert.equal(updates[0].body, "after");
   assert.equal((await storage.getMessage(sent.id)).body, "after");
@@ -130,5 +148,31 @@ test("asking who read a message validates its identifiers", async () => {
   const { client, conversation } = await startClient();
 
   await assert.rejects(client.messages.readBy(conversation.id, "  "), { code: "INVALID_INPUT" });
+  await client.stop();
+});
+
+test("a message from someone else arrives as a new message, not as an update", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const received = collect(client, "message.received");
+  const updated = collect(client, "message.updated");
+
+  adapter.receiveMessage(conversation.id, "bob", "hola");
+  await new Promise(resolve => setTimeout(resolve, 5));
+
+  assert.deepEqual(received.map(message => message.body), ["hola"]);
+  assert.deepEqual(updated.map(message => message.body), [], "an arrival is not a change to something known");
+  await client.stop();
+});
+
+test("the states of a message being sent arrive as updates", async () => {
+  const { client, conversation } = await startClient();
+  const received = collect(client, "message.received");
+  const updated = collect(client, "message.updated");
+
+  await client.messages.send(conversation.id, "propio");
+  await new Promise(resolve => setTimeout(resolve, 5));
+
+  assert.deepEqual(received, [], "your own message is not an arrival");
+  assert.deepEqual(updated.map(message => message.status), ["queued", "sending", "sent"]);
   await client.stop();
 });

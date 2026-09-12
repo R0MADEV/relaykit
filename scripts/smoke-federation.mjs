@@ -47,9 +47,15 @@ async function main() {
     await dave.client.conversations.join(conversation.id);
 
     // The one who just arrived speaks first, so the other side knows the devices to encrypt for.
+    // This is the first thing that crosses between two servers that have just met, and on a cold pair with
+    // self-signed certificates that first exchange of keys can take a while. Everything after it is quick.
     const fromDave = `remote-${Date.now()}`;
     await dave.client.messages.send(conversation.id, fromDave);
-    await waitForReadable(alice, conversation.id, fromDave);
+    await waitFor(`${alice.userId} to read the first thing said across servers`, async () => {
+      const messages = await alice.client.messages.list(conversation.id);
+      const message = messages.find(item => item.body === fromDave);
+      return message && !message.undecryptable ? message : undefined;
+    }, 360);
 
     const fromAlice = `local-${Date.now()}`;
     await alice.client.messages.send(conversation.id, fromAlice);

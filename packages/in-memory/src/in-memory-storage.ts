@@ -4,13 +4,25 @@ import type {
   Message,
   MessageId,
   MessagingStorage,
-  OutboxOperation
+  OutboxOperation,
+  User
 } from "@relaykit/core";
 
 export class InMemoryStorage implements MessagingStorage {
   private readonly conversations = new Map<string, Conversation>();
   private readonly messages = new Map<MessageId, Message>();
   private readonly outbox = new Map<string, OutboxOperation>();
+  private readonly drafts = new Map<string, string>();
+  private readonly profiles = new Map<string, User>();
+
+  async getDraft(conversationId: string): Promise<string | undefined> {
+    return this.drafts.get(conversationId);
+  }
+
+  async saveDraft(conversationId: string, text: string | undefined): Promise<void> {
+    if (text === undefined) this.drafts.delete(conversationId);
+    else this.drafts.set(conversationId, text);
+  }
 
   async deleteOutboxOperation(operationId: string): Promise<void> {
     this.outbox.delete(operationId);
@@ -63,9 +75,31 @@ export class InMemoryStorage implements MessagingStorage {
     this.messages.set(message.id, message);
   }
 
+  async deleteMessages(messageIds: readonly MessageId[]): Promise<void> {
+    for (const messageId of messageIds) this.messages.delete(messageId);
+  }
+
+  async saveMessages(messages: readonly Message[]): Promise<void> {
+    for (const message of messages) this.messages.set(message.id, message);
+  }
+
+  async saveConversations(conversations: readonly Conversation[]): Promise<void> {
+    for (const conversation of conversations) this.conversations.set(conversation.id, conversation);
+  }
+
+  async getProfiles(): Promise<readonly User[]> {
+    return [...this.profiles.values()];
+  }
+
+  async saveProfiles(profiles: readonly User[]): Promise<void> {
+    for (const profile of profiles) this.profiles.set(profile.id, profile);
+  }
+
   async clear(): Promise<void> {
     this.conversations.clear();
     this.messages.clear();
     this.outbox.clear();
+    this.drafts.clear();
+    this.profiles.clear();
   }
 }

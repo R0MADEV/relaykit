@@ -69,10 +69,61 @@ async function main() {
       }
     }
 
+    // A thread keeps its answers out of the conversation, and everyone can read them.
+    const question = `thread-root-${Date.now()}`;
+    const root = await alice.client.messages.send(conversation.id, question);
+    await waitForMessage(bob, conversation.id, question);
+    const answer = `thread-answer-${Date.now()}`;
+    await bob.client.messages.send(conversation.id, answer, { threadId: root.id });
+    const thread = await waitFor("the answer to be readable in the thread", async () => {
+      const messages = await carol.client.messages.thread(conversation.id, root.id);
+      return messages.find(message => message.body === answer && !message.undecryptable);
+    });
+    if (thread.threadId !== root.id) {
+      throw new Error(`The answer hangs from ${thread.threadId} instead of the question`);
+    }
+    const timeline = await carol.client.messages.list(conversation.id);
+    if (timeline.some(message => message.body === answer)) {
+      throw new Error("The thread answer should not be in the middle of the conversation");
+    }
+
+    // Who is allowed to do what, and making somebody a moderator.
+    const asOwner = await alice.client.conversations.permissions(conversation.id);
+    if (!asOwner.canRemove || !asOwner.canRename) {
+      throw new Error(`The person who created the conversation cannot moderate it: ${JSON.stringify(asOwner)}`);
+    }
+    const asMember = await bob.client.conversations.permissions(conversation.id);
+    if (asMember.canRemove) {
+      throw new Error("An ordinary member should not be able to throw anybody out");
+    }
+    await alice.client.conversations.setRole(conversation.id, bob.userId, "moderator");
+    await waitFor("Bob to become a moderator", async () => {
+      const permissions = await bob.client.conversations.permissions(conversation.id);
+      return permissions.canRemove;
+    });
+
     const unreadForCarol = await waitFor("Carol to count what she has not read", async () => {
       const conversations = await carol.client.conversations.list();
       const current = conversations.find(item => item.id === conversation.id);
       return (current?.unreadCount ?? 0) > 0 ? current.unreadCount : undefined;
+    });
+
+    // Conversations can be grouped into a space, which is not a conversation itself.
+    const space = await alice.client.spaces.create({ title: `RelayKit space ${Date.now()}` });
+    await alice.client.spaces.add(space.id, conversation.id);
+    const grouped = await waitFor("the conversation to appear inside the space", async () => {
+      const inside = await alice.client.spaces.conversations(space.id);
+      return inside.find(item => item.id === conversation.id);
+    });
+    if (!grouped) throw new Error("The conversation is not inside the space");
+    const listed = await alice.client.conversations.list();
+    if (listed.some(item => item.id === space.id)) {
+      throw new Error("A space must not be listed as an ordinary conversation");
+    }
+    await alice.client.spaces.remove(space.id, conversation.id);
+    await waitFor("the conversation to leave the space", async () => {
+      const inside = await alice.client.spaces.conversations(space.id);
+      return inside.every(item => item.id !== conversation.id);
     });
 
     // When somebody leaves, the rest must see the group shrink.
@@ -82,6 +133,30 @@ async function main() {
       const current = conversations.find(item => item.id === conversation.id);
       return current && !current.participantIds.includes(carol.userId) ? current : undefined;
     });
+
+    // A conversation can ask people to knock, and the person who knocks waits until somebody lets them in.
+    await alice.client.conversations.setJoinRule(conversation.id, "knock");
+    await waitFor("the conversation to ask people to knock", async () => {
+      const conversations = await alice.client.conversations.list();
+      return conversations.find(item => item.id === conversation.id)?.joinRule === "knock";
+    });
+    await carol.client.conversations.knock(conversation.id, { reason: "me he salido sin querer" });
+    await waitFor("Alice to see Carol waiting at the door", async () => {
+      const conversations = await alice.client.conversations.list();
+      const current = conversations.find(item => item.id === conversation.id);
+      return current?.knockingIds?.includes(carol.userId);
+    });
+    await alice.client.conversations.invite(conversation.id, carol.userId);
+    await carol.client.conversations.join(conversation.id);
+    const letIn = await waitFor("Carol to stop waiting once she is in", async () => {
+      const conversations = await alice.client.conversations.list();
+      const current = conversations.find(item => item.id === conversation.id);
+      const stillWaiting = current?.knockingIds?.includes(carol.userId) ?? false;
+      return current?.participantIds.includes(carol.userId) && !stillWaiting ? current : undefined;
+    });
+    if (!letIn) throw new Error("Carol was let in but is still listed as waiting");
+    await carol.client.conversations.leave(conversation.id);
+    await alice.client.conversations.setJoinRule(conversation.id, "invite");
 
     const stillTalking = `after-leaving-${Date.now()}`;
     await alice.client.messages.send(conversation.id, stillTalking);

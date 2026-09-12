@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "matrix:up": "sh infrastructure/matrix/up.sh",
     "check": "npm run typecheck && npm run build",
     "smoke:matrix": "node scripts/smoke-matrix.mjs",
     "smoke:relaykit": "node scripts/smoke-relaykit.mjs",
@@ -24,7 +25,20 @@
     "smoke:devices": "node scripts/smoke-devices.mjs",
     "smoke:outage": "node scripts/smoke-outage.mjs",
     "smoke:federation": "node scripts/smoke-federation.mjs",
-    "federation:up": "sh infrastructure/matrix/federation/up.sh"
+    "federation:up": "sh infrastructure/matrix/federation/up.sh",
+    "smoke:registration": "node scripts/smoke-registration.mjs",
+    "smoke:chat": "node scripts/smoke-chat.mjs",
+    "smoke:live": "node scripts/smoke-live.mjs",
+    "smoke:qr": "node scripts/smoke-qr.mjs",
+    "smoke:window": "node scripts/smoke-window.mjs",
+    "smoke:revocation": "node scripts/smoke-revocation.mjs",
+    "smoke:push": "node scripts/smoke-push.mjs",
+    "smoke:user-verification": "node scripts/smoke-user-verification.mjs",
+    "bench:local": "node scripts/bench-local.mjs",
+    "bench:round-trips": "node scripts/bench-round-trips.mjs",
+    "check:web-demo": "npm run build --workspace=@relaykit/example-web && electron scripts/check-web-demo.cjs --no-sandbox --js-flags=--expose-gc --enable-precise-memory-info",
+    "bench:big-room": "node scripts/bench-big-room.mjs",
+    "bench:memory": "node --expose-gc scripts/bench-memory.mjs"
   },
   "devDependencies": {
     "electron": "^44.3.0",

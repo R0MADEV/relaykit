@@ -15,9 +15,10 @@ function createStorage(options = { encryptionSecret: secret }) {
   return { storage: new IndexedDbStorage(name, options), name };
 }
 
+/** Opens whatever version is there, so a change of schema does not need every test rewriting. */
 function readRaw(databaseName, storeName) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 2);
+    const request = indexedDB.open(databaseName);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const database = request.result;
@@ -117,6 +118,67 @@ test("getReadyOutbox only returns operations whose next attempt is due", async (
   assert.deepEqual((await storage.getReadyOutbox(1000)).map(item => item.id), []);
 });
 
+test("an unfinished message is kept encrypted at rest and read back", async () => {
+  const { storage, name } = createStorage();
+
+  await storage.saveDraft("conversation-1", "esto no lo he enviado todavia");
+
+  assert.equal(await storage.getDraft("conversation-1"), "esto no lo he enviado todavia");
+  const stored = await readRaw(name, "drafts");
+  assert.equal(stored.length, 1);
+  assert.ok(!JSON.stringify(stored[0]).includes("enviado"), "the draft must not be readable at rest");
+});
+
+test("clearing a draft leaves nothing behind", async () => {
+  const { storage } = createStorage();
+  await storage.saveDraft("conversation-1", "a medias");
+
+  await storage.saveDraft("conversation-1", undefined);
+
+  assert.equal(await storage.getDraft("conversation-1"), undefined);
+});
+
+test("changing the secret keeps everything that was already there", async () => {
+  const { storage } = createStorage();
+  await storage.saveMessage(message());
+  await storage.saveDraft("conversation-1", "a medias");
+  await storage.saveOutboxOperation({
+    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "en cola",
+    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1,
+    attachment: { name: "f.bin", mimeType: "application/octet-stream", data: new Uint8Array([1, 2, 3]) }
+  });
+
+  await storage.rekey("another-device-secret");
+
+  assert.equal((await storage.getMessages("conversation-1"))[0].body, "Hola. Esto es secreto");
+  assert.equal(await storage.getDraft("conversation-1"), "a medias");
+  const [queued] = await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER);
+  assert.equal(queued.body, "en cola");
+  assert.deepEqual(new Uint8Array(queued.attachment.data), new Uint8Array([1, 2, 3]));
+});
+
+test("after changing the secret the content is unreadable with the old one", async () => {
+  const { storage, name } = createStorage();
+  await storage.saveMessage(message());
+
+  await storage.rekey("another-device-secret");
+
+  const withOldSecret = new IndexedDbStorage(name, { encryptionSecret: secret });
+  assert.deepEqual(await withOldSecret.getMessages("conversation-1"), []);
+});
+
+test("a record nobody can read any more is dropped instead of stopping the change of secret", async () => {
+  const { storage, name } = createStorage();
+  await storage.saveMessage(message());
+  const withAnotherSecret = new IndexedDbStorage(name, { encryptionSecret: "somebody-elses-secret" });
+  await withAnotherSecret.saveMessage(message({ id: "message-2", body: "escrito con otra clave" }));
+
+  await storage.rekey("another-device-secret");
+
+  const readable = await storage.getMessages("conversation-1");
+  assert.deepEqual(readable.map(item => item.id), ["message-1"]);
+});
+
 test("clear empties conversations, messages and outbox", async () => {
   const { storage } = createStorage();
   await storage.saveConversation({ id: "conversation-1", participantIds: ["bob"] });
@@ -126,11 +188,14 @@ test("clear empties conversations, messages and outbox", async () => {
     status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1
   });
 
+  await storage.saveDraft("conversation-1", "a medias");
+
   await storage.clear();
 
   assert.deepEqual(await storage.getConversations(), []);
   assert.deepEqual(await storage.getMessages("conversation-1"), []);
   assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
+  assert.equal(await storage.getDraft("conversation-1"), undefined);
 });
 
 test("without an encryption secret the content is stored as given", async () => {
