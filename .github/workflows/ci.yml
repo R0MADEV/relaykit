@@ -34,40 +34,8 @@ jobs:
       - name: Build web example
         run: npm run build --workspace=@relaykit/example-web
 
-      - name: Generate Synapse configuration
-        run: docker compose -f infrastructure/matrix/docker-compose.yml run --rm synapse generate
-
-      - name: Raise rate limits for the test run
-        run: |
-          docker compose -f infrastructure/matrix/docker-compose.yml run --rm -T --user root \
-            --entrypoint sh synapse -c \
-            'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' \
-            < infrastructure/matrix/dev-rate-limits.yaml
-
-      - name: Start Synapse
-        run: docker compose -f infrastructure/matrix/docker-compose.yml up -d
-
-      - name: Wait for Synapse
-        run: |
-          for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:8008/_matrix/client/versions >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          exit 1
-
-      - name: Create smoke users
-        run: |
-          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
-            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
-            -u alice -p alice-password --no-admin
-          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
-            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
-            -u bob -p bob-password --no-admin
-          docker compose -f infrastructure/matrix/docker-compose.yml exec -T synapse \
-            register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008 \
-            -u carol -p carol-password --no-admin
+      - name: Start Matrix, the same way it starts locally
+        run: npm run matrix:up
 
       - name: Run Matrix smoke check
         run: npm run smoke:matrix
@@ -78,8 +46,29 @@ jobs:
       - name: Run the Electron renderer check
         run: xvfb-run --auto-servernum npm run check:ci --workspace=@relaykit/example-electron
 
+      - name: Check the web example in a browser
+        run: xvfb-run --auto-servernum npm run check:web-demo
+
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
+
+      - name: Run RelayKit live events smoke check
+        run: npm run smoke:live
+
+      - name: Run RelayKit conversation window smoke check
+        run: npm run smoke:window
+
+      - name: Run RelayKit session revocation smoke check
+        run: npm run smoke:revocation
+
+      - name: Run RelayKit push notification smoke check
+        run: npm run smoke:push
+
+      - name: Run RelayKit chat smoke check
+        run: npm run smoke:chat
+
+      - name: Run RelayKit registration smoke check
+        run: npm run smoke:registration
 
       - name: Run RelayKit group smoke check
         run: npm run smoke:group
@@ -92,6 +81,12 @@ jobs:
 
       - name: Run RelayKit E2EE recovery smoke check
         run: npm run smoke:recovery
+
+      - name: Run RelayKit person verification smoke check
+        run: npm run smoke:user-verification
+
+      - name: Run RelayKit code verification smoke check
+        run: npm run smoke:qr
 
       - name: Run RelayKit SAS verification smoke check
         run: npm run smoke:verification

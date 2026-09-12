@@ -3,5 +3,7 @@ dist/
 .DS_Store
 *.tsbuildinfo
 infrastructure/matrix/data/
+# Copias que deja `up.sh` al reconstruir el entorno: son la base de datos vieja, gigas de historial y medios.
+infrastructure/matrix/data-antes-*/
 infrastructure/matrix/federation/data1/
 infrastructure/matrix/federation/data2/

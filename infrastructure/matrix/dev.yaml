@@ -1,0 +1,82 @@
+# Todo lo que el homeserver de desarrollo y de CI tiene que permitir para que las comprobaciones puedan
+# ejecutarse: limites de peticiones, alta de cuentas, lista publica de salas y directorio de personas.
+# Los tests crean muchas salas y envian muchos mensajes seguidos, y los valores por defecto de Synapse los
+# rechazan con 429. No usar en produccion.
+# Creating accounts from the client, which Synapse keeps off by default.
+enable_registration: true
+enable_registration_without_verification: true
+rc_registration:
+  per_second: 100
+  burst_count: 500
+rc_login:
+  address:
+    per_second: 100
+    burst_count: 500
+  account:
+    per_second: 100
+    burst_count: 500
+  failed_attempts:
+    per_second: 100
+    burst_count: 500
+rc_message:
+  per_second: 100
+  burst_count: 500
+rc_room_creation:
+  per_second: 50
+  burst_count: 200
+rc_joins:
+  local:
+    per_second: 100
+    burst_count: 500
+  remote:
+    per_second: 100
+    burst_count: 500
+rc_invites:
+  per_room:
+    per_second: 100
+    burst_count: 500
+  per_user:
+    per_second: 100
+    burst_count: 500
+rc_media_create:
+  per_second: 100
+  burst_count: 500
+# Entrar en una sala: Synapse limita esto por sala, no solo por persona, y una sala con mucha gente lo agota.
+rc_joins_per_room:
+  per_second: 100
+  burst_count: 500
+rc_presence:
+  per_user:
+    per_second: 100
+    burst_count: 500
+# Putting a conversation on the public list, which Synapse only lets admins do by default.
+room_list_publication_rules:
+  - user_id: "*"
+    alias: "*"
+    room_id: "*"
+    action: allow
+# Buscar personas por su nombre. Synapse, por defecto, solo deja encontrar a quien ya comparte sala contigo,
+# asi que en un servidor recien creado el directorio esta vacio y no se puede probar la busqueda.
+user_directory:
+  enabled: true
+  search_all_users: true
+  prefer_local_users: true
+
+# Entregar notificaciones a un gateway que corre en esta misma maquina. Synapse rechaza por defecto las
+# direcciones privadas, y hace bien: un gateway malicioso podria hacerle pedir cosas de la red interna. En
+# desarrollo el gateway de pruebas vive aqui al lado, asi que se permite el rango del puente de Docker.
+# NO USAR EN PRODUCCION: alli el gateway es publico y esta lista debe quedarse vacia.
+ip_range_whitelist:
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+  - "10.0.0.0/8"
+
+# Previsualizacion de enlaces. Synapse la trae apagada porque es el servidor quien va a buscar la pagina, y eso
+# se puede usar para hacerle pedir cosas de la red interna. Por eso se le dice ademas que no salga de donde no
+# debe. En produccion hay que revisar estas listas segun la red donde este.
+url_preview_enabled: true
+url_preview_ip_range_blacklist:
+  - "127.0.0.0/8"
+  - "169.254.0.0/16"
+  - "::1/128"
+  - "fe80::/64"
