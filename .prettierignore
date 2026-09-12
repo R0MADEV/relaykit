@@ -1,0 +1,9 @@
+node_modules
+dist
+infrastructure/*/data*
+infrastructure/*/*/data*
+package-lock.json
+
+# La documentacion se queda como esta escrita. Prettier reordenaria tablas y listas de prosa que esta puesta
+# a mano, y el ruido no compensa: aqui lo que se queria indentar bien es el codigo.
+*.md

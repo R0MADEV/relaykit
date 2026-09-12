@@ -10,8 +10,11 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "matrix:up": "sh infrastructure/matrix/up.sh",
-    "check": "npm run typecheck && npm run build",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run build",
     "smoke:matrix": "node scripts/smoke-matrix.mjs",
     "smoke:relaykit": "node scripts/smoke-relaykit.mjs",
     "smoke:recovery": "node scripts/smoke-recovery.mjs",
@@ -48,9 +51,15 @@
     "bench:memory": "node --expose-gc scripts/bench-memory.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^44.3.0",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
     "fake-indexeddb": "^6.2.5",
-    "typescript": "^5.7.0"
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.70.0"
   },
   "engines": {
     "node": ">=20"
