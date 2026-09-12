@@ -35,6 +35,14 @@ if "psycopg2" not in config:
 PY
 '
 
+# A certificate for the https listener. Its own signer, made once and left alone: what is being exercised is
+# a client reaching a homeserver over TLS, not who vouched for it.
+if [ ! -f data/tls.crt ]; then
+  openssl req -x509 -newkey rsa:2048 -keyout data/tls.key -out data/tls.crt \
+    -days 365 -nodes -subj "/CN=localhost" >/dev/null 2>&1
+  chmod 644 data/tls.key data/tls.crt
+fi
+
 # Everything the checks need the homeserver to allow: rate limits, registration, the public room list, the
 # user directory and somewhere to relay a call through.
 #

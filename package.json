@@ -33,6 +33,7 @@
     "smoke:window": "node scripts/smoke-window.mjs",
     "smoke:participants": "node scripts/smoke-participants.mjs",
     "smoke:turn": "node scripts/smoke-turn.mjs",
+    "smoke:tls": "NODE_EXTRA_CA_CERTS=infrastructure/matrix/data/tls.crt node scripts/smoke-tls.mjs",
     "smoke:revocation": "node scripts/smoke-revocation.mjs",
     "smoke:push": "node scripts/smoke-push.mjs",
     "smoke:user-verification": "node scripts/smoke-user-verification.mjs",

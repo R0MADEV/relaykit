@@ -67,6 +67,9 @@ jobs:
       - name: Run RelayKit call relay smoke check
         run: npm run smoke:turn
 
+      - name: Run RelayKit https smoke check
+        run: npm run smoke:tls
+
       - name: Run RelayKit session revocation smoke check
         run: npm run smoke:revocation
 

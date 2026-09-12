@@ -90,3 +90,26 @@ turn_uris:
 turn_shared_secret: "relaykit-development-only"
 turn_user_lifetime: 86400000
 turn_allow_guests: false
+
+# Answering over https as well, which is how anything that is not a local experiment reaches a homeserver.
+# Everything else here is checked over http on localhost, and the browser treats that as a secure origin by
+# exception: an exception is not a deployment. The certificate is made by `up.sh` and is its own signer.
+# NOT FOR PRODUCTION: there the certificate is signed by somebody a client already trusts.
+#
+# Both listeners are named because this replaces the generated block whole rather than adding to it.
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+  - port: 8448
+    tls: true
+    type: http
+    resources:
+      - names: [client, federation]
+        compress: false
+tls_certificate_path: "/data/tls.crt"
+tls_private_key_path: "/data/tls.key"

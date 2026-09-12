@@ -53,6 +53,7 @@ services:
       - ./data:/data
     ports:
       - "8008:8008"
+      - "8448:8448"
     # El gateway de notificaciones corre fuera del contenedor, y el homeserver tiene que poder alcanzarlo por
     # nombre. En Docker Desktop existe; en Linux, que es donde corre la integracion continua, hay que decirlo.
     extra_hosts:

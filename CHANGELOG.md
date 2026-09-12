@@ -170,6 +170,10 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - El ejemplo web tiene selector de microfono y camara y un formulario para transferir la llamada. La lista de
   dispositivos la da el navegador (`enumerateDevices`), no la libreria: repetir una lista que la plataforma ya
   mantiene no aporta nada.
+- El homeserver responde tambien por https, en el 8448, con un certificado que crea `up.sh`. Hasta ahora todo
+  se probaba sobre `http://localhost`, que el navegador trata como origen seguro por excepcion, y una
+  excepcion no es un despliegue. La prueba de humo confia en ese certificado (`NODE_EXTRA_CA_CERTS`) en vez
+  de desactivar la verificacion, que seria probar otra cosa.
 - El entorno levanta coturn, que es por donde pasa una llamada cuando los dos lados no pueden verse. Hasta
   ahora el SDK decia `failed to get TURN credentials! Proceeding with call anyway...` en cada llamada y
   funcionaba solo porque las dos ventanas estaban en la misma maquina. Una prueba de humo pregunta al
