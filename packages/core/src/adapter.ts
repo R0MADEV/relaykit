@@ -143,6 +143,8 @@ export interface MessagingAdapter {
   muteCallMicrophone(callId: string, muted: boolean): Promise<void>;
   muteCallCamera(callId: string, muted: boolean): Promise<void>;
   holdCall(callId: string, onHold: boolean): Promise<void>;
+  /** A digit pressed during a call, which is how anybody answers a menu. */
+  pressDigitInCall(callId: string, digit: string): Promise<void>;
   shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
   transferCall(callId: string, userId: UserId): Promise<void>;
   /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */

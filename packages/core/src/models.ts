@@ -339,6 +339,12 @@ export interface Call {
   readonly isCameraMuted: boolean;
   /** On hold the other side is told, and stops hearing and seeing. Not the same as being silenced. */
   readonly isOnHold: boolean;
+  /** The other way round: they are the ones who stepped away, and there is nothing to do but wait. */
+  readonly isOnHoldByThem: boolean;
+  /** What went wrong, when something did. A call that ends for a reason should be able to say which. */
+  readonly wentWrong?: string;
+  /** Who is really on the other end, when the call says so: after being passed on, it is not who was rung. */
+  readonly talkingTo?: UserId;
   readonly isSharingScreen: boolean;
   /**
    * What to play, handed over rather than described: a screen cannot play a boolean. They go straight into an

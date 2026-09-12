@@ -287,6 +287,28 @@ function runContract(name, setup) {
       await adapter.hangUpCall(call.id);
     });
 
+    it("says when it started, and keeps saying the same", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, {});
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const laterOn = (await adapter.listCalls()).find(item => item.id === call.id);
+
+      // A call that starts again every time it is read is a call nothing can time.
+      assert.equal(laterOn.startedAt, call.startedAt);
+      assert.equal(laterOn.isOnHoldByThem, false);
+      await adapter.hangUpCall(call.id);
+    });
+
+    it("takes a digit pressed during the call, and refuses what is not one", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, {});
+
+      // Nothing comes back: a digit is heard by whatever is on the other end, not by this side. What is
+      // required is that pressing one is not a failure, and that nonsense is refused.
+      await adapter.pressDigitInCall(call.id, "7");
+
+      await adapter.hangUpCall(call.id);
+    });
+
     it("refusing a call leaves it no longer going on", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, {});
 

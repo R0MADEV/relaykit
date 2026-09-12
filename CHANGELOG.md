@@ -163,6 +163,18 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Auditoria de las llamadas contra el SDK. Emite trece eventos y escuchabamos dos, y de ahi salio:
+  - Corregido: la llamada decia que habia empezado **ahora** cada vez que se leia (`startedAt` se tomaba del
+    reloj al describirla), asi que nada podia cronometrarla.
+  - Una llamada que falla lo dice: `wentWrong`. Antes el SDK avisaba una vez y se perdia, y lo unico que veia
+    nadie era una llamada que se paro.
+  - Que el otro lado te ponga en espera ahora se ve (`isOnHoldByThem`). Solo sabiamos de la espera que
+    poniamos nosotros.
+  - `talkingTo`: con quien hablas de verdad despues de que te pasen una llamada.
+  - Marcar digitos (`calls.pressDigit`), que es como se contesta a un menu. Sin eso un webphone no pasa de
+    "pulse uno para". El ejemplo tiene teclado.
+- Corregido: dos cambios pedidos a la vez sobre la misma llamada se pisaban. Espera, silencio y camara acaban
+  todos en lo mismo, acordar una forma nueva con el otro lado, y uno de los dos se perdia. Ahora hacen cola.
 - Auditoria: todo nombre de Matrix se le pide al SDK en vez de escribirlo. No es cosmetico. `M_TEXT` es
   `org.matrix.msc1767.text`, no `m.text`, y `M_POLL_KIND_UNDISCLOSED` es `org.matrix.msc3381.poll.undisclosed`:
   escribiamos las estables y el SDK, Element y todo el mundo usan las inestables mientras la propuesta se

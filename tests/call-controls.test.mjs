@@ -38,6 +38,10 @@ function fakeCall(asked) {
     hangup: () => asked.push("hangup()"),
     setScreensharingEnabled: async sharing => { asked.push(`setScreensharingEnabled(${sharing})`); state.sharing = sharing; return sharing; },
     isScreensharing: () => state.sharing,
+    isLocalOnHold: () => false,
+    getRemoteAssertedIdentity: () => undefined,
+    opponentSupportsDTMF: () => true,
+    sendDtmfDigit: () => undefined,
     transfer: async userId => asked.push(`transfer(${userId})`)
   };
 }

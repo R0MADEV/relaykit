@@ -473,6 +473,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
     await this.run(() => this.runtime.calls.muteCamera(callId, muted));
   }
 
+  async pressDigitInCall(callId: string, digit: string): Promise<void> {
+    await this.run(() => this.runtime.calls.pressDigit(callId, digit));
+  }
+
   async holdCall(callId: string, onHold: boolean): Promise<void> {
     await this.run(() => this.runtime.calls.hold(callId, onHold));
   }

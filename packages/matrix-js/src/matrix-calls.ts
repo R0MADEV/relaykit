@@ -21,6 +21,15 @@ export class MatrixCalls {
   // The SDK says the state changed while it is still placing the call, before it has written down which way
   // the call goes. Whose call it is was never in doubt, so it is remembered rather than asked for.
   private readonly placedHere = new Set<string>();
+  /**
+   * When each call started. Read from the clock every time it was described, so a call said it had started
+   * again every time anybody looked at it, and anything drawing how long it had been going showed nothing.
+   */
+  private readonly startedAt = new Map<string, number>();
+  /** What went wrong, for a call that went wrong. The SDK says so once; it has to be kept to be told. */
+  private readonly wentWrong = new Map<string, string>();
+  /** What is already being changed on each call, so the next change waits rather than talking over it. */
+  private readonly queued = new Map<string, Promise<void>>();
   private report: ((call: Call) => void) | undefined;
   private ownUserId = "";
 
@@ -125,6 +134,19 @@ export class MatrixCalls {
     this.require(callId).reject();
   }
 
+  /**
+   * A digit pressed during a call. The SDK sends it and says whether the other end can take them at all:
+   * pressing into a call that cannot hear digits does nothing, and doing nothing quietly is worse than
+   * saying so.
+   */
+  async pressDigit(callId: string, digit: string): Promise<void> {
+    const call = this.require(callId);
+    if (!call.opponentSupportsDTMF()) {
+      throw new Error("The other end cannot take digits");
+    }
+    call.sendDtmfDigit(digit);
+  }
+
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
     await this.changing(callId, call => call.setScreensharingEnabled(sharing));
   }
@@ -136,8 +158,24 @@ export class MatrixCalls {
    */
   private async changing(callId: string, change: (call: MatrixCall) => unknown): Promise<void> {
     const call = this.require(callId);
-    await change(call);
+    await this.oneAtATime(callId, () => change(call));
     this.report?.(this.describe(call));
+  }
+
+  /**
+   * Changes to one call queue up behind each other. Holding, silencing and turning a camera on all end in the
+   * same place — agreeing a new shape with the other side — and two of those at once tread on one another:
+   * the second is asked while the first is still being agreed, and one of them is quietly dropped.
+   *
+   * Somebody pressing two buttons quickly is not an unusual thing to do.
+   */
+  private oneAtATime(callId: string, change: () => unknown): Promise<void> {
+    const after = (this.queued.get(callId) ?? Promise.resolve())
+      .then(() => change())
+      .then(() => undefined, error => { throw error; });
+    // Kept so the next one waits for this, whether it worked or not: a change that failed still finished.
+    this.queued.set(callId, after.catch(() => undefined));
+    return after;
   }
 
   /** Handing the call to somebody else, who then talks to whoever was on the other end. */
@@ -180,6 +218,17 @@ export class MatrixCalls {
 
   private keep(call: MatrixCall): void {
     this.going.set(call.callId, call);
+    if (!this.startedAt.has(call.callId)) this.startedAt.set(call.callId, Date.now());
+    // A call that goes wrong says so once and then ends. Without keeping it, all anybody sees is a call that
+    // stopped, and "it stopped" is not an answer to why.
+    call.on(CallEvent.Error, (problem: Error) => {
+      this.wentWrong.set(call.callId, problem.message);
+      this.report?.(this.describe(call));
+    });
+    // Being put on hold by the other side, and being told who is really on the other end after a call has
+    // been passed on. Both are the SDK telling us something that otherwise only shows up if somebody asks.
+    call.on(CallEvent.LocalHoldUnhold, () => this.report?.(this.describe(call)));
+    call.on(CallEvent.AssertedIdentityChanged, () => this.report?.(this.describe(call)));
     // The audio and the picture do not arrive when the state changes: they arrive when they arrive, and for a
     // video call that is usually once it is already connected. Without this the last word on a call is one
     // with nothing to play, and a screen waiting for something to show waits for ever.
@@ -190,6 +239,8 @@ export class MatrixCalls {
       if (call.state === MatrixCallState.Ended) {
         this.going.delete(call.callId);
         this.placedHere.delete(call.callId);
+        this.startedAt.delete(call.callId);
+        this.wentWrong.delete(call.callId);
       }
     });
   }
@@ -205,6 +256,7 @@ export class MatrixCalls {
     const isAScreen = (feed: CallFeed) => feed.purpose === SDPStreamMetadataPurpose.Screenshare;
     const find = (mine: boolean, screen: boolean) =>
       feeds.find(feed => feed.isLocal() === mine && isAScreen(feed) === screen)?.stream;
+    const reallyTalkingTo = call.getRemoteAssertedIdentity()?.id;
     const ownMedia = find(true, false);
     const remoteMedia = find(false, false);
     const ownScreen = find(true, true);
@@ -228,7 +280,10 @@ export class MatrixCalls {
       isOnHold: call.isRemoteOnHold(),
       isSharingScreen: call.isScreensharing(),
       state: mapState(call.state),
-      startedAt: Date.now(),
+      startedAt: this.startedAt.get(call.callId) ?? Date.now(),
+      isOnHoldByThem: call.isLocalOnHold(),
+      ...(this.wentWrong.has(call.callId) ? { wentWrong: this.wentWrong.get(call.callId) as string } : {}),
+      ...(reallyTalkingTo ? { talkingTo: reallyTalkingTo } : {}),
       hasRemoteMedia: remoteMedia !== undefined
     };
   }

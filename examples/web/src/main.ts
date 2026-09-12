@@ -71,6 +71,9 @@ class DemoApp {
       (call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted)));
     this.element("call-hold").addEventListener("click", () => void this.duringTheCall(
       (call, client) => client.calls.hold(call.id, !call.isOnHold)));
+    // A keypad, built once. Pressing one sends it down whatever call is being talked on.
+    this.element("dialpad").replaceChildren(...[..."123456789*0#"].map(digit =>
+      this.button(digit, () => void this.duringTheCall((call, client) => client.calls.pressDigit(call.id, digit)))));
     this.select("microphone").addEventListener("change", () => void this.chooseDevice("microphone"));
     this.select("camera").addEventListener("change", () => void this.chooseDevice("camera"));
     this.onSubmit("transfer-form", () => this.duringTheCall(
@@ -1143,7 +1146,10 @@ class DemoApp {
     camera.hidden = !call.isVideo;
     camera.textContent = call.isCameraMuted ? "Encender cámara" : "Apagar cámara";
     // Naming whoever placed it only says something when it was not this side: "calling myself" is nonsense.
-    this.element("call-state").textContent = beingRung
+    if (call.wentWrong) this.setStatus(`La llamada fallo: ${call.wentWrong}`);
+    this.element("call-state").textContent = call.isOnHoldByThem
+      ? `${this.nameOf(call.talkingTo ?? call.callerId)} te ha puesto en espera`
+      : beingRung
       ? `${this.nameOf(call.callerId)} te llama`
       : placedByMe
         ? `Llamando: ${call.state}`

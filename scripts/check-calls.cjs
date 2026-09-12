@@ -130,6 +130,17 @@ async function ring(alice, bob, { video }) {
     await pressing(button, saying, false);
     return took;
   };
+  // A digit pressed on the keypad. Nothing comes back — whatever is on the other end hears it, not this side
+  // — so what is required is that pressing one from the screen does not fail and does not end the call.
+  await alice.webContents.executeJavaScript(`
+    [...document.querySelectorAll("#dialpad button")].find(one => one.textContent === "5").click();
+    true;
+  `);
+  said.pressedADigit = await waitFor(alice, "the call to carry on after a digit", `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.some(call => call.state === "connected") && !document.getElementById("status").textContent.startsWith("No se pudo"))
+  `);
+
   said.pressedSilence = await pressedBothWays("call-mute", "isMicrophoneMuted");
   said.pressedHold = await pressedBothWays("call-hold", "isOnHold");
   // Both ways, and the way back is the one that matters: putting the camera away stops the track and removes

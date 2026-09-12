@@ -22,6 +22,10 @@ function callWith(feeds) {
     isLocalVideoMuted: () => false,
     isRemoteOnHold: () => false,
     isScreensharing: () => false,
+    isLocalOnHold: () => false,
+    getRemoteAssertedIdentity: () => undefined,
+    opponentSupportsDTMF: () => true,
+    sendDtmfDigit: () => undefined,
     getOpponentMember: () => ({ userId: "@bob:localhost" }),
     on: () => undefined,
     placeVoiceCall: async () => undefined,
@@ -71,7 +75,9 @@ test("a call says who is calling from the first word, even before the SDK writes
   const call = {
     ...callWith([]),
     direction: undefined,
-    on: (_event, handler) => listeners.push(handler),
+    // Only the state changing, which is what this is about: firing every handler there is would also be
+    // firing the one for a call going wrong, which is a different thing entirely.
+    on: (event, handler) => { if (event === "state") listeners.push(handler); },
     placeVoiceCall: async () => {
       for (const handler of listeners) handler();
     }

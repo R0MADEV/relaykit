@@ -264,6 +264,8 @@ export class MessagingClient {
     muteCamera: (callId: string, muted: boolean): Promise<void> =>
       this.callOperations.muteCamera(callId, muted),
     hold: (callId: string, onHold: boolean): Promise<void> => this.callOperations.hold(callId, onHold),
+    pressDigit: (callId: string, digit: string): Promise<void> =>
+      this.callOperations.pressDigit(callId, digit),
     shareScreen: (callId: string, sharing: boolean): Promise<void> =>
       this.callOperations.shareScreen(callId, sharing),
     transfer: (callId: string, userId: string): Promise<void> =>

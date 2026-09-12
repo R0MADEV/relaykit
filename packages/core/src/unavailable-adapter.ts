@@ -375,6 +375,10 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new SdkError("NOT_CONFIGURED", "Cannot put the camera away");
   }
 
+  async pressDigitInCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot press a digit");
+  }
+
   async holdCall(): Promise<void> {
     throw new SdkError("NOT_CONFIGURED", "Cannot hold a call");
   }

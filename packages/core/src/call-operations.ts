@@ -63,6 +63,18 @@ export class CallOperations {
     await this.context.adapter.holdCall(this.require(callId), onHold);
   }
 
+  /**
+   * A digit pressed during a call. Menus on the other end listen for these, and a webphone without them
+   * cannot get past "press one for".
+   */
+  async pressDigit(callId: string, digit: string): Promise<void> {
+    this.context.assertStarted();
+    if (!/^[0-9*#A-D]$/i.test(digit)) {
+      throw new SdkError("INVALID_INPUT", "A telephone has digits 0 to 9, star, hash and A to D");
+    }
+    await this.context.adapter.pressDigitInCall(this.require(callId), digit);
+  }
+
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.shareScreenInCall(this.require(callId), sharing);

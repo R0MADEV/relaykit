@@ -68,6 +68,7 @@ const nothingTouchedYet = {
   isMicrophoneMuted: false,
   isCameraMuted: false,
   isOnHold: false,
+  isOnHoldByThem: false,
   isSharingScreen: false
 } as const;
 
@@ -581,6 +582,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly liveLocations = new Map<string, LiveLocation>();
   private readonly calls = new Map<string, Call>();
   /** What the next call would be made with. Kept so a test can see that choosing one was taken notice of. */
+  /** What has been pressed during calls, so a test can see that pressing arrived somewhere. */
+  readonly digitsPressed: string[] = [];
   private chosenMicrophone: string | undefined;
   private chosenCamera: string | undefined;
   private readonly pollVotes = new Map<MessageId, Map<UserId, string>>();
@@ -856,6 +859,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** Turning the camera on makes it a video call, and turning it off leaves it one that had video. */
   async muteCallCamera(callId: string, muted: boolean): Promise<void> {
     this.changeCall(callId, { isCameraMuted: muted, ...(muted ? {} : { isVideo: true }) });
+  }
+
+  /** Kept so a screen can show what was pressed; a double has nothing on the other end to listen. */
+  async pressDigitInCall(callId: string, digit: string): Promise<void> {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    this.digitsPressed.push(digit);
   }
 
   async holdCall(callId: string, onHold: boolean): Promise<void> {
