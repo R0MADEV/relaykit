@@ -1,4 +1,4 @@
-import { M_BEACON, M_BEACON_INFO, type MatrixClient } from "matrix-js-sdk";
+import { M_BEACON, M_BEACON_INFO, type MatrixClient, ContentHelpers, LocationAssetType } from "matrix-js-sdk";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
@@ -17,13 +17,20 @@ export async function startMatrixLiveLocation(
 ): Promise<LiveLocation> {
   const startedAt = Date.now();
   const sharedBy = client.getSafeUserId();
-  await client.sendStateEvent(conversationId, M_BEACON_INFO.name as never, {
-    description: input.description,
-    timeout: input.durationMs,
-    live: true,
-    "org.matrix.msc3488.ts": startedAt,
-    "org.matrix.msc3488.asset": { type: "m.self" }
-  } as never, sharedBy);
+  // The shape is the SDK's, not one typed out here. It is a proposal that is still moving, and copying it out
+  // by hand stays right only for as long as somebody remembers to look.
+  await client.sendStateEvent(
+    conversationId,
+    M_BEACON_INFO.name as never,
+    ContentHelpers.makeBeaconInfoContent(
+      input.durationMs,
+      true,
+      input.description,
+      LocationAssetType.Self,
+      startedAt
+    ) as never,
+    sharedBy
+  );
   // Writing the state and seeing it are not the same moment. Whoever starts sharing is about to say where
   // they are, and that needs the event just created, so this waits for it to arrive.
   await waitUntilTheBeaconArrives(client, conversationId, sharedBy);
@@ -49,14 +56,16 @@ export async function updateMatrixLiveLocation(
   if (!beacon?.isLive) {
     throw new Error("That sharing is no longer live");
   }
-  await client.sendEvent(conversationId, M_BEACON.name as never, {
-    "m.relates_to": { rel_type: "m.reference", event_id: beacon.beaconInfoId },
-    "org.matrix.msc3488.location": {
-      uri: `geo:${position.latitude},${position.longitude}`,
-      ...(position.description ? { description: position.description } : {})
-    },
-    "org.matrix.msc3488.ts": Date.now()
-  } as never);
+  await client.sendEvent(
+    conversationId,
+    M_BEACON.name as never,
+    ContentHelpers.makeBeaconContent(
+      `geo:${position.latitude},${position.longitude}`,
+      Date.now(),
+      beacon.beaconInfoId,
+      position.description
+    ) as never
+  );
 }
 
 /** Stopping writes the state again with `live: false`, keeping the rest so the history stays readable. */

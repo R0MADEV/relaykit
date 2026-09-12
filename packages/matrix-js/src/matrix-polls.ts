@@ -1,4 +1,7 @@
-import { M_POLL_END, M_POLL_RESPONSE, M_POLL_START, type MatrixClient, type Room } from "matrix-js-sdk";
+import { M_POLL_END, M_POLL_RESPONSE, M_POLL_START, type MatrixClient, type Room,
+  M_POLL_KIND_UNDISCLOSED,
+  M_TEXT
+} from "matrix-js-sdk";
 import type { ConversationId, MessageId, Poll, PollAnswer, StartPollInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
@@ -12,16 +15,20 @@ export async function startMatrixPoll(
   conversationId: ConversationId,
   input: StartPollInput
 ): Promise<Poll> {
-  const answers = input.answers.map((text, index) => ({ id: `${index}`, "m.text": text }));
+  // Written with the names the SDK itself uses. They are not the ones that read most naturally: `M_TEXT` is
+  // `org.matrix.msc1767.text` while the settled name is `m.text`, and until the proposal settles that is what
+  // everybody else writes and looks for. Typing out the settled one makes a poll only this library can read,
+  // and nothing here would notice, because both sides of every check are this same code.
+  const answers = input.answers.map((text, index) => ({ id: `${index}`, [M_TEXT.name]: text }));
   const content = {
     [M_POLL_START.name]: {
-      question: { "m.text": input.question },
-      kind: "m.poll.undisclosed",
+      question: { [M_TEXT.name]: input.question },
+      kind: M_POLL_KIND_UNDISCLOSED.name,
       max_selections: input.maxSelections ?? 1,
       answers
     },
     // The same in plain text, for whoever knows nothing about polls: they see the question and the options.
-    "m.text": [input.question, ...input.answers.map((text, index) => `${index + 1}. ${text}`)].join("\n")
+    [M_TEXT.name]: [input.question, ...input.answers.map((text, index) => `${index + 1}. ${text}`)].join("\n")
   };
   const sent = await client.sendEvent(conversationId, M_POLL_START.name as never, content as never);
   // Sending it and seeing it are not the same moment. Whoever asks something is about to paint it, and an
@@ -95,7 +102,7 @@ export async function closeMatrixPoll(
   await client.sendEvent(conversationId, M_POLL_END.name as never, {
     "m.relates_to": { rel_type: "m.reference", event_id: pollId },
     [M_POLL_END.name]: {},
-    "m.text": "The poll has been closed"
+    [M_TEXT.name]: "The poll has been closed"
   } as never);
   // And the same on closing: if closing comes back, it is closed.
   const room = await waitForRoom(client, conversationId);

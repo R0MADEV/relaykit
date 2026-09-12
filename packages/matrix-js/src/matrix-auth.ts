@@ -1,8 +1,10 @@
-import { MatrixError, createClient, type MatrixClient } from "matrix-js-sdk";
+import { MatrixError, createClient, type MatrixClient,
+  AuthType
+} from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
 import type { LoginCredentials, RegisterCredentials, Session } from "@relaykit/core";
 
-const passwordOnlyStages = new Set(["m.login.dummy"]);
+const passwordOnlyStages = new Set([AuthType.Dummy as string]);
 
 /**
  * What a homeserver is saying, when it is saying something an application can act on. Undefined for anything
@@ -37,7 +39,7 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
     const response = await client.registerRequest({
       username: credentials.username,
       password: credentials.password,
-      auth: { type: "m.login.dummy", session },
+      auth: { type: AuthType.Dummy, session },
       ...(credentials.deviceName ? { initial_device_display_name: credentials.deviceName } : {})
     }).catch(error => {
       throw whatTheHomeserverMeant(error) ?? error;
@@ -92,7 +94,7 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
   };
 
   try {
-    const response = await client.login("m.login.password", request);
+    const response = await client.login(AuthType.Password, request);
     return {
       homeserver: credentials.homeserver,
       userId: response.user_id,

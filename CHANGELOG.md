@@ -163,6 +163,17 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Auditoria: todo nombre de Matrix se le pide al SDK en vez de escribirlo. No es cosmetico. `M_TEXT` es
+  `org.matrix.msc1767.text`, no `m.text`, y `M_POLL_KIND_UNDISCLOSED` es `org.matrix.msc3381.poll.undisclosed`:
+  escribiamos las estables y el SDK, Element y todo el mundo usan las inestables mientras la propuesta se
+  mueve. Una encuesta escrita asi solo la leia esta libreria, y ninguna prueba lo habria visto nunca, porque
+  los dos lados de cada prueba son este mismo codigo.
+- Las formas que el SDK sabe construir se le piden a el (`ContentHelpers`): balizas de ubicacion y lugares
+  enviados en una conversacion. Enviar un lugar llevaba menos de lo que deberia — sin hora, sin `asset` y sin
+  el texto plano al que recurre un cliente que no entiende de mapas.
+- Corregido: una prueba creaba cuentas llamadas `participants-bob-…`, y esas contestan a una busqueda de
+  "bob". Con unas cuantas, el bob de verdad se caia de los resultados y fallaba otra prueba, en otro sitio,
+  por culpa de esta.
 - Una llamada de voz se convierte en videollamada sin cortarse: se enciende la camara en mitad, el otro lado
   empieza a verte, se apaga y se sigue hablando. Es la misma llamada de principio a fin.
 - Varias llamadas a la vez, como un telefono de mesa: una hablando y las demas esperando. El ejemplo las

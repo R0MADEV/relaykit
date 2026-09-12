@@ -1,7 +1,9 @@
 import {
   MsgType,
   ReceiptType,
-  EventType, MatrixEvent, NotificationCountType, RelationType, type Room } from "matrix-js-sdk";
+  EventType, MatrixEvent, NotificationCountType, RelationType, type Room,
+  M_LOCATION
+} from "matrix-js-sdk";
 import type {
   Attachment,
   Conversation,
@@ -100,7 +102,7 @@ function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefin
 function mapLocation(content: MatrixMessageContent): { location: GeoLocation } | undefined {
   if (content.msgtype !== MsgType.Location) return undefined;
   const record = content as unknown as Record<string, unknown>;
-  const asset = (record["org.matrix.msc3488.location"] ?? {}) as { uri?: unknown; description?: unknown };
+  const asset = (record[M_LOCATION.name] ?? {}) as { uri?: unknown; description?: unknown };
   const uri = typeof asset.uri === "string" ? asset.uri : record["geo_uri"];
   if (typeof uri !== "string" || !uri.startsWith("geo:")) return undefined;
   const [latitude, longitude] = uri.slice(4).split(";")[0]?.split(",").map(Number) ?? [];

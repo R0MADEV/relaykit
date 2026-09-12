@@ -1,4 +1,6 @@
-import { MatrixError, type MatrixClient } from "matrix-js-sdk";
+import { MatrixError, type MatrixClient,
+  AuthType
+} from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
 import { downloadFromMediaServer } from "./matrix-media.js";
 import type { AvatarImage, Device, SignOutOptions, User, UserId } from "@relaykit/core";
@@ -98,7 +100,7 @@ export async function signOutMatrixDevices(
     }
     const session = (error.data as { session?: string }).session;
     await client.deleteMultipleDevices([...deviceIds], {
-      type: "m.login.password",
+      type: AuthType.Password,
       user: client.getSafeUserId(),
       identifier: { type: "m.id.user", user: client.getSafeUserId() },
       password: options.password,

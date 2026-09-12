@@ -19,8 +19,11 @@ async function waitFor(description, check, attempts = 120) {
 }
 
 async function run() {
-  const alice = await registerAccount("participants-alice", "alice-participants");
-  const bob = await registerAccount("participants-bob", "bob-participants");
+  // Named after nobody. Accounts made for a check share the homeserver's directory with the fixed ones, and
+  // an account called something-bob answers a search for "bob" — enough of them and the real bob falls off
+  // the end of the results, which is a check failing somewhere else entirely because of this one.
+  const alice = await registerAccount("participants-host", "host-participants");
+  const bob = await registerAccount("participants-guest", "guest-participants");
 
   const conversation = await alice.client.conversations.create({
     participantIds: [bob.userId],

@@ -1,5 +1,8 @@
 import {
-  RelationType, ClientEvent, EventStatus, EventType, MatrixEvent, MsgType, type MatrixClient, type Room } from "matrix-js-sdk";
+  RelationType, ClientEvent, EventStatus, EventType, MatrixEvent, MsgType, type MatrixClient, type Room,
+  ContentHelpers,
+  LocationAssetType
+} from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import type { Conversation, ConversationId, CreateConversationInput, Message, MessagePage, SendContent,
   MessageKind
@@ -140,17 +143,23 @@ export function sendMessage(
   options: SendContent = {}
 ): Promise<Message> {
   const { formattedBody, mentions, kind, location } = options;
+  // A place is the SDK's shape, not one written out here. Ours said less than its does — no time, no asset,
+  // and none of the plain text a client that knows nothing of places falls back to — and a place that travels
+  // with less than it should is a place some clients cannot draw. It says the kind and the body itself.
+  const said = location
+    ? ContentHelpers.makeLocationContent(
+      body,
+      `geo:${location.latitude},${location.longitude}`,
+      Date.now(),
+      location.description,
+      LocationAssetType.Self
+    )
+    : {
+      msgtype: messageTypes[kind ?? "action"] && kind ? messageTypes[kind] : MsgType.Text,
+      body
+    };
   const content = {
-    msgtype: location ? MsgType.Location : messageTypes[kind ?? "action"] && kind ? messageTypes[kind] : MsgType.Text,
-    body,
-    // A place is said twice: as a geo URI every client understands, and as the pieces newer ones prefer.
-    ...(location ? {
-      geo_uri: `geo:${location.latitude},${location.longitude}`,
-      "org.matrix.msc3488.location": {
-        uri: `geo:${location.latitude},${location.longitude}`,
-        ...(location.description ? { description: location.description } : {})
-      }
-    } : {}),
+    ...said,
     ...(formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {}),
     ...(mentions ? { "m.mentions": {
       ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),

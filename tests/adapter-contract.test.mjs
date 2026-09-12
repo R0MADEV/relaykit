@@ -479,8 +479,11 @@ function runContract(name, setup) {
       // A homeserver builds its directory in its own time, and on one that has just been started there is
       // nothing in it yet. What is being checked is that the directory answers, not how quickly it fills.
       const looking = name === "in-memory" ? "bob" : (process.env.MATRIX_USER_B ?? "bob");
+      // Asked for more than a handful on purpose. A homeserver that has been used for a while has plenty of
+      // people whose names are alike, and asking for ten of them is asking whether this one happens to sort
+      // near the top, which is not what is being checked.
       const found = await waitFor(`the directory to know ${participant}`, async () => {
-        const people = await adapter.searchUsers(looking, 10);
+        const people = await adapter.searchUsers(looking, 50);
         return people.some(user => user.id === participant) ? people : undefined;
       });
 
