@@ -354,6 +354,12 @@ export interface Call {
   readonly talkingTo?: UserId;
   readonly isSharingScreen: boolean;
   /**
+   * Whether what is said can be read only by the people on the call. A direct call goes between the two
+   * devices and nothing in the middle can read it; a conference passes through a server that carries frames
+   * it cannot read, once the keys have been shared. Absent while it is not known, which is before joining.
+   */
+  readonly isEncrypted?: boolean;
+  /**
    * What to play, handed over rather than described: a screen cannot play a boolean. They go straight into an
    * `<audio>` or a `<video>` through `srcObject`, which is what the browser is waiting for.
    *

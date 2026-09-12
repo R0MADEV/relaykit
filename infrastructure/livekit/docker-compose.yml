@@ -2,7 +2,7 @@
 # that turns "this person is in this Matrix room" into a token the SFU will accept.
 services:
   livekit:
-    image: livekit/livekit-server:v1.8
+    image: livekit/livekit-server:v1.13.6
     command: --config /etc/livekit.yaml --node-ip 127.0.0.1
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro

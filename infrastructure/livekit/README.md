@@ -46,6 +46,24 @@ smoke, igual que pasó con la federación.
   navegador es `localhost`. Solo un nombre puede ser cierto en los dos sitios, así que `sfu-as-localhost`
   hace que `localhost:7880` también lo sea dentro. El síntoma fue `500 Unable to create room on SFU`.
 - **El puerto 8091 y no el 8090**: el 8090 ya estaba cogido en la máquina donde se montó esto.
+- **El servidor tiene que ser reciente.** `livekit-client` 2.22 habla un camino de señalización que
+  `livekit-server` 1.8 no tiene; el síntoma en el navegador fue `Initial connection failed: v1 RTC path not
+  found. Consider upgrading your LiveKit server version`, y detrás de él un `Cannot read properties of
+  undefined (reading 'publisher')` que no decía nada. Está fijado a 1.13.6, que sí lo tiene.
+
+- **Con ventana deslizante hay que pedir el estado de la llamada.** Una ventana (`conversationWindow`) solo
+  trae los tipos de estado que se le piden. Sin `org.matrix.msc3401.call.member` en la lista, la membresía se
+  escribe en el servidor y ningún cliente la ve: a nadie le suena, y quien entró nunca ve volver su propia
+  membresía, así que la clave que se fabrica al verla no se fabrica nunca. El síntoma fue `MissingKey: key set
+  not found for @alice:... at index 0` en quien entró y silencio absoluto en los demás. Lo encontró la
+  comprobación con Electron, no el smoke en node, que usa el sync clásico y lo trae todo.
+
+- **Solo quien creó la sala podía entrar en su conferencia.** Estar en una llamada se escribe como estado, y
+  una sala deja escribir estado solo a sus administradores. El resto recibía `403 user_level (0) <
+  send_level (50)`, el SDK se rendía en segundo plano y, para los demás, esa persona nunca había estado. Las
+  salas nuevas nacen con ese permiso abierto a todos sus miembros (`matrix-conversations.ts`); las creadas
+  antes necesitan que un administrador lo abra. Y una conferencia que la sala rechaza ahora termina diciendo
+  por qué (`wentWrong`), en vez de quedarse conectada y muda.
 
 Y tres cosas que no son obstáculos pero conviene saber:
 
@@ -76,15 +94,17 @@ En producción, el homeserver lo anuncia en su `.well-known/matrix/client`:
 Una máquina de desarrollo no tiene `.well-known` que anunciar nada, así que el adapter acepta
 `conferenceServiceUrl` para decírselo a mano.
 
-## Lo que se comprueba y lo que no
+## Lo que se comprueba
 
 `npm run smoke:conference` prueba **la mitad Matrix contra servidores de verdad**: descubrir el foco, el
 intercambio OpenID → token contra el servicio real, que el token queda atado a esa sala y a ese dispositivo,
-que al entrar la sala lo dice y otra persona lo lee, y que al salir deja de decirlo. Es donde estaban todas
-las suposiciones, y todas fallaron al menos una vez antes de quedar bien.
+que al entrar la sala lo dice y otra persona lo lee, y que al salir deja de decirlo.
 
-Lo que **no** prueba es la imagen y el sonido: eso necesita navegador, y va en la comprobación con Electron
-(`scripts/check-calls.cjs`), que sigue pendiente para conferencias. Tampoco prueba el **cifrado**: las claves
-las reparte el SDK por Matrix y el motor de LiveKit cifra cada frame con ellas antes de que salga del
-navegador (`conference-keys.ts`), pero que el SFU de verdad no pueda leer lo que lleva solo se ve con dos
-navegadores hablando. Está conectado, no comprobado.
+`npm run check:calls` prueba **la otra mitad con tres navegadores**: a bob le suena porque la sala lo dice y
+no porque nadie le llame; los tres se ven con tres participantes y oyen a los otros dos; y **un frame de la
+cámara de alice se pinta de verdad en la pantalla de bob**, que es lo único que demuestra que las claves
+repartidas por Matrix descifran lo que LiveKit lleva — una pista cuyos frames no se pueden descifrar sigue
+"live" y no enseña nada. Luego alice se va y bob y carol siguen.
+
+Los `MissingKey ... at index 0` que quedan en el log son los primeros frames, antes de que la clave llegue
+por to-device. Duran un instante y no son un fallo.

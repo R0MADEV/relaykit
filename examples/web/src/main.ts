@@ -1306,8 +1306,17 @@ function buildClient(): MessagingClient {
     ...(kept ? { session: kept } : {}),
     // A window over the conversations instead of every room: on an account with thousands, opening at once
     // instead of waiting. Asking for more conversations widens it.
-    matrix: { conversationWindow: 40 }
+    matrix: { conversationWindow: 40, ...whereConferencesAreCarried() }
   });
+}
+
+/**
+ * A development homeserver has no `.well-known` to say where its conferences are carried, so the address the
+ * demo was opened with can say it instead: `?conference=http://localhost:8091`.
+ */
+function whereConferencesAreCarried(): { conferenceServiceUrl?: string } {
+  const said = new URLSearchParams(location.search).get("conference");
+  return said ? { conferenceServiceUrl: said } : {};
 }
 
 function readRememberedSession(): Session | undefined {

@@ -38,6 +38,14 @@ async function open(who, address) {
   page.webContents.on("render-process-gone", (_event, details) =>
     report(false, `the page for ${who} died: ${details.reason}`)
   );
+  // What the page complains about, brought out here: an error thrown inside a call the check made arrives
+  // as a message and nothing else, and the stack that says where it happened stays in a window nobody sees.
+  page.webContents.on("console-message", (_event, level, message) => {
+    const aboutTheConference = /MatrixRTC|Membership|Encryption|key|rtc|livekit/i.test(message);
+    if (level >= 2 || (process.env.RELAYKIT_CALLS_VERBOSE && aboutTheConference)) {
+      console.error(`[${who}] ${message}`);
+    }
+  });
   // The made up microphone is a tone, and the other side plays what it receives: without this the check comes
   // out of whoever is running it's speakers. Silenced at the window, so the page is left as it is and what is
   // checked stays the same: that the tracks arrive live, not that anybody can hear them.
@@ -742,9 +750,170 @@ async function handOverProperly(alice, bob, address) {
   carol.destroy();
 }
 
+/**
+ * Three people in a room, carried by the SFU, and nobody dialling anybody: alice enters, the other two are
+ * rung by the room itself and enter, and each of them ends up playing the other two.
+ *
+ * Live tracks are not enough here. Every frame is encrypted before it leaves each browser with keys that
+ * travel over Matrix, and a track whose frames cannot be decrypted is still "live" — it just never shows a
+ * picture. So alice's picture is drawn on bob's screen and a frame has to actually be presented, which only
+ * happens if bob got alice's key and used it. That is the one thing that proves the encryption works and
+ * not merely that it was switched on.
+ */
+async function holdAConference(alice, bob, address) {
+  const carol = await open("carol", address);
+  const said = {};
+
+  // A room with the three of them, made and entered the way the other checks do it.
+  const conversationId = await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.conversations
+      .create({ participantIds: ["@bob:localhost", "@carol:localhost"], title: "conference", encrypted: true })
+      .then(conversation => conversation.id)
+  `);
+  // Written down first, so a failure says which room to go and look at.
+  detail.conferenceRoom = conversationId;
+  for (const [who, page] of [
+    ["bob", bob],
+    ["carol", carol]
+  ]) {
+    await waitFor(
+      page,
+      `${who} to see the conference room`,
+      `
+      window.relaykitDemo.client.conversations.list().then(list => list.some(item => item.id === ${JSON.stringify(conversationId)}))
+    `
+    );
+    await page.webContents.executeJavaScript(
+      `window.relaykitDemo.client.conversations.join(${JSON.stringify(conversationId)}).then(() => true)`
+    );
+    await waitFor(
+      page,
+      `${who} to really be in the conference room`,
+      `
+      window.relaykitDemo.client.conversations.list().then(list =>
+        list.find(item => item.id === ${JSON.stringify(conversationId)})?.membership === "join")
+    `
+    );
+  }
+
+  // Bob keeps what rings, so that a room starting a call can be told apart from bob asking to enter one.
+  await bob.webContents.executeJavaScript(`
+    window.rung = null;
+    window.relaykitDemo.client.on("call.incoming", call => { if (call.kind === "conference") window.rung = call; });
+    true;
+  `);
+
+  const conferenceOf = `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.find(call => call.kind === "conference" && call.conversationId === ${JSON.stringify(conversationId)}) ?? false)
+  `;
+  await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.join(${JSON.stringify(conversationId)}, { video: true }).then(() => true)
+  `);
+  said.aliceEntered = await waitFor(
+    alice,
+    "alice to be in the conference",
+    `
+    ${conferenceOf}.then(call => call && call.state === "connected" && call.isEncrypted === true && call.id)
+  `
+  );
+
+  // The room rings bob without anybody having called him: it says a conference is going on, and who is in it.
+  said.bobWasRungByTheRoom = await waitFor(
+    bob,
+    "bob's screen to ring for the conference",
+    `
+    window.rung && window.rung.state === "ringing" && window.rung.participants.map(one => one.userId)
+  `
+  );
+  if (!said.bobWasRungByTheRoom.includes("@alice:localhost")) {
+    throw new Error(
+      `Bob was rung for a conference that does not say alice is in it: ${said.bobWasRungByTheRoom}`
+    );
+  }
+
+  for (const page of [bob, carol]) {
+    await page.webContents.executeJavaScript(`
+      window.relaykitDemo.client.calls.join(${JSON.stringify(conversationId)}).then(() => true)
+    `);
+  }
+
+  // Everybody has everybody: three in each list, and the other two arriving live to each of them.
+  const hearingTheOtherTwo = `
+    ${conferenceOf}.then(call => {
+      if (!call || call.participants.length !== 3) return false;
+      const others = call.participants.filter(one => one.media !== undefined);
+      const heard = others.filter(one => one.media.getAudioTracks().some(track => track.readyState === "live"));
+      return heard.length >= 2 && { inTheRoom: call.participants.length, heard: heard.length, encrypted: call.isEncrypted };
+    })
+  `;
+  for (const [who, page] of [
+    ["alice", alice],
+    ["bob", bob],
+    ["carol", carol]
+  ]) {
+    said[`${who}Hears`] = await waitFor(page, `${who} to hear the other two`, hearingTheOtherTwo);
+    if (said[`${who}Hears`].encrypted !== true) {
+      throw new Error(
+        `${who}'s conference does not say it is encrypted: ${JSON.stringify(said[`${who}Hears`])}`
+      );
+    }
+  }
+
+  // The proof of the keys: a frame of alice's camera actually drawn on bob's screen.
+  said.bobSawAFrameOfAlice = await waitFor(
+    bob,
+    "a frame of alice to be presented on bob's screen",
+    `
+    ${conferenceOf}.then(call => new Promise(resolve => {
+      const alice = call && call.participants.find(one => one.userId === "@alice:localhost");
+      const picture = alice?.media?.getVideoTracks().find(track => track.readyState === "live");
+      if (!picture) return resolve(false);
+      const shown = document.getElementById("conference-proof") ?? Object.assign(document.createElement("video"), { id: "conference-proof", muted: true, autoplay: true, playsInline: true });
+      document.body.append(shown);
+      shown.srcObject = new MediaStream([picture]);
+      const gaveUp = setTimeout(() => resolve(false), 1500);
+      shown.requestVideoFrameCallback((_now, frame) => { clearTimeout(gaveUp); resolve({ width: frame.width, height: frame.height, presented: frame.presentedFrames }); });
+      shown.play().catch(() => undefined);
+    }))
+  `
+  );
+  if (!(said.bobSawAFrameOfAlice.width > 0 && said.bobSawAFrameOfAlice.presented > 0)) {
+    throw new Error(
+      `Alice's picture reached bob but no frame was ever drawn: ${JSON.stringify(said.bobSawAFrameOfAlice)}`
+    );
+  }
+
+  // One leaves, the other two carry on with each other: that is what a room is, as against a line.
+  await alice.webContents.executeJavaScript(`
+    ${conferenceOf}.then(call => window.relaykitDemo.client.calls.hangUp(call.id)).then(() => true)
+  `);
+  said.carriedOnWithoutAlice = await waitFor(
+    bob,
+    "bob's conference to carry on with carol",
+    `
+    ${conferenceOf}.then(call => call && call.state === "connected" && call.participants.length === 2
+      && !call.participants.some(one => one.userId === "@alice:localhost") && call.participants.map(one => one.userId))
+  `
+  );
+  await waitFor(
+    alice,
+    "alice to be out of the conference",
+    `
+    window.relaykitDemo.client.calls.list().then(calls => !calls.some(call => call.kind === "conference"))
+  `
+  );
+
+  await leaveNothingGoingOn([alice, bob, carol]);
+  carol.destroy();
+  detail.conference = said;
+}
+
 async function run() {
   const server = await serve(root);
-  const address = `https://127.0.0.1:${server.address().port}/`;
+  // Told where conferences are carried, because a development homeserver has no `.well-known` to say so.
+  const carriedAt = process.env.RELAYKIT_CONFERENCE_SERVICE ?? "http://localhost:8091";
+  const address = `https://127.0.0.1:${server.address().port}/?conference=${encodeURIComponent(carriedAt)}`;
   const alice = await open("alice", address);
   const bob = await open("bob", address);
   detail.bothSignedIn = true;
@@ -797,18 +966,32 @@ async function run() {
   `
   );
 
-  await ring(alice, bob, { video: false });
-  await ring(alice, bob, { video: true });
-  await refuse(alice, bob);
-  await chooseDevices(alice);
-  await chooseDevicesAndUseThem(alice, bob, conversationId);
-  await passItOn(alice, bob, address);
-  await turnTheCameraOnMidCall(alice, bob);
-  await twoAtOnce(alice, bob, address);
-  await handOverProperly(alice, bob, address);
+  // Everything, or one thing by name while it is being worked on: eight minutes of what already passes is a
+  // long way to walk to the one step that does not.
+  const only = process.env.RELAYKIT_CALLS_ONLY;
+  const steps = {
+    voice: () => ring(alice, bob, { video: false }),
+    video: () => ring(alice, bob, { video: true }),
+    refuse: () => refuse(alice, bob),
+    devices: async () => {
+      await chooseDevices(alice);
+      await chooseDevicesAndUseThem(alice, bob, conversationId);
+    },
+    transfer: () => passItOn(alice, bob, address),
+    camera: () => turnTheCameraOnMidCall(alice, bob),
+    two: () => twoAtOnce(alice, bob, address),
+    handover: () => handOverProperly(alice, bob, address),
+    conference: () => holdAConference(alice, bob, address)
+  };
+  if (only !== undefined && !(only in steps)) {
+    throw new Error(`There is no step called ${only}; there are ${Object.keys(steps).join(", ")}`);
+  }
+  for (const [name, step] of Object.entries(steps)) {
+    if (only === undefined || only === name) await step();
+  }
 
   server.close();
-  report(true, "two browsers rang each other by voice and by video, answered and hung up");
+  report(true, "two browsers rang each other by voice and by video, and three held an encrypted conference");
 }
 
 app.whenReady().then(() => run().catch(error => report(false, error.message)));

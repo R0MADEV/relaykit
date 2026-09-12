@@ -315,6 +315,8 @@ export class MatrixCalls {
       // Rung and answered, with one person on the other end: what can be done to it is not what can be done
       // to a room, and this is what says so.
       kind: "direct",
+      // Straight between the two devices: nothing in the middle gets to read it.
+      isEncrypted: true,
       // The other side is a side and not a list here, so the two streams above are what a screen draws.
       participants: [],
       callerId: placedHere ? this.ownUserId : (call.getOpponentMember()?.userId ?? ""),

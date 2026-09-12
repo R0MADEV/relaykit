@@ -68,6 +68,7 @@ export interface InMemoryAdapterOptions {
 
 /** A call that has just started: nobody has silenced anything, held it or shown their screen. */
 const nothingTouchedYet = {
+  isEncrypted: true,
   isMicrophoneMuted: false,
   isCameraMuted: false,
   isOnHold: false,

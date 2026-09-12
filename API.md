@@ -69,13 +69,20 @@ queda más. Enviar funciona sin conexión: el mensaje se guarda y sale solo cuan
 ### `client.calls`
 
 ```
-place         answer        hangUp        reject
+place         join          answer        hangUp        reject
 muteMicrophone              muteCamera    hold          shareScreen
 transfer      useMicrophone useCamera     list
 ```
 
 **Rechazar no es colgar**: al otro lado se le dice otra cosa. **Poner en espera no es silenciar**: en espera al
 otro se le avisa y deja de oír y de ver.
+
+**`place` suena; `join` no.** Una llamada directa se marca y alguien la contesta. Una **conferencia** ya está
+en marcha en una conversación y se entra en ella con `join(conversationId)`: nadie descuelga, y sigue sin ti
+cuando cuelgas. Una llamada de dos personas es una conferencia con dos dentro, así que es el mismo `Call`
+y no hay otro sitio donde mirar. Lo que no tiene sentido en una sala — espera, transferencia, teclas — se
+rechaza con `NOT_SUPPORTED`. El audio y el vídeo de una conferencia los lleva un servidor que **no puede
+leerlos**: las claves viajan por Matrix y cada frame sale cifrado del navegador.
 
 La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegador con `enumerateDevices()`.
 `useMicrophone(deviceId)` es la parte que sí es nuestra.
@@ -115,8 +122,9 @@ Devuelve la función para dejar de escuchar.
 | `typing.changed` | Alguien escribe |
 | `presence.changed` | Alguien se conecta o se va |
 | `notification` | Algo que merece avisar |
-| `call.incoming` | **Te llaman.** Aquí es donde una pantalla suena |
-| `call.changed` | La llamada avanza, se silencia, se pone en espera o acaba |
+| `call.incoming` | **Te llaman**, o una conferencia empieza en una conversación tuya. Aquí es donde una pantalla suena |
+| `call.changed` | La llamada avanza, alguien entra o sale, se silencia, se pone en espera o acaba |
+| `call.speaking` | Quién está hablando ahora. Aparte a propósito: cambia varias veces por segundo y solo ilumina un borde |
 | `verification.requested` / `verification.changed` | Verificación de dispositivos |
 | `connection.changed` / `sync.changed` | Estado de la conexión |
 | `session.ended` | El homeserver dejó de aceptar la sesión. Nadie lo pidió desde aquí |
@@ -150,10 +158,14 @@ alias?  replacedBy?  replaces?
 ### `Call`
 
 ```ts
-id  conversationId  callerId  isVideo  state  startedAt
-ownMedia?  remoteMedia?  hasRemoteMedia?
+id  conversationId  callerId  isVideo  state  startedAt  kind  isEncrypted?
+participants  ownMedia?  remoteMedia?  hasRemoteMedia?
 isMicrophoneMuted  isCameraMuted  isOnHold  isSharingScreen
 ```
+
+`kind` es `"direct"` o `"conference"`. `participants` es **todo el mundo, tú incluido**, cada uno con su
+`media` y su `screen` para pintar una caja por persona; en una llamada directa `remoteMedia` es el atajo para
+la única otra caja. `isEncrypted` es lo que dibuja el candado, y falta mientras no se sabe (antes de entrar).
 
 `state` es `"ringing" | "connecting" | "connected" | "ended"`. No son los estados internos del SDK: son los
 cuatro que una pantalla dibuja distinto.

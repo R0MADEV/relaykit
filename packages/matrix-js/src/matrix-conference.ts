@@ -115,10 +115,29 @@ export class MatrixConference {
     // SDK hands over this side's own key the moment it makes one, and a key nobody caught is a call nobody
     // can hear.
     const keys = keysFor(engine);
+    const ownIdentity = `${client.getSafeUserId()}:${client.getDeviceId() ?? ""}`;
+    let ownKeyIsIn: () => void = () => undefined;
+    const ownKey = new Promise<void>(resolve => {
+      ownKeyIsIn = resolve;
+    });
     const keyArrived = (key: Uint8Array, keyIndex: number, _member: unknown, identity: string): void => {
-      void keys.receive(key, identity, keyIndex);
+      void keys.receive(key, identity, keyIndex).then(() => {
+        if (identity === ownIdentity) ownKeyIsIn();
+      });
     };
     session.on(MatrixRTCSessionEvent.EncryptionKeyChanged, keyArrived);
+    // The SDK writes who is on the call into the room in the background, and a room can refuse: somebody
+    // without the right to say so is on the SFU and, to everybody else, not on the call. That is a call that
+    // went wrong, and it has to say why rather than sit there connected and unheard.
+    const refused = (error: unknown): void => {
+      const going = this.joined.get(callId);
+      if (!going) return;
+      this.joined.delete(callId);
+      const why = error instanceof Error ? error.message : String(error);
+      const ended = { ...this.describe(callId, going), state: "ended" as const, wentWrong: why };
+      void walkOutOf(going).finally(() => this.report?.(ended));
+    };
+    session.on(MatrixRTCSessionEvent.MembershipManagerError, refused);
 
     const going: Joined = {
       room: new engine.Room({
@@ -134,20 +153,27 @@ export class MatrixConference {
       microphone: engine.Track.Source.Microphone,
       cameraAndMicrophone: [engine.Track.Source.Camera, engine.Track.Source.Microphone],
       screenShare: [engine.Track.Source.ScreenShare],
-      stopListening: () => session.off(MatrixRTCSessionEvent.EncryptionKeyChanged, keyArrived)
+      stopListening: () => {
+        session.off(MatrixRTCSessionEvent.EncryptionKeyChanged, keyArrived);
+        session.off(MatrixRTCSessionEvent.MembershipManagerError, refused);
+      }
     };
 
     this.listen(callId, going, engine.RoomEvent);
     await going.room.connect(ticket.url, ticket.jwt);
     await going.room.setE2EEEnabled(true);
-    await going.room.localParticipant.setMicrophoneEnabled(true);
-    if (options.video === true) await going.room.localParticipant.setCameraEnabled(true);
-    // Said in the room only once this side is really on the call: announcing first would have everybody
+    // Said in the room only once this side is really connected: announcing first would have everybody
     // else's screen show somebody who never arrived, if the connection failed. Asking the SDK to manage the
     // keys is what makes it make one for this side and share it with the rest.
     session.joinRoomSession([transport], undefined, { manageMediaKeys: true });
     // Keys the SDK already had before anybody was listening — everybody else's, for a call joined late.
     session.reemitEncryptionKeys();
+    // Nothing is sent before this side's own key is in: a frame encrypted with no key is a frame dropped, and
+    // the first seconds of every call would be silence. Bounded, because a key that never comes should show
+    // up as a call nobody can hear, not as a join that never returns.
+    await Promise.race([ownKey, new Promise<void>(resolve => setTimeout(resolve, ownKeyPatienceMs))]);
+    await going.room.localParticipant.setMicrophoneEnabled(true);
+    if (options.video === true) await going.room.localParticipant.setCameraEnabled(true);
     this.joined.set(callId, going);
     return this.describe(callId, going);
   }
@@ -289,6 +315,8 @@ export class MatrixConference {
       startedAt: going.startedAt,
       kind: "conference",
       participants,
+      // What this side sends is encrypted before it leaves the browser; the SFU carries what it cannot read.
+      isEncrypted: going.room.isE2EEEnabled,
       isMicrophoneMuted: !own.isMicrophoneEnabled,
       isCameraMuted: !own.isCameraEnabled,
       // A room has no other end to make wait, which is why holding is refused before it ever reaches here.
@@ -327,6 +355,9 @@ export class MatrixConference {
     };
   }
 }
+
+/** How long to wait for this side's own key before sending anyway. The SDK makes it at once; the network may not. */
+const ownKeyPatienceMs = 5000;
 
 /**
  * The media engine, fetched only when a conference is actually opened. An application that does chat and

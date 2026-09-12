@@ -26,6 +26,8 @@ test("a conference is joined without ringing anybody", async () => {
   assert.equal(call.kind, "conference");
   // Nobody has to answer, so there is nothing to wait for.
   assert.equal(call.state, "connected");
+  // A screen draws a padlock on this, and a conference that cannot say so is one that is not.
+  assert.equal(call.isEncrypted, true);
   await client.stop();
 });
 
