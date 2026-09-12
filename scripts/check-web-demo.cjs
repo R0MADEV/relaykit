@@ -170,26 +170,42 @@ async function run() {
     true;
   `);
   await waitFor(page, "la encuesta en pantalla", `
-    [...document.querySelectorAll("#timeline .poll")].some(item => item.textContent.includes("A las 14"))
+    [...document.querySelectorAll("#polls .poll")].some(item => item.textContent.includes("A las 14"))
   `).catch(async error => {
     const why = await page.webContents.executeJavaScript(`
       JSON.stringify({
         estado: document.getElementById("status").textContent,
-        encuestas: document.querySelectorAll("#timeline .poll").length,
+        encuestas: document.querySelectorAll("#polls .poll").length,
         formulario: document.getElementById("poll-form").hidden
       })
     `);
     throw new Error(`${error.message} | ${why}`);
   });
   await page.webContents.executeJavaScript(`
-    [...document.querySelectorAll("#timeline .poll .answer button")]
+    [...document.querySelectorAll("#polls .poll .answer button")]
       .find(item => item.textContent.includes("A las 15")).click();
     true;
   `);
   await waitFor(page, "el voto contado en pantalla", `
-    [...document.querySelectorAll("#timeline .poll .answer")].some(item => /A las 15 · 1/.test(item.textContent))
+    [...document.querySelectorAll("#polls .poll .answer")].some(item => /A las 15 · 1/.test(item.textContent))
   `);
   detail.pollVotedOnScreen = true;
+
+  // A poll has to survive whatever happens in the conversation around it. It used to be drawn inside the
+  // timeline, and the timeline is rebuilt whole every time a message arrives: the poll vanished, nothing put
+  // it back, and it read as a poll that was never asked.
+  await page.webContents.executeJavaScript(`
+    window.relaykitDemo.client.conversations.list({ limit: 1 })
+      .then(([conversation]) => window.relaykitDemo.client.messages.send(conversation.id, "algo despues"))
+      .then(() => true)
+  `);
+  await waitFor(page, "el mensaje de despues en pantalla", `
+    [...document.querySelectorAll("#timeline .message")].some(item => item.textContent.includes("algo despues"))
+  `);
+  const stillThere = await page.webContents.executeJavaScript(
+    `document.querySelectorAll(".poll").length > 0`);
+  if (!stillThere) throw new Error("Llego un mensaje y la encuesta desaparecio de la pantalla");
+  detail.pollSurvivedAMessage = true;
 
   // Calls, which is the one thing that cannot be checked from Node: there is no WebRTC there, and the SDK
   // refuses to make a call without it. A browser has it, so this is the only place the signalling can be

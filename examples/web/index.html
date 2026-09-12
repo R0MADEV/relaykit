@@ -152,6 +152,9 @@
         <div id="timeline" hidden>
           <button id="load-more" type="button" hidden>Cargar mensajes anteriores</button>
         </div>
+        <!-- Polls have a place of their own. Inside the timeline they were wiped every time a message arrived,
+             because that is rebuilt whole, and nothing put them back. -->
+        <div id="polls"></div>
         <footer hidden>
           <p id="replying" hidden></p>
           <p id="typing"></p>

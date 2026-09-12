@@ -163,6 +163,10 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Corregido: una encuesta desaparecia de la pantalla en cuanto alguien decia algo. Se dibujaba dentro de la
+  conversacion, y esa se reconstruye entera cada vez que llega un mensaje, asi que la encuesta se borraba y
+  nadie la volvia a poner. Ahora tienen sitio propio. Esto es lo que hacia fallar la comprobacion del
+  navegador a ratos: no era intermitencia, era esto.
 - El ejemplo web tiene selector de microfono y camara y un formulario para transferir la llamada. La lista de
   dispositivos la da el navegador (`enumerateDevices`), no la libreria: repetir una lista que la plataforma ya
   mantiene no aporta nada.

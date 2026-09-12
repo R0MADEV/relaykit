@@ -775,13 +775,15 @@ class DemoApp {
     }
   }
 
-  /** Polls live apart from the message timeline, as in any client that paints them. */
+  /**
+   * Polls live apart from the message timeline, as in any client that paints them, and in a place of their
+   * own: the timeline is rebuilt whole every time a message arrives, so a poll drawn inside it was wiped by
+   * whatever was said next.
+   */
   private async showPolls(): Promise<void> {
     if (!this.conversationId) return;
     const polls = await this.client.polls.list(this.conversationId).catch(() => []);
-    const timeline = this.element("timeline");
-    timeline.querySelectorAll(".poll").forEach(old => old.remove());
-    for (const poll of polls) timeline.append(this.pollElement(poll));
+    this.element("polls").replaceChildren(...polls.map(poll => this.pollElement(poll)));
   }
 
   private pollElement(poll: Poll): HTMLElement {
