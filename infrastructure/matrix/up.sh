@@ -35,12 +35,29 @@ if "psycopg2" not in config:
 PY
 '
 
-# Everything the checks need the homeserver to allow: rate limits, registration, the public room list and the
-# user directory. Applied once; running this again is not an error.
-$compose run --rm -T --user root --entrypoint sh synapse -c \
-  'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' < dev.yaml
+# Everything the checks need the homeserver to allow: rate limits, registration, the public room list, the
+# user directory and somewhere to relay a call through.
+#
+# Written between two marks and replaced every time rather than appended once. Appending once meant that
+# changing dev.yaml did nothing to an environment that already existed: the change was made, nothing happened,
+# and the reason was somewhere nobody was looking.
+$compose run --rm -T --user root --entrypoint sh synapse -c '
+cat > /tmp/dev.yaml
+python3 - <<PY
+start, end = "# >>> relaykit", "# <<< relaykit"
+config = open("/data/homeserver.yaml").read()
+if start in config and end in config:
+    config = config[:config.index(start)] + config[config.index(end) + len(end):]
+open("/data/homeserver.yaml", "w").write(
+    config.rstrip() + "\n\n" + start + "\n" + open("/tmp/dev.yaml").read().rstrip() + "\n" + end + "\n")
+PY
+' < dev.yaml
 
 $compose up -d
+
+# The configuration lives on a mounted volume, so writing it changes nothing until the homeserver reads it
+# again. Without this the settings above are applied and do not take effect, which looks like them not working.
+$compose restart synapse >/dev/null
 
 attempt=0
 while [ $attempt -lt 60 ]; do

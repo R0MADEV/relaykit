@@ -163,6 +163,14 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- El entorno levanta coturn, que es por donde pasa una llamada cuando los dos lados no pueden verse. Hasta
+  ahora el SDK decia `failed to get TURN credentials! Proceeding with call anyway...` en cada llamada y
+  funcionaba solo porque las dos ventanas estaban en la misma maquina. Una prueba de humo pregunta al
+  homeserver si reparte un rele con credenciales que caducan, y en una llamada real ya aparecen candidatos
+  `typ relay`.
+- Corregido: `up.sh` solo aplicaba `dev.yaml` la primera vez, asi que cambiar la configuracion no hacia nada
+  en un entorno ya montado. Ahora se escribe entre dos marcas y se reemplaza siempre, y se reinicia el
+  homeserver, que sin eso no lee lo que se acaba de escribir.
 - El ejemplo web tiene los botones: silenciar, apagar camara (solo en videollamada), espera, compartir
   pantalla y rechazar. Cada uno dice lo que va a hacer al pulsarlo, porque si no nadie sabe si ya esta
   pulsado. La comprobacion entre dos navegadores los pulsa, y rechaza una llamada entera de punta a punta.
