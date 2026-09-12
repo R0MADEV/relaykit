@@ -1,18 +1,15 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bobUserId = `@${process.env.MATRIX_USER_B ?? "bob"}:localhost`;
+// On accounts of its own: setting recovery up resets the cross-signing identity, so a shared account that has
+// been through this all day is left in a state where nothing else can verify, and the failure says nothing
+// about why.
+let owner;
+let bobUserId;
 
-async function createClient(credentials, deviceName) {
-  const adapter = new MatrixJsAdapter();
-  const client = new MessagingClient({ adapter });
-  await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  // Kept so a failure can say which part of cross-signing is missing, which the public status does not.
-  client.adapterForDiagnostics = adapter;
-  return client;
+async function createClient(_credentials, deviceName) {
+  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("recovery", deviceName);
+  owner = owner ?? account;
+  return account.client;
 }
 
 async function waitFor(description, check, { attempts = 60, intervalMs = 500, required = true } = {}) {
@@ -42,30 +39,18 @@ async function sendBeforeEnablingRecovery(client) {
   return { conversation, body };
 }
 
-/** Which part of cross-signing is missing, so a failure says what happened instead of only that it happened. */
-async function whyNotReady(client) {
-  const crypto = client.adapterForDiagnostics?.runtime?.getClient()?.getCrypto?.();
-  if (!crypto) return "(no detail available)";
-  const settled = [];
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const parts = await crypto.getCrossSigningStatus();
-    const ready = await crypto.isCrossSigningReady();
-    settled.push(`${attempt}:ready=${ready} public=${parts.publicKeysOnDevice} sssss=${parts.privateKeysInSecretStorage} cached=${JSON.stringify(parts.privateKeysCachedLocally)}`);
-    if (ready) break;
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  return `| ${settled.at(0)} ... ${settled.at(-1)} after ${settled.length} looks`;
-}
-
 async function main() {
-  const firstDevice = await createClient(alice, "RelayKit recovery smoke (first device)");
+  const firstDevice = await createClient(undefined, "RelayKit recovery smoke (first device)");
+  // Somebody to talk to, so there is a conversation with something said in it before recovery is turned on.
+  const other = await registerAccount("recovery-other", "RelayKit recovery smoke (other)");
+  bobUserId = other.userId;
   let secondDevice;
   try {
     const { conversation, body } = await sendBeforeEnablingRecovery(firstDevice);
-    const { recoveryKey } = await firstDevice.crypto.setupRecovery({ password: alice.password });
+    const { recoveryKey } = await firstDevice.crypto.setupRecovery({ password: owner.password });
     const status = await firstDevice.crypto.status();
     if (!status.crossSigningReady || !status.secretStorageReady) {
-      throw new Error(`Recovery setup left crypto not ready: ${JSON.stringify(status)} ${await whyNotReady(firstDevice)}`);
+      throw new Error(`Recovery setup left crypto not ready: ${JSON.stringify(status)}`);
     }
     // The count of keys the server reports lags behind, and on a loaded account it lags a lot. What matters is
     // whether the other device can read what was said, and that is what this waits for further down.
@@ -81,7 +66,7 @@ async function main() {
     const laterBody = `recovery-later-${Date.now()}`;
     await firstDevice.messages.send(later.id, laterBody);
 
-    secondDevice = await createClient(alice, "RelayKit recovery smoke (second device)");
+    secondDevice = await createClient(undefined, "RelayKit recovery smoke (second device)");
     const beforeRecovery = await secondDevice.messages.list(conversation.id);
     const isReadableWithoutRecovery = beforeRecovery.some(message => message.body === body);
     if (isReadableWithoutRecovery) {
@@ -107,8 +92,9 @@ async function main() {
     }, { attempts: 30, intervalMs: 2000 });
     console.log(`RelayKit recovery smoke check passed (${summary.imported}/${summary.total} keys imported)`);
   } finally {
-    await secondDevice?.logout();
-    await firstDevice.logout();
+    await other.client.logout().catch(() => undefined);
+    await secondDevice?.logout().catch(() => undefined);
+    await firstDevice.logout().catch(() => undefined);
   }
 }
 

@@ -3,19 +3,15 @@ import { promisify } from "node:util";
 import { MessagingClient } from "@relaykit/core";
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
 const run = promisify(execFile);
 const compose = ["compose", "-f", "infrastructure/matrix/docker-compose.yml"];
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
 
-async function createClient(credentials, deviceName) {
-  // Without storage there is no durable outbox, which is the whole point of this check.
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId };
 }
 
 async function waitFor(description, check, attempts = 120) {
@@ -46,8 +42,8 @@ async function main() {
   let bobDevice;
   let stopped = false;
   try {
-    aliceDevice = await createClient(alice, "RelayKit outage smoke");
-    bobDevice = await createClient(bob, "RelayKit outage smoke");
+    aliceDevice = await createClient("outage-a", "RelayKit outage smoke");
+    bobDevice = await createClient("outage-b", "RelayKit outage smoke");
     const conversation = await aliceDevice.client.conversations.open(bobDevice.userId);
     await waitFor("Bob to be invited", async () => {
       const conversations = await bobDevice.client.conversations.list();

@@ -1,16 +1,19 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
-// Two different people verifying each other, which happens inside the conversation they share.
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
+// Two different people verifying each other, which happens inside the conversation they share. Both accounts
+// are their own: verifying leaves cross-signing state, and sharing accounts between checks means one check
+// breaking another in a way neither of them mentions.
+async function waitForDevice(client, userId, deviceId) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (await client.devices.verification(userId, deviceId)) return;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error(`Timed out waiting for ${userId} to know about device ${deviceId}`);
+}
 
-async function createClient(credentials, deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId, deviceId: session.deviceId };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, deviceId: account.deviceId, password: account.password };
 }
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 45000) {
@@ -44,19 +47,30 @@ function emojiOf(session) {
 async function main() {
   // Both sides need cross-signing keys of their own: verifying another person is about their identity,
   // not about one device, so there has to be an identity on each side to sign.
-  const aliceSide = await createClient(alice, "RelayKit user verification smoke (alice)");
+  const aliceSide = await createClient("verify-a", "RelayKit user verification smoke (alice)");
   let bobSide;
   try {
-    await aliceSide.client.crypto.setupRecovery({ password: alice.password });
-    bobSide = await createClient(bob, "RelayKit user verification smoke (bob)");
-    await bobSide.client.crypto.setupRecovery({ password: bob.password });
+    await aliceSide.client.crypto.setupRecovery({ password: aliceSide.password });
+    bobSide = await createClient("verify-b", "RelayKit user verification smoke (bob)");
+    await bobSide.client.crypto.setupRecovery({ password: bobSide.password });
 
-    const conversation = await aliceSide.client.conversations.open(bobSide.userId);
+    // Encrypted on purpose: device lists only travel between people who share an encrypted conversation, and
+    // verifying somebody is about the keys they sign with. Asking for it rather than assuming it, because the
+    // policy now belongs to whoever runs the homeserver.
+    const conversation = await aliceSide.client.conversations.create({
+      participantIds: [bobSide.userId],
+      direct: true,
+      encrypted: true
+    });
     await waitFor("Bob to be invited", async () => {
       const conversations = await bobSide.client.conversations.list();
       return conversations.find(item => item.id === conversation.id);
     });
     await bobSide.client.conversations.join(conversation.id);
+    // Two accounts that have just been made do not know each other's devices until the conversation has told
+    // them. Asking to verify somebody the account has never heard of is refused, and rightly so.
+    await waitForDevice(aliceSide.client, bobSide.userId, bobSide.deviceId);
+    await waitForDevice(bobSide.client, aliceSide.userId, aliceSide.deviceId);
 
     const incoming = waitForPhase(bobSide.client, "requested", "verification.requested");
     const aliceSas = waitForPhase(aliceSide.client, "sas");

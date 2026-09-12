@@ -4,6 +4,10 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 // Asking the homeserver for a window over the conversations instead of all of them, which is what makes an
 // account with thousands of them open at once.
+//
+// The one check that keeps the shared account, and on purpose: it needs an account with hundreds of
+// conversations, which `npm run seed` builds. A freshly made account has none, and a window over nothing
+// measures nothing. Everything else here registers its own accounts so no check can disturb another.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
 

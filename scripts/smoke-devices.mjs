@@ -1,15 +1,18 @@
 import { MessagingClient } from "@relaykit/core";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
 
-async function createClient(credentials, deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId, deviceId: session.deviceId, deviceName };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, deviceId: account.deviceId, deviceName, account };
+}
+
+/** Another device of somebody who already has an account, which is a different thing from another person. */
+async function anotherDevice(account, deviceName) {
+  const other = await signInAgain(account, deviceName);
+  return { client: other.client, userId: other.userId, deviceId: other.deviceId, deviceName };
 }
 
 async function waitFor(description, check, attempts = 60) {
@@ -39,13 +42,14 @@ async function main() {
   let bobDevice;
   try {
     // The same person on two devices at once, which is what anyone with a laptop and a phone has.
-    devices.push(await createClient(alice, "laptop"));
-    devices.push(await createClient(alice, "phone"));
+    const owner = await createClient("devices", "laptop");
+    devices.push(owner);
+    devices.push(await anotherDevice(owner.account, "phone"));
     const [laptop, phone] = devices;
     if (laptop.deviceId === phone.deviceId) {
       throw new Error("Both sessions got the same device, so this proves nothing");
     }
-    bobDevice = await createClient(bob, "bob");
+    bobDevice = await createClient("devices-other", "bob");
 
     // Una conversacion propia, no el chat directo con Bob: ese lo comparten todos los demas smokes y tambien
     // el ejemplo web, asi que arrastra silencios, recibos y marcadores de otras pruebas y de quien haya estado
@@ -77,7 +81,7 @@ async function main() {
     // Algo que Alice no haya dicho ella misma: enviar pone tu propio marcador al dia, asi que despues de que
     // el portatil hablara no queda nada sin leer. Para probar que el recibo es de la persona y no del
     // dispositivo hace falta que sea Bob quien hable el ultimo.
-    const pending = `bob-otra-vez-${Date.now()}`;
+    const pending = `bob-again-${Date.now()}`;
     await bobDevice.client.messages.send(conversation.id, pending);
     const unreadOnPhone = await waitForReadable(phone, conversation.id, pending);
     // Contar lo no leido solo tiene sentido si la conversacion puede interrumpir. Una prueba que da por hecho

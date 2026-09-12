@@ -1,18 +1,12 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const people = [
-  { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" },
-  { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" },
-  { username: process.env.MATRIX_USER_C ?? "carol", password: process.env.MATRIX_PASSWORD_C ?? "carol-password" }
-];
+const people = ["group-a", "group-b", "group-c"];
 
-async function createClient({ username, password }) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter() });
-  const session = await client.login({ ...username && { username }, password, homeserver, deviceName: "RelayKit group smoke" });
-  await client.start();
-  return { client, userId: session.userId, username };
+
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, username: account.username };
 }
 
 async function waitFor(description, check, attempts = 60) {
@@ -34,7 +28,7 @@ function waitForMessage(member, conversationId, body) {
 async function main() {
   const members = [];
   try {
-    for (const person of people) members.push(await createClient(person));
+    for (const person of people) members.push(await createClient(person, `RelayKit group smoke (${person})`));
     const [alice, bob, carol] = members;
 
     const conversation = await alice.client.conversations.create({

@@ -1,15 +1,15 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const aliceUserId = `@${alice.username}:localhost`;
+// On an account of its own: verifying leaves cross-signing state behind, and a shared account that has been
+// through this all day stops being able to verify anything, with a failure that says nothing about why.
+let owner;
+let aliceUserId;
 
 async function createClient(deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter() });
-  const session = await client.login({ ...alice, homeserver, deviceName });
-  await client.start();
-  return { client, deviceId: session.deviceId };
+  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("sas", deviceName);
+  owner = owner ?? account;
+  aliceUserId = account.userId;
+  return { client: account.client, deviceId: account.deviceId };
 }
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 30000) {
@@ -45,7 +45,7 @@ async function main() {
   const first = await createClient("RelayKit verification smoke (first device)");
   let second;
   try {
-    await first.client.crypto.setupRecovery({ password: alice.password });
+    await first.client.crypto.setupRecovery({ password: owner.password });
     second = await createClient("RelayKit verification smoke (second device)");
     await waitForDevice(second.client, aliceUserId, first.deviceId);
     const trace = message => { if (process.env.RELAYKIT_TRACE) console.error(`[smoke] ${message}`); };

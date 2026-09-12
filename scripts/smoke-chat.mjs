@@ -2,17 +2,15 @@ import { deflateSync } from "node:zlib";
 import { MessagingClient } from "@relaykit/core";
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
 // Everything a conversation is besides plain text: rich text, mentions, a description, a picture, pinning.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
 
-async function createClient(credentials, deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
+    username: account.username, password: account.password };
 }
 
 async function waitFor(description, check, attempts = 120) {
@@ -81,8 +79,8 @@ async function main() {
   let aliceSide;
   let bobSide;
   try {
-    aliceSide = await createClient(alice, "RelayKit chat smoke");
-    bobSide = await createClient(bob, "RelayKit chat smoke");
+    aliceSide = await createClient("chat-a", "RelayKit chat smoke");
+    bobSide = await createClient("chat-b", "RelayKit chat smoke");
 
     const conversation = await aliceSide.client.conversations.create({
       participantIds: [bobSide.userId],
@@ -184,7 +182,7 @@ async function main() {
 
     // Finding somebody by the name they go by, which is the only way to invite anybody from a screen: nobody
     // types a full Matrix identifier from memory.
-    const searchedFor = (process.env.MATRIX_USER_B ?? "bob");
+    const searchedFor = bobSide.username;
     const whoWasFound = await waitFor("the directory to know Bob", async () => {
       const people = await aliceSide.client.users.search(searchedFor);
       return people.find(person => person.id === bobSide.userId);

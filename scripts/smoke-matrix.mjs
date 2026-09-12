@@ -1,8 +1,5 @@
+import { registerAccount } from "./fresh-accounts.mjs";
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const users = [
-  { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" },
-  { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" }
-];
 
 async function request(path, options = {}) {
   const response = await fetch(`${homeserver}${path}`, options);
@@ -14,6 +11,14 @@ async function request(path, options = {}) {
 
 async function main() {
   await request("/_matrix/client/versions");
+  // Accounts made for this run: the point is that the homeserver answers and signing in works, not that any
+  // particular person exists. Two of them, because one proves less than two.
+  const users = [];
+  for (const purpose of ["matrix-a", "matrix-b"]) {
+    const account = await registerAccount(purpose, "RelayKit matrix smoke", { start: false });
+    users.push(account);
+    await account.client.stop().catch(() => undefined);
+  }
   for (const user of users) {
     const result = await request("/_matrix/client/v3/login", {
       method: "POST",

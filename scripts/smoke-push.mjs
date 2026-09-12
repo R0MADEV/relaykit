@@ -1,13 +1,12 @@
 import { MessagingClient } from "@relaykit/core";
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
 // Registrar un gateway y que el homeserver le entregue algo no son lo mismo. Aqui hay un gateway de verdad,
 // dentro de la red de Docker, que apunta lo que recibe. Se comprueba que llega lo que tiene que llegar y que
 // NO llega lo que no debe: con `event_id_only`, lo dicho se queda entre los dispositivos.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
 // El homeserver lo alcanza por nombre dentro de la red; esta comprobacion lo lee por el puerto publicado.
 const gatewayFromHomeserver = process.env.PUSH_GATEWAY_URL ?? "http://push-gateway:8080/_matrix/push/v1/notify";
 const gatewayFromHere = process.env.PUSH_GATEWAY_INSPECT ?? "http://localhost:8090/received";
@@ -25,11 +24,10 @@ async function whatTheGatewayReceived() {
   return response.json();
 }
 
-async function createClient(credentials, deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
+    username: account.username, password: account.password };
 }
 
 async function waitFor(description, check, attempts = 60) {
@@ -46,8 +44,8 @@ async function main() {
   let bobSide;
   try {
     await fetch(gatewayFromHere, { method: "DELETE" }).catch(() => undefined);
-    aliceSide = await createClient(alice, "RelayKit push smoke (alice)");
-    bobSide = await createClient(bob, "RelayKit push smoke (bob)");
+    aliceSide = await createClient("push-a", "RelayKit push smoke (alice)");
+    bobSide = await createClient("push-b", "RelayKit push smoke (bob)");
 
     await aliceSide.client.push.register({
       gatewayUrl: gatewayFromHomeserver,

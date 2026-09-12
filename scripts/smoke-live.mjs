@@ -1,17 +1,15 @@
 import { MessagingClient } from "@relaykit/core";
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount } from "./fresh-accounts.mjs";
 
 // The things that only exist while somebody is looking: typing, presence and read receipts.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const bob = { username: process.env.MATRIX_USER_B ?? "bob", password: process.env.MATRIX_PASSWORD_B ?? "bob-password" };
 
-async function createClient(credentials, deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
-  const session = await client.login({ ...credentials, homeserver, deviceName });
-  await client.start();
-  return { client, userId: session.userId };
+async function createClient(purpose, deviceName) {
+  const account = await registerAccount(purpose, deviceName);
+  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
+    username: account.username, password: account.password };
 }
 
 async function waitFor(description, check, attempts = 120) {
@@ -27,8 +25,8 @@ async function main() {
   let aliceSide;
   let bobSide;
   try {
-    aliceSide = await createClient(alice, "RelayKit live smoke");
-    bobSide = await createClient(bob, "RelayKit live smoke");
+    aliceSide = await createClient("live-a", "RelayKit live smoke");
+    bobSide = await createClient("live-b", "RelayKit live smoke");
 
     const typing = [];
     const receipts = [];

@@ -1,16 +1,18 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 
 // Verifying a new device by showing it a code instead of comparing emoji.
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
-const aliceUserId = `@${alice.username}:localhost`;
+//
+// On an account of its own: setting recovery up resets the cross-signing identity, so a shared account that
+// has been through this all day stops being able to verify anything, and the failure says nothing about why.
+let owner;
+let aliceUserId;
 
 async function createClient(deviceName) {
-  const client = new MessagingClient({ adapter: new MatrixJsAdapter() });
-  const session = await client.login({ ...alice, homeserver, deviceName });
-  await client.start();
-  return { client, deviceId: session.deviceId };
+  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("qr", deviceName);
+  owner = owner ?? account;
+  aliceUserId = account.userId;
+  const { client, deviceId } = account;
+  return { client, deviceId };
 }
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 30000) {
@@ -52,7 +54,7 @@ async function main() {
   const trusted = await createClient("RelayKit qr smoke (trusted device)");
   let newcomer;
   try {
-    await trusted.client.crypto.setupRecovery({ password: alice.password });
+    await trusted.client.crypto.setupRecovery({ password: owner.password });
     newcomer = await createClient("RelayKit qr smoke (new device)");
     await waitForDevice(newcomer.client, aliceUserId, trusted.deviceId);
 
