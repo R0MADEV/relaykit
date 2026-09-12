@@ -121,6 +121,14 @@ async function run() {
   detail.aliceHears = await waitFor(alice, "alice's screen to be playing bob", playing);
   detail.bobHears = await waitFor(bob, "bob's screen to be playing alice", playing);
 
+  // This one is a voice call, so there is no picture: the element must be out of the way and still playing.
+  detail.noEmptyPictureBox = await alice.webContents.executeJavaScript(`
+    document.getElementById("call-media").hidden === true
+  `);
+  if (!detail.noEmptyPictureBox) {
+    throw new Error("A voice call is keeping a hole on the screen for a picture that will never come");
+  }
+
   await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
 
   // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being

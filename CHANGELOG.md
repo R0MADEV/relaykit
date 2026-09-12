@@ -163,6 +163,8 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- En una llamada de voz el elemento de video se esconde: guardar sitio para una imagen que no va a llegar deja
+  un agujero en la pantalla. Escondido, no quitado, porque sigue reproduciendo lo que se le dio.
 - El ejemplo web tiene botones de llamar y de videollamada, aviso de llamada entrante con descolgar y colgar,
   y un elemento que reproduce lo que llega. La comprobacion de dos navegadores los pulsa en vez de usar la
   API, porque lo que hay que probar es que se puede llamar desde una pantalla.

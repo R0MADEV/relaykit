@@ -998,6 +998,10 @@ class DemoApp {
     // The stream goes to the element as it is. This is what the library hands over, and what a browser plays.
     const media = this.element("call-media") as HTMLVideoElement;
     media.srcObject = call.remoteMedia ?? null;
+    // A voice call has no picture, and an element kept for one that will never come is a hole in the screen.
+    // Hidden, not removed: it goes on playing what it was given, which is the whole point of a voice call.
+    const hasAPicture = (call.remoteMedia?.getVideoTracks().length ?? 0) > 0;
+    media.hidden = !hasAPicture;
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {
