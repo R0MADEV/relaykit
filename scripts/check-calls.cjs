@@ -113,6 +113,22 @@ async function ring(alice, bob, { video }) {
     }
   }
 
+  // The same from the screen, which is where somebody actually does it: press, and the call has to say so.
+  const pressing = async (button, saying) => {
+    await alice.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(button)}).click(); true;`);
+    return waitFor(alice, `the call to say ${saying} after pressing ${button}`, `
+      window.relaykitDemo.client.calls.list().then(calls => calls[0]?.${saying} === true)
+    `);
+  };
+  said.pressedSilence = await pressing("call-mute", "isMicrophoneMuted");
+  await alice.webContents.executeJavaScript(`document.getElementById("call-mute").click(); true;`);
+  said.pressedHold = await pressing("call-hold", "isOnHold");
+  await alice.webContents.executeJavaScript(`document.getElementById("call-hold").click(); true;`);
+  if (video) {
+    said.pressedCamera = await pressing("call-camera", "isCameraMuted");
+    await alice.webContents.executeJavaScript(`document.getElementById("call-camera").click(); true;`);
+  }
+
   // Silencing has to reach the track. A flag that says silenced while the microphone is still sending is
   // worse than no button at all, and only a real call can tell one from the other.
   const track = video ? "getVideoTracks" : "getAudioTracks";
@@ -160,6 +176,22 @@ async function ring(alice, bob, { video }) {
   detail[kind] = said;
 }
 
+/**
+ * Refusing a call, which is not hanging one up: nobody answered, and the other side has to be told so and put
+ * its own screen away.
+ */
+async function refuse(alice, bob) {
+  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
+  await waitFor(bob, "bob's screen to ring before refusing", `!document.getElementById("reject").hidden`);
+  await bob.webContents.executeJavaScript(`document.getElementById("reject").click(); true;`);
+
+  await waitFor(bob, "bob's screen to put itself away after refusing",
+    `document.getElementById("call-panel").hidden`);
+  await waitFor(alice, "alice to be told the call was refused",
+    `document.getElementById("call-panel").hidden`);
+  detail.refused = true;
+}
+
 async function run() {
   const server = await serve(root);
   const address = `https://127.0.0.1:${server.address().port}/`;
@@ -200,6 +232,7 @@ async function run() {
 
   await ring(alice, bob, { video: false });
   await ring(alice, bob, { video: true });
+  await refuse(alice, bob);
 
   server.close();
   report(true, "two browsers rang each other by voice and by video, answered and hung up");

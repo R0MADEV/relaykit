@@ -163,6 +163,13 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- El ejemplo web tiene los botones: silenciar, apagar camara (solo en videollamada), espera, compartir
+  pantalla y rechazar. Cada uno dice lo que va a hacer al pulsarlo, porque si no nadie sabe si ya esta
+  pulsado. La comprobacion entre dos navegadores los pulsa, y rechaza una llamada entera de punta a punta.
+- Corregido: silenciar, la espera y compartir pantalla no se anunciaban. Ninguna cambia el estado de la
+  llamada, asi que el SDK no dice nada de ellas: se pulsaba el boton y en la pantalla no se movia nada, que se
+  lee como un boton que no funciona. El doble si lo anunciaba, o sea que los dos adaptadores no se portaban
+  igual.
 - Lo que se hace durante una llamada, que antes no estaba: silenciar el microfono, apagar la camara, poner en
   espera, rechazar (que no es colgar: al otro lado se le dice otra cosa), compartir pantalla, transferir y
   elegir microfono y camara. Todo lo hace el SDK; aqui solo se le pide. La llamada dice ademas como esta:

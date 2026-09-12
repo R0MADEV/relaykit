@@ -27,10 +27,8 @@ class DemoApp {
   private conversationId: ConversationId | undefined;
   /** What is being shared right now, so the same button can stop it. */
   private sharingId: string | undefined;
-  /** The call going on, so the same panel can answer it or hang it up. */
-  private callId: string | undefined;
-  /** Answering a video call with only a voice sends nothing to look at, so which kind it is is remembered. */
-  private callIsVideo = false;
+  /** The call going on, so the same panel can answer it, silence it, hold it or hang it up. */
+  private call: Call | undefined;
   private recorder: MediaRecorder | undefined;
   private previewedUrl: string | undefined;
   private ownUserId: string | undefined;
@@ -63,7 +61,18 @@ class DemoApp {
     this.element("call").addEventListener("click", () => void this.callThem(false));
     this.element("video-call").addEventListener("click", () => void this.callThem(true));
     this.element("answer").addEventListener("click", () => void this.answerThem());
+    this.element("reject").addEventListener("click", () => void this.duringTheCall(
+      (call, client) => client.calls.reject(call.id)));
     this.element("hang-up").addEventListener("click", () => void this.hangUp());
+    // Every one of these is the same shape: whatever it is now, the other way round.
+    this.element("call-mute").addEventListener("click", () => void this.duringTheCall(
+      (call, client) => client.calls.muteMicrophone(call.id, !call.isMicrophoneMuted)));
+    this.element("call-camera").addEventListener("click", () => void this.duringTheCall(
+      (call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted)));
+    this.element("call-hold").addEventListener("click", () => void this.duringTheCall(
+      (call, client) => client.calls.hold(call.id, !call.isOnHold)));
+    this.element("call-screen").addEventListener("click", () => void this.duringTheCall(
+      (call, client) => client.calls.shareScreen(call.id, !call.isSharingScreen)));
     // A form, not a prompt: it works with a keyboard, it can be translated and it can be tested.
     this.element("poll").addEventListener("click", () => {
       const form = this.element("poll-form");
@@ -972,26 +981,44 @@ class DemoApp {
   }
 
   private async answerThem(): Promise<void> {
-    if (!this.callId) return;
+    if (!this.call) return;
     // Answered as it was placed: whoever is calling with a camera is waiting to be seen as well as heard.
-    this.showCall(await this.client.calls.answer(this.callId, { video: this.callIsVideo }));
+    this.showCall(await this.client.calls.answer(this.call.id, { video: this.call.isVideo }));
   }
 
   private async hangUp(): Promise<void> {
-    if (!this.callId) return;
-    await this.client.calls.hangUp(this.callId);
+    if (!this.call) return;
+    await this.client.calls.hangUp(this.call.id);
+  }
+
+  /** Anything pressed while a call is going on. Nothing to do when there is no call, which is not an error. */
+  private async duringTheCall(what: (call: Call, client: MessagingClient) => Promise<void>): Promise<void> {
+    if (!this.call) return;
+    try {
+      await what(this.call, this.client);
+    } catch (error) {
+      this.setStatus(`No se pudo: ${(error as Error).message}`);
+    }
   }
 
   /** What there is to see and hear while a call is going on. */
   private showCall(call: Call): void {
     const isOver = call.state === "ended";
-    this.callId = isOver ? undefined : call.id;
-    this.callIsVideo = call.isVideo;
+    this.call = isOver ? undefined : call;
     this.element("call-panel").hidden = isOver;
 
     const placedByMe = call.callerId === this.ownUserId;
     const beingRung = call.state === "ringing" && !placedByMe;
     this.element("answer").hidden = !beingRung;
+    // Refusing is only something you can do to a call you did not place and have not answered.
+    this.element("reject").hidden = !beingRung;
+    // A button has to say what pressing it will do, or nobody knows whether it is already pressed.
+    this.element("call-mute").textContent = call.isMicrophoneMuted ? "Hablar" : "Silenciar micro";
+    this.element("call-hold").textContent = call.isOnHold ? "Reanudar" : "Espera";
+    this.element("call-screen").textContent = call.isSharingScreen ? "Dejar de compartir" : "Compartir pantalla";
+    const camera = this.element("call-camera");
+    camera.hidden = !call.isVideo;
+    camera.textContent = call.isCameraMuted ? "Encender cámara" : "Apagar cámara";
     // Naming whoever placed it only says something when it was not this side: "calling myself" is nonsense.
     this.element("call-state").textContent = beingRung
       ? `${this.nameOf(call.callerId)} te llama`

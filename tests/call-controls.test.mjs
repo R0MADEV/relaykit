@@ -151,3 +151,33 @@ test("what somebody does during a call works the same on a double", async () => 
 
   await client.stop();
 });
+
+/**
+ * Silencing changes the call, so whoever is drawing it has to be told. Without this a button can be pressed
+ * and nothing on the screen moves until something else happens to the call, which reads as a button that does
+ * not work.
+ *
+ * The double already announces it. An adapter that does not is an adapter that behaves differently.
+ */
+test("silencing, holding and the rest are announced, or the screen never finds out", async () => {
+  const asked = [];
+  const told = [];
+  const call = fakeCall(asked);
+  const client = {
+    createCall: () => call,
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => ({ setAudioInput: () => undefined, setVideoInput: () => undefined }),
+    on: () => undefined
+  };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, reported => told.push(reported));
+  await calls.place(client, "!room:localhost", { video: true });
+  told.length = 0;
+
+  await calls.muteMicrophone("call-1", true);
+  await calls.hold("call-1", true);
+
+  assert.equal(told.length, 2, "pressing silence and hold told nobody");
+  assert.equal(told[0].isMicrophoneMuted, true);
+  assert.equal(told[1].isOnHold, true);
+});

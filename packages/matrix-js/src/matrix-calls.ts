@@ -58,16 +58,16 @@ export class MatrixCalls {
    * track without dropping the call, what to tell the other side, and how to renegotiate afterwards.
    */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.require(callId).setMicrophoneMuted(muted);
+    await this.changing(callId, call => call.setMicrophoneMuted(muted));
   }
 
   async muteCamera(callId: string, muted: boolean): Promise<void> {
-    await this.require(callId).setLocalVideoMuted(muted);
+    await this.changing(callId, call => call.setLocalVideoMuted(muted));
   }
 
   /** On hold the other side is told, and stops hearing and seeing, which is not the same as being silenced. */
   async hold(callId: string, onHold: boolean): Promise<void> {
-    this.require(callId).setRemoteOnHold(onHold);
+    await this.changing(callId, call => call.setRemoteOnHold(onHold));
   }
 
   /**
@@ -79,7 +79,18 @@ export class MatrixCalls {
   }
 
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
-    await this.require(callId).setScreensharingEnabled(sharing);
+    await this.changing(callId, call => call.setScreensharingEnabled(sharing));
+  }
+
+  /**
+   * Doing it and then saying so. None of these changes the state of the call, so the SDK says nothing about
+   * them: without this a button can be pressed and nothing on the screen moves, which reads as a button that
+   * does not work.
+   */
+  private async changing(callId: string, change: (call: MatrixCall) => unknown): Promise<void> {
+    const call = this.require(callId);
+    await change(call);
+    this.report?.(this.describe(call));
   }
 
   /** Handing the call to somebody else, who then talks to whoever was on the other end. */
