@@ -18,11 +18,13 @@ const typedOutByHand = [
   { name: "m.poll.undisclosed", instead: "M_POLL_KIND_UNDISCLOSED.name" },
   { name: "org.matrix.msc3488.location", instead: "M_LOCATION.name" },
   { name: "org.matrix.msc3488.ts", instead: "M_TIMESTAMP.name" },
-  { name: "org.matrix.msc3488.asset", instead: "M_ASSET.name" }
+  { name: "org.matrix.msc3488.asset", instead: "M_ASSET.name" },
+  { name: "m.reference", instead: "RelationType.Reference" }
 ];
 
 const sources = [
-  "matrix-auth", "matrix-polls", "matrix-location", "matrix-mapper", "matrix-profiles"
+  "matrix-auth", "matrix-polls", "matrix-location", "matrix-mapper", "matrix-profiles",
+  "matrix-security", "matrix-room-operations", "matrix-conversations", "matrix-details"
 ].map(name => ({ name, code: readFileSync(`packages/matrix-js/src/${name}.ts`, "utf8") }));
 
 for (const { name, instead } of typedOutByHand) {

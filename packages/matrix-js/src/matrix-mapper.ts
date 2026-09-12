@@ -274,8 +274,18 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   const content = event.getContent<MatrixMessageContent>();
   // The SDK puts its own "unable to decrypt" notice in the body, which is not something to show as a message.
   const undecryptable = event.isDecryptionFailure();
-  const relation = content["m.relates_to"];
-  const isEdit = relation?.rel_type === RelationType.Replace;
+  // Asked of the event rather than dug out of its content. What a message is about travels outside the
+  // encryption — it has to, because a homeserver that cannot read the message still has to know what thread
+  // to file it under — so in an encrypted conversation the decrypted content does not carry it. Read from
+  // there, an edit looks like somebody saying it all over again and a thread reply lands in the middle of
+  // the talk. The SDK reads it from where it really is.
+  // Looked for in both places, because it can be in either. What a message relates to travels outside the
+  // encryption when it has a type — the homeserver has to read it to file a thread or an edit — but an answer
+  // that is only an answer has no type, and that one stays inside with the text. Reading one place loses half
+  // of them, and which half depends on whether the conversation is encrypted.
+  const relation = (event.getWireContent()?.["m.relates_to"] ?? content["m.relates_to"]) as
+    MatrixRelation | undefined;
+  const isEdit = event.isRelation(RelationType.Replace);
   const editedBody = content["m.new_content"]?.body;
   const bodyValue = isEdit && typeof editedBody === "string" ? editedBody : content.body;
   const body = undecryptable ? "" : (typeof bodyValue === "string" ? bodyValue : undefined);
@@ -342,9 +352,17 @@ function mapKind(msgtype: string | undefined): { kind: MessageKind } | undefined
   return undefined;
 }
 
+/** What a message is about, as it travels: outside the encryption, because the homeserver has to read it. */
+interface MatrixRelation {
+  readonly rel_type?: string;
+  readonly event_id?: string;
+  readonly is_falling_back?: boolean;
+  readonly key?: string;
+  readonly "m.in_reply_to"?: { readonly event_id?: string };
+}
+
 export function isMessageEdit(event: MatrixEvent): boolean {
-  const content = event.getContent<MatrixMessageContent>();
-  return content["m.relates_to"]?.rel_type === RelationType.Replace;
+  return event.isRelation(RelationType.Replace);
 }
 
 export function mapReaction(event: MatrixEvent): Reaction | undefined {
@@ -352,12 +370,7 @@ export function mapReaction(event: MatrixEvent): Reaction | undefined {
     return undefined;
   }
 
-  const content = event.getContent<{ "m.relates_to"?: {
-    event_id?: string;
-    key?: string;
-    rel_type?: string;
-  } }>();
-  const relation = content["m.relates_to"];
+  const relation = event.getRelation() as MatrixRelation | null;
   const id = event.getId();
   const senderId = event.getSender();
 

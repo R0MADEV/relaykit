@@ -163,6 +163,16 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Auditoria del chat contra el SDK:
+  - Lo que un mensaje relaciona (que edita, que responde, de que hilo cuelga) se lee ahora en los dos sitios
+    donde puede venir. La especificacion permite mandarlo solo fuera del cifrado y el SDK lo lee solo de ahi;
+    nosotros lo leiamos solo de dentro. En la practica no rompia nada, porque este SDK lo escribe en los dos
+    sitios, pero un cliente que haga lo que la especificacion permite habria llegado con las ediciones como
+    mensajes repetidos y los hilos deshechos.
+  - Prueba de humo nueva: editar, responder y hablar en hilo **dentro de una sala cifrada**. No habia ninguna.
+    Las cifradas se usaban para criptografia y las ediciones e hilos se probaban sin cifrar, que es justo el
+    reparto que dejaba este hueco sin mirar.
+  - `m.login.password` y `m.reference` se le piden al SDK (`AuthType`, `RelationType`) en vez de escribirlos.
 - Corregido: se compartia la pantalla y no se veia. La libreria la entregaba (`remoteScreen`), pero el ejemplo
   solo dibujaba la camara, asi que la pantalla llegaba y no la pintaba nadie. Ahora se dibuja aparte y mas
   grande, quien comparte ve lo que esta compartiendo, y desaparece al dejar de compartir.

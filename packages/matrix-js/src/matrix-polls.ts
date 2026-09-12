@@ -1,6 +1,7 @@
 import { M_POLL_END, M_POLL_RESPONSE, M_POLL_START, type MatrixClient, type Room,
   M_POLL_KIND_UNDISCLOSED,
-  M_TEXT
+  M_TEXT,
+  RelationType
 } from "matrix-js-sdk";
 import type { ConversationId, MessageId, Poll, PollAnswer, StartPollInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
@@ -67,7 +68,7 @@ export async function voteInMatrixPoll(
   answerId: string
 ): Promise<void> {
   const sent = await client.sendEvent(conversationId, M_POLL_RESPONSE.name as never, {
-    "m.relates_to": { rel_type: "m.reference", event_id: pollId },
+    "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
     [M_POLL_RESPONSE.name]: { answers: [answerId] }
   } as never);
   // As with asking: if voting comes back, the vote counts. Whoever just voted repaints the tally, and seeing
@@ -100,7 +101,7 @@ export async function closeMatrixPoll(
   pollId: MessageId
 ): Promise<void> {
   await client.sendEvent(conversationId, M_POLL_END.name as never, {
-    "m.relates_to": { rel_type: "m.reference", event_id: pollId },
+    "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
     [M_POLL_END.name]: {},
     [M_TEXT.name]: "The poll has been closed"
   } as never);

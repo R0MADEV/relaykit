@@ -1,4 +1,6 @@
-import { MatrixError, SecretStorage, type AuthDict, type MatrixClient } from "matrix-js-sdk";
+import { MatrixError, SecretStorage, type AuthDict, type MatrixClient,
+  AuthType
+} from "matrix-js-sdk";
 import type { CryptoCallbacks } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key.js";
 import { SdkError } from "@relaykit/core";
@@ -186,7 +188,7 @@ async function proveWhoYouAre(
 function passwordAuth(client: MatrixClient, password: string | undefined): AuthDict | null {
   if (!password) return null;
   return {
-    type: "m.login.password",
+    type: AuthType.Password,
     identifier: { type: "m.id.user", user: client.getSafeUserId() },
     password
   };

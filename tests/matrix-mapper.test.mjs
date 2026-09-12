@@ -132,6 +132,10 @@ function sentEvent({ id = "$sent", body = "hola", txnId } = {}) {
   return {
     getType: () => "m.room.message",
     getContent: () => ({ msgtype: "m.text", body }),
+    // What a message relates to travels outside the encryption, so a real event answers this too.
+    getWireContent: () => ({ msgtype: "m.text", body }),
+    isRelation: () => false,
+    getRelation: () => null,
     getUnsigned: () => (txnId ? { transaction_id: txnId } : {}),
     getId: () => id,
     getSender: () => "@alice:example.org",
@@ -376,6 +380,8 @@ test("a sticker that arrives is told apart from an attachment", () => {
       url: "mxc://example.org/pegatina",
       info: { mimetype: "image/png", size: 120, w: 128, h: 128 }
     }),
+    getWireContent: () => ({}),
+    isRelation: () => false,
     getUnsigned: () => ({}),
     isRedacted: () => false,
     getRelation: () => null,
