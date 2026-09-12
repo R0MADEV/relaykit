@@ -6,9 +6,9 @@ import { MessagingClient } from "@relaykit/core";
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
 /**
- * Compartir donde estas mientras te mueves no es mandar un punto: es decir "voy a ir contando durante un rato",
- * ir actualizando, y poder parar antes de tiempo. Si nadie para, caduca sola, que es lo que evita quedarse
- * compartiendo la ubicacion para siempre por un descuido.
+ * Sharing where you are while you move is not sending a point: it is saying "I will keep telling you for a
+ * while", updating as you go, and being able to stop early. If nobody stops it, it expires on its own, which
+ * is what stops a slip leaving somebody sharing their location for ever.
  */
 async function startClient() {
   const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
@@ -17,7 +17,7 @@ async function startClient() {
   return { client, conversation };
 }
 
-test("se puede empezar a compartir donde estas durante un rato", async () => {
+test("sharing where you are can be started for a while", async () => {
   const { client, conversation } = await startClient();
 
   const sharing = await client.location.start(conversation.id, { durationMs: 600000, description: "voy para alla" });
@@ -28,7 +28,7 @@ test("se puede empezar a compartir donde estas durante un rato", async () => {
   await client.stop();
 });
 
-test("compartir sin decir cuanto rato no vale: se quedaria para siempre", async () => {
+test("sharing without saying for how long will not do: it would stay for ever", async () => {
   const { client, conversation } = await startClient();
 
   await assert.rejects(client.location.start(conversation.id, { durationMs: 0 }), { code: "INVALID_INPUT" });
@@ -36,7 +36,7 @@ test("compartir sin decir cuanto rato no vale: se quedaria para siempre", async 
   await client.stop();
 });
 
-test("mientras dura, se va diciendo donde estas", async () => {
+test("while it lasts, where you are keeps being told", async () => {
   const { client, conversation } = await startClient();
   const sharing = await client.location.start(conversation.id, { durationMs: 600000 });
 
@@ -48,7 +48,7 @@ test("mientras dura, se va diciendo donde estas", async () => {
   await client.stop();
 });
 
-test("se puede parar antes de tiempo, y entonces deja de estar en vivo", async () => {
+test("it can be stopped early, and then it is no longer live", async () => {
   const { client, conversation } = await startClient();
   const sharing = await client.location.start(conversation.id, { durationMs: 600000 });
 

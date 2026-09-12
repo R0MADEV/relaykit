@@ -213,65 +213,65 @@ function runContract(name, setup) {
       assert.equal(await adapter.getAvatar("@nobody-here-at-all:localhost"), undefined);
     });
 
-    it("cuenta donde esta alguien mientras se mueve, y deja de contarlo al parar", async () => {
+    it("tells where somebody is while they move, and stops telling when stopped", async () => {
       const sharing = await adapter.startLiveLocation(conversationId, {
         durationMs: 600000,
-        description: `voy para alla ${Date.now()}`
+        description: `on my way ${Date.now()}`
       });
       assert.equal(sharing.isLive, true);
       assert.ok(sharing.durationMs > 0);
 
       await adapter.updateLiveLocation(sharing.id, { latitude: 43.26, longitude: -2.93 });
-      const contando = await waitFor("la posicion", async () => {
-        const listadas = await adapter.listLiveLocations(conversationId);
-        return listadas.find(item => item.id === sharing.id && item.lastPosition);
+      const telling = await waitFor("the position", async () => {
+        const listed = await adapter.listLiveLocations(conversationId);
+        return listed.find(item => item.id === sharing.id && item.lastPosition);
       });
-      assert.equal(Math.round(contando.lastPosition.latitude * 100), 4326);
+      assert.equal(Math.round(telling.lastPosition.latitude * 100), 4326);
 
       await adapter.stopLiveLocation(sharing.id);
-      const parada = await waitFor("el final", async () => {
-        const listadas = await adapter.listLiveLocations(conversationId);
-        const actual = listadas.find(item => item.id === sharing.id);
-        return actual && !actual.isLive ? actual : undefined;
+      const stopped = await waitFor("the end", async () => {
+        const listed = await adapter.listLiveLocations(conversationId);
+        const current = listed.find(item => item.id === sharing.id);
+        return current && !current.isLive ? current : undefined;
       });
-      assert.equal(parada.isLive, false);
+      assert.equal(stopped.isLive, false);
     });
 
-    it("pregunta algo a la conversacion, cuenta los votos y la cierra", async () => {
+    it("asks the conversation something, counts the votes and closes it", async () => {
       const poll = await adapter.startPoll(conversationId, {
-        question: `¿A que hora comemos? ${Date.now()}`,
-        answers: ["A las 14", "A las 15"],
+        question: `What time do we eat? ${Date.now()}`,
+        answers: ["At two", "At three"],
         maxSelections: 1
       });
       assert.equal(poll.answers.length, 2);
       assert.equal(poll.isClosed, false);
 
-      // Si `startPoll` devuelve una encuesta, esa encuesta existe: listarla acto seguido tiene que encontrarla.
-      // Sin esto, quien pregunta algo y pinta la lista ve que no ha pasado nada.
-      const listadaEnseguida = await adapter.listPolls(conversationId);
+      // If `startPoll` gives back a poll, that poll exists: listing right after has to find it. Without
+      // this, whoever asks something and paints the list sees that nothing happened.
+      const listedStraightAway = await adapter.listPolls(conversationId);
       assert.ok(
-        listadaEnseguida.some(item => item.id === poll.id),
-        "la encuesta no estaba al listarla justo despues de crearla"
+        listedStraightAway.some(item => item.id === poll.id),
+        "the poll was not there when listing right after creating it"
       );
 
-      // Votar y que el voto cuente tampoco son dos momentos distintos para quien llama: si `voteInPoll`
-      // vuelve, el voto esta. Esperar aqui esconderia que la aplicacion pinta un recuento que no ha cambiado.
+      // Voting and the vote counting are not two different moments for the caller either: if `voteInPoll`
+      // comes back, the vote is there. Waiting here would hide that the application paints an unchanged tally.
       await adapter.voteInPoll(conversationId, poll.id, poll.answers[1].id);
-      const votada = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
+      const voted = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
       assert.equal(
-        votada.answers.find(answer => answer.id === poll.answers[1].id).votes, 1,
-        "el voto no contaba al listar justo despues de votar"
+        voted.answers.find(answer => answer.id === poll.answers[1].id).votes, 1,
+        "the vote did not count when listing right after voting"
       );
-      assert.equal(votada.answers.find(answer => answer.id === poll.answers[0].id).votes, 0);
+      assert.equal(voted.answers.find(answer => answer.id === poll.answers[0].id).votes, 0);
 
       await adapter.closePoll(conversationId, poll.id);
-      const cerrada = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
-      assert.equal(cerrada.isClosed, true, "la encuesta no estaba cerrada al listarla justo despues de cerrarla");
+      const closed = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
+      assert.equal(closed.isClosed, true, "the poll was not closed when listing right after closing it");
     });
 
-    it("previsualiza un enlace preguntandoselo al homeserver", async () => {
-      // Una direccion que el homeserver pueda alcanzar de verdad sin salir a internet: el gateway del propio
-      // entorno. Lo que conteste depende de la pagina; lo que se exige es que conteste algo coherente.
+    it("previews a link by asking the homeserver", async () => {
+      // An address the homeserver can really reach without going out to the internet: the environment's own
+      // gateway. What it answers depends on the page; what is required is that it answers something coherent.
       const url = name === "in-memory"
         ? "https://ejemplo.test/articulo"
         : "http://push-gateway:8080/received";
@@ -283,8 +283,8 @@ function runContract(name, setup) {
       assert.ok(preview.image === undefined || typeof preview.image.source === "string");
     });
 
-    it("un enlace del que no se sabe nada no se inventa", async () => {
-      // Dos respuestas honestas: fallar, o decir que no se sabe nada. La que no vale es inventarse un titulo.
+    it("a link nothing is known about is not made up", async () => {
+      // Two honest answers: fail, or say nothing is known. The one that will not do is making up a title.
       const answer = await adapter.previewLink("https://no-existe.invalid/nada").catch(error => error);
 
       if (answer instanceof Error) {
@@ -296,23 +296,23 @@ function runContract(name, setup) {
       assert.equal(answer.image, undefined);
     });
 
-    it("dice si una conversacion esta cifrada, no lo que se pidio al crearla", async () => {
-      const cifrada = await adapter.createConversation({
+    it("says whether a conversation is encrypted, not what was asked for when creating it", async () => {
+      const encryptedOne = await adapter.createConversation({
         participantIds: [],
-        title: `cifrada-${Date.now()}`,
+        title: `encrypted-${Date.now()}`,
         encrypted: true
       });
-      assert.equal(cifrada.isEncrypted, true, "pedir cifrado no dejo la conversacion cifrada");
+      assert.equal(encryptedOne.isEncrypted, true, "asking for encryption did not leave the conversation encrypted");
 
-      // Sin pedirlo decide el homeserver, asi que lo unico que se exige es que lo diga, no cual es la
-      // respuesta: eso depende de la politica de quien lo administra.
-      const sinPedir = await adapter.createConversation({ participantIds: [], title: `sin-pedir-${Date.now()}` });
-      assert.equal(typeof sinPedir.isEncrypted, "boolean", "la conversacion no dice si esta cifrada");
+      // Without asking, the homeserver decides, so all that is required is that it says so, not what the
+      // answer is: that depends on the policy of whoever runs it.
+      const unasked = await adapter.createConversation({ participantIds: [], title: `unasked-${Date.now()}` });
+      assert.equal(typeof unasked.isEncrypted, "boolean", "the conversation does not say whether it is encrypted");
     });
 
     it("lists what hangs off a conversation without opening each thread", async () => {
-      const question = await adapter.sendMessage(conversationId, `pregunta-${Date.now()}`, { transactionId: `txn-q-${Date.now()}` });
-      await adapter.sendMessage(conversationId, "una respuesta", { transactionId: `txn-a-${Date.now()}`, threadId: question.id });
+      const question = await adapter.sendMessage(conversationId, `question-${Date.now()}`, { transactionId: `txn-q-${Date.now()}` });
+      await adapter.sendMessage(conversationId, "an answer", { transactionId: `txn-a-${Date.now()}`, threadId: question.id });
 
       const threads = await waitFor("the thread to be known", async () => {
         const listed = await adapter.listThreads(conversationId);
@@ -324,8 +324,8 @@ function runContract(name, setup) {
     });
 
     it("reading inside a thread does not say the conversation was read", async () => {
-      const question = await adapter.sendMessage(conversationId, `otra-${Date.now()}`, { transactionId: `txn-q2-${Date.now()}` });
-      const answer = await adapter.sendMessage(conversationId, "contesto", { transactionId: `txn-a2-${Date.now()}`, threadId: question.id });
+      const question = await adapter.sendMessage(conversationId, `another-${Date.now()}`, { transactionId: `txn-q2-${Date.now()}` });
+      const answer = await adapter.sendMessage(conversationId, "answering", { transactionId: `txn-a2-${Date.now()}`, threadId: question.id });
       await adapter.markMessageRead(conversationId, question.id);
       // The marker has to have landed before this proves anything, or a late arrival looks like the thread
       // moving it. What is being checked is that reading the thread changes nothing from here on.
@@ -341,7 +341,7 @@ function runContract(name, setup) {
     });
 
     it("silences somebody without ignoring them, and lets them be heard again", async () => {
-      const noisy = "@ruidoso-de-prueba:localhost";
+      const noisy = "@noisy-for-testing:localhost";
 
       await adapter.setUserMuted(noisy, true);
       assert.ok((await adapter.listMutedUsers()).includes(noisy));
@@ -379,7 +379,7 @@ function runContract(name, setup) {
     });
 
     it("reads a message without telling the others, and the marker still moves", async () => {
-      const sent = await adapter.sendMessage(conversationId, `quieto-${Date.now()}`, { transactionId: `txn-quiet-${Date.now()}` });
+      const sent = await adapter.sendMessage(conversationId, `quietly-${Date.now()}`, { transactionId: `txn-quiet-${Date.now()}` });
 
       await adapter.markMessageRead(conversationId, sent.id, { private: true });
 

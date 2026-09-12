@@ -238,7 +238,7 @@ export class MessagingClient {
     conversations: (spaceId: ConversationId): Promise<readonly Conversation[]> =>
       this.spaceOperations.conversations(spaceId)
   };
-  /** Contar donde estas mientras te mueves, durante un rato que acaba solo. */
+  /** Telling where you are while you move, for a while that ends on its own. */
   readonly location = {
     start: (conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> =>
       this.locationOperations.start(conversationId, input),
@@ -248,7 +248,7 @@ export class MessagingClient {
     list: (conversationId: ConversationId): Promise<readonly LiveLocation[]> =>
       this.locationOperations.list(conversationId)
   };
-  /** Preguntar algo a la conversacion y contar los votos. */
+  /** Asking the conversation something and counting the votes. */
   readonly polls = {
     start: (conversationId: ConversationId, input: StartPollInput): Promise<Poll> =>
       this.pollOperations.start(conversationId, input),

@@ -103,8 +103,8 @@ async function sendOnce(
   transactionId: string | undefined,
   eventType?: EventType
 ): Promise<{ event_id: string }> {
-  // La sobrecarga de `sendEvent` ata el contenido al tipo de evento, y aqui el tipo se decide en tiempo de
-  // ejecucion. La forma sigue el spec: una pegatina lleva body, info y url, como un adjunto de imagen.
+  // The `sendEvent` overload ties the content to the event type, and here the type is decided at runtime.
+  // The shape follows the spec: a sticker carries body, info and url, like an image attachment.
   const sendAsItsOwnType = () => {
     const sendTyped = client.sendEvent.bind(client) as
       (roomId: string, type: string, body: unknown, txnId?: string) => Promise<{ event_id: string }>;
@@ -199,7 +199,7 @@ export async function sendWithTransaction(
   conversationId: ConversationId,
   content: RoomMessageEventContent,
   transactionId: string | undefined,
-  /** Lo que no es un mensaje corriente tiene su propio tipo de evento. Una pegatina es `m.sticker`. */
+  /** Anything that is not an ordinary message has its own event type. A sticker is `m.sticker`. */
   eventType?: EventType
 ): Promise<Message> {
   // The room may not be in the local store yet, right after creating it, and sending does not need it.

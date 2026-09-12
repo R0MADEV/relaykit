@@ -101,8 +101,9 @@ export class OutboxOperations {
   }
 
   /**
-   * Una pegatina no es un adjunto: quien la recibe la pinta sola, sin nombre de fichero ni boton de descarga.
-   * Viaja por la misma cola que los demas ficheros, porque tambien hay que subirla y tambien puede fallar.
+   * A sticker is not an attachment: whoever receives it draws it on its own, with no file name and no
+   * download button. It travels through the same queue as any other file, because it also has to be
+   * uploaded and can also fail.
    */
   sendSticker(conversationId: ConversationId, sticker: FileInput): Promise<Message> {
     return this.sendFile(conversationId, { ...sticker, sticker: true }, {});

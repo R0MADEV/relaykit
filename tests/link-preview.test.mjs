@@ -6,9 +6,9 @@ import { MessagingClient } from "@relaykit/core";
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
 /**
- * En un chat de trabajo la gente pega enlaces todo el dia. Sin previsualizacion se ve una URL cruda y nadie
- * sabe que hay detras sin abrirla. Quien la pide es el homeserver, no el navegador: asi no se filtra a quien
- * publique el enlace que alguien de esta organizacion lo esta mirando.
+ * In a work chat people paste links all day. Without a preview all you see is a raw URL and nobody knows what
+ * is behind it without opening it. The homeserver asks, not the browser: that way whoever publishes the link
+ * is not told that somebody from this organisation is looking at it.
  */
 async function startClient(adapter = new InMemoryAdapter()) {
   const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session });
@@ -16,7 +16,7 @@ async function startClient(adapter = new InMemoryAdapter()) {
   return { adapter, client };
 }
 
-test("un enlace se puede previsualizar antes de abrirlo", async () => {
+test("a link can be previewed before opening it", async () => {
   const { client } = await startClient();
 
   const preview = await client.media.preview("https://ejemplo.test/articulo");
@@ -25,7 +25,7 @@ test("un enlace se puede previsualizar antes de abrirlo", async () => {
   assert.equal(preview.title, "Un articulo de ejemplo");
 });
 
-test("un enlace del que no se sabe nada no inventa nada", async () => {
+test("a link nothing is known about makes nothing up", async () => {
   const { client } = await startClient();
 
   const preview = await client.media.preview("https://ejemplo.test/nada");
@@ -34,14 +34,14 @@ test("un enlace del que no se sabe nada no inventa nada", async () => {
   assert.equal(preview.description, undefined);
 });
 
-test("lo que no es un enlace se rechaza en vez de preguntarlo", async () => {
+test("what is not a link is refused rather than asked about", async () => {
   const { client } = await startClient();
 
   await assert.rejects(client.media.preview("   "), { code: "INVALID_INPUT" });
   await assert.rejects(client.media.preview("esto no es una direccion"), { code: "INVALID_INPUT" });
 });
 
-test("el mismo enlace dos veces se pregunta una vez", async () => {
+test("the same link twice is asked about once", async () => {
   class CountingAdapter extends InMemoryAdapter {
     asked = 0;
     async previewLink(url) {

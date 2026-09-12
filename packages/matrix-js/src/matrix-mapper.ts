@@ -49,7 +49,7 @@ interface MatrixMessageContent {
     readonly thumbnail_url?: unknown;
     readonly thumbnail_file?: { readonly url?: unknown };
     readonly thumbnail_info?: { readonly mimetype?: unknown; readonly size?: unknown; readonly w?: unknown; readonly h?: unknown };
-    /** Los colores de la imagen, borrosos, donde los ponen los clientes que los pintan. */
+    /** The colours of the image, blurred, where the clients that paint them put them. */
     readonly "xyz.amorgan.blurhash"?: unknown;
   };
   readonly "m.new_content"?: { readonly body?: unknown };
@@ -263,7 +263,7 @@ function mapRoomAvatar(room: Room): { avatar: MediaRef } | undefined {
 }
 
 export function mapMessage(event: MatrixEvent): Message | undefined {
-  // Una pegatina es su propio tipo de evento, no un mensaje con msgtype. Todo lo demas de su forma es igual.
+  // A sticker is its own event type, not a message with a msgtype. Everything else about its shape is the same.
   const isSticker = event.getType() === EventType.Sticker;
   if (event.getType() !== EventType.RoomMessage && !isSticker) {
     return undefined;
@@ -287,8 +287,8 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     return undefined;
   }
 
-  // Sin msgtype, pero con la misma forma que una imagen: quien la recibe la pinta sola, sin nombre de fichero
-  // ni boton de descarga.
+  // No msgtype, but the same shape as an image: whoever receives it draws it on its own, with no file name
+  // and no download button.
   const attachment = isSticker
     ? mapAttachment({ ...content, msgtype: MsgType.Image }, body)
     : mapAttachment(content, body);

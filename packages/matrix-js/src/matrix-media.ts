@@ -48,7 +48,7 @@ export async function sendMatrixAttachment(
       ...(file.width !== undefined ? { w: file.width } : {}),
       ...(file.height !== undefined ? { h: file.height } : {}),
       ...(file.voice ? { duration: file.voice.durationMs } : {}),
-      // Donde lo ponen todos los clientes que lo pintan, que es lo que lo hace util.
+      // Where every client that paints it puts it, which is what makes it useful.
       ...(file.blurhash ? { "xyz.amorgan.blurhash": file.blurhash } : {}),
       ...(thumbnail ? thumbnail.info : {})
     },
@@ -63,7 +63,8 @@ export async function sendMatrixAttachment(
     ...(encrypted ? { file: { ...encrypted.info, url: upload.content_uri } } : { url: upload.content_uri })
   };
   // The SDK's message content union cannot be built from a conditional spread; the shape follows the spec.
-  // Una pegatina no es un mensaje: es su propio tipo de evento, y por eso quien la recibe puede pintarla sola.
+  // A sticker is not a message: it is its own event type, which is how whoever receives it knows to draw it
+  // on its own.
   return sendWithTransaction(
     client,
     conversationId,
@@ -101,9 +102,9 @@ async function uploadThumbnail(
 }
 
 /**
- * Lo que el homeserver sabe de un enlace. Lo mira el, no este dispositivo: asi quien publica el enlace no se
- * entera de que alguien de esta organizacion lo esta abriendo, ni cuando. La imagen vuelve como cualquier otra,
- * para descargarla con `media.download`.
+ * What the homeserver knows about a link. It looks, not this device: that way whoever publishes the link does
+ * not learn that somebody from this organisation is opening it, or when. The image comes back like any other,
+ * to be fetched with `media.download`.
  */
 export async function previewMatrixLink(client: MatrixClient, url: string): Promise<LinkPreview> {
   const preview = await client.getUrlPreview(url, Date.now());

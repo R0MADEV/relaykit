@@ -4,9 +4,9 @@ import test from "node:test";
 const { createMatrixConversation } = await import("../packages/matrix-js/dist/matrix-conversations.js");
 
 /**
- * En Matrix el cifrado solo se puede sumar, nunca restar: quien llama puede forzarlo mandando el evento de
- * estado, pero no puede impedir que el homeserver lo anada por politica. Y una vez puesto en una sala, es para
- * siempre. Asi que la librería pide cuando se lo mandan y se calla cuando no, para que decida el operador.
+ * In Matrix encryption can only be added, never taken away: the caller can force it by sending the state
+ * event, but cannot stop the homeserver adding it by policy. And once on a room, it is there for good. So the
+ * library asks when it is told to and says nothing when it is not, leaving the operator to decide.
  */
 function fakeClient(asked, { elServidorCifra = false } = {}) {
   const sala = {
@@ -36,7 +36,7 @@ function fakeClient(asked, { elServidorCifra = false } = {}) {
     },
     getRoom: () => sala,
     getSafeUserId: () => "@alice:localhost",
-    // Lo que el servidor acabo poniendo, que es lo que se le pregunta al crear.
+    // What the server ended up putting there, which is what it is asked at creation.
     getStateEvent: async () => {
       const loPidio = asked.at(-1)?.initial_state?.some(e => e.type === "m.room.encryption");
       if (loPidio || elServidorCifra) return { algorithm: "m.megolm.v1.aes-sha2" };
@@ -49,7 +49,7 @@ function encryptionAskedFor(options) {
   return (options.initial_state ?? []).some(event => event.type === "m.room.encryption");
 }
 
-test("sin decir nada, la politica la decide el homeserver", async () => {
+test("saying nothing leaves the policy to the homeserver", async () => {
   const asked = [];
 
   await createMatrixConversation(fakeClient(asked), { participantIds: ["@bob:localhost"] });
@@ -57,7 +57,7 @@ test("sin decir nada, la politica la decide el homeserver", async () => {
   assert.equal(encryptionAskedFor(asked[0]), false, "la librería impuso cifrado y piso al homeserver");
 });
 
-test("pedirlo expresamente lo cifra, diga lo que diga el homeserver", async () => {
+test("asking for it expressly encrypts it, whatever the homeserver says", async () => {
   const asked = [];
 
   await createMatrixConversation(fakeClient(asked), { participantIds: ["@bob:localhost"], encrypted: true });
@@ -65,7 +65,7 @@ test("pedirlo expresamente lo cifra, diga lo que diga el homeserver", async () =
   assert.equal(encryptionAskedFor(asked[0]), true);
 });
 
-test("no pedirlo tampoco lo impone: el homeserver sigue pudiendo cifrar", async () => {
+test("not asking does not impose it either: the homeserver can still encrypt", async () => {
   const asked = [];
 
   await createMatrixConversation(fakeClient(asked), { participantIds: ["@bob:localhost"], encrypted: false });
@@ -73,7 +73,7 @@ test("no pedirlo tampoco lo impone: el homeserver sigue pudiendo cifrar", async 
   assert.equal(encryptionAskedFor(asked[0]), false);
 });
 
-test("una conversacion directa tampoco impone la politica", async () => {
+test("a direct conversation does not impose the policy either", async () => {
   const asked = [];
   const client = fakeClient(asked);
   client.setAccountData = async () => undefined;
@@ -84,7 +84,7 @@ test("una conversacion directa tampoco impone la politica", async () => {
   assert.equal(encryptionAskedFor(asked[0]), false);
 });
 
-test("si el homeserver cifra por politica, la conversacion lo dice aunque nadie lo pidiera", async () => {
+test("when the homeserver encrypts by policy, the conversation says so even though nobody asked", async () => {
   const asked = [];
 
   const conversation = await createMatrixConversation(

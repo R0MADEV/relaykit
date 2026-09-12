@@ -3,12 +3,12 @@ import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } fr
 import { waitForRoom } from "./matrix-room-operations.js";
 
 /**
- * En Matrix esto son dos cosas: un evento de estado que dice "voy a ir contando durante este rato", y luego
- * los avisos con cada posicion, que cuelgan de el. El estado lleva el nombre de quien comparte como clave, asi
- * que cada persona solo puede tener uno vivo por conversacion, y pararlo es reescribirlo con `live: false`.
+ * In Matrix this is two things: a state event saying "I am going to keep telling you for this long", and then
+ * the notices with each position, which hang off it. The state is keyed by whoever is sharing, so each person
+ * can only have one live per conversation, and stopping it is writing it again with `live: false`.
  *
- * El SDK sabe leer ambos y mantiene un modelo `Beacon` por sala, con si sigue vivo y la ultima posicion. Se le
- * pregunta a el en vez de recorrer el historial.
+ * The SDK reads both and keeps a `Beacon` per room, with whether it is still live and the latest position. It
+ * is asked rather than walking the history.
  */
 export async function startMatrixLiveLocation(
   client: MatrixClient,
@@ -24,11 +24,11 @@ export async function startMatrixLiveLocation(
     "org.matrix.msc3488.ts": startedAt,
     "org.matrix.msc3488.asset": { type: "m.self" }
   } as never, sharedBy);
-  // Escribir el estado y verlo no son el mismo momento. Quien empieza a compartir va a decir donde esta acto
-  // seguido, y eso necesita el evento que acaba de crear, asi que se espera a que llegue.
+  // Writing the state and seeing it are not the same moment. Whoever starts sharing is about to say where
+  // they are, and that needs the event just created, so this waits for it to arrive.
   await waitUntilTheBeaconArrives(client, conversationId, sharedBy);
   return {
-    // El identificador es la propia clave de estado: quien comparte, en esta conversacion.
+    // The identifier is the state key itself: who is sharing, in this conversation.
     id: `${conversationId}|${sharedBy}`,
     conversationId,
     sharedBy,
@@ -59,7 +59,7 @@ export async function updateMatrixLiveLocation(
   } as never);
 }
 
-/** Parar es reescribir el estado con `live: false`, conservando lo demas para que siga leyendose el historial. */
+/** Stopping writes the state again with `live: false`, keeping the rest so the history stays readable. */
 export async function stopMatrixLiveLocation(client: MatrixClient, sharingId: string): Promise<void> {
   const { conversationId, sharedBy } = splitSharingId(sharingId);
   const beacon = await findBeacon(client, conversationId, sharedBy);
@@ -118,7 +118,7 @@ function splitSharingId(sharingId: string): { conversationId: string; sharedBy: 
   return { conversationId: sharingId.slice(0, divide), sharedBy: sharingId.slice(divide + 1) };
 }
 
-/** `geo:43.26,-2.93` es como el protocolo dice un sitio, y es lo que hay que deshacer para volver a numeros. */
+/** `geo:43.26,-2.93` is how the protocol says a place, and what has to be undone to get back to numbers. */
 function parseGeoUri(uri: string): GeoLocation | undefined {
   const [latitude, longitude] = uri.replace(/^geo:/, "").split(";")[0]?.split(",").map(Number) ?? [];
   const isSomewhere = Number.isFinite(latitude) && Number.isFinite(longitude);

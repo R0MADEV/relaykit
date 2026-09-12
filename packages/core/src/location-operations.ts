@@ -7,15 +7,15 @@ export interface LocationOperationsContext {
   readonly assertStarted: () => void;
 }
 
-/** Un dia entero ya es demasiado para algo que se suele compartir durante un trayecto. */
+/** A whole day is already too much for something usually shared for the length of a journey. */
 const longestShareMs = 24 * 60 * 60 * 1000;
 
 export class LocationOperations {
   constructor(private readonly context: LocationOperationsContext) {}
 
   /**
-   * El rato es obligatorio y acotado a proposito: lo que hace segura esta funcion es que acabe sola. Sin un
-   * final, un descuido deja a alguien contando donde esta indefinidamente.
+   * The while is required and bounded on purpose: what makes this safe is that it ends on its own. Without
+   * an end, a slip leaves somebody telling where they are indefinitely.
    */
   async start(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
     this.context.assertStarted();

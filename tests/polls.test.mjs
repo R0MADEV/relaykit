@@ -6,8 +6,8 @@ import { MessagingClient } from "@relaykit/core";
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
 /**
- * Una encuesta no es un mensaje con botones: es una pregunta, unas respuestas y los votos de cada quien, y
- * tiene que poder cerrarse. Quien vota puede cambiar de idea, y solo cuenta su ultimo voto.
+ * A poll is not a message with buttons: it is a question, some answers and each person's vote, and it has to
+ * be closeable. Whoever votes can change their mind, and only their last vote counts.
  */
 async function startClient() {
   const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
@@ -16,7 +16,7 @@ async function startClient() {
   return { client, conversation };
 }
 
-test("se puede preguntar algo con varias respuestas", async () => {
+test("something can be asked with several answers", async () => {
   const { client, conversation } = await startClient();
 
   const poll = await client.polls.start(conversation.id, {
@@ -30,7 +30,7 @@ test("se puede preguntar algo con varias respuestas", async () => {
   await client.stop();
 });
 
-test("una pregunta sin respuestas no es una encuesta", async () => {
+test("a question with no answers is not a poll", async () => {
   const { client, conversation } = await startClient();
 
   await assert.rejects(
@@ -44,7 +44,7 @@ test("una pregunta sin respuestas no es una encuesta", async () => {
   await client.stop();
 });
 
-test("votar cuenta, y cambiar de idea tambien: solo vale el ultimo voto", async () => {
+test("a vote counts, and so does changing your mind: only the last one stands", async () => {
   const { client, conversation } = await startClient();
   const poll = await client.polls.start(conversation.id, {
     question: "¿A que hora comemos?",
@@ -60,7 +60,7 @@ test("votar cuenta, y cambiar de idea tambien: solo vale el ultimo voto", async 
   await client.stop();
 });
 
-test("una encuesta se puede cerrar, y despues ya no se vota", async () => {
+test("a poll can be closed, and after that there is no voting", async () => {
   const { client, conversation } = await startClient();
   const poll = await client.polls.start(conversation.id, {
     question: "¿A que hora comemos?",

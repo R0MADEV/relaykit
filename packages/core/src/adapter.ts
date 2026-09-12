@@ -126,14 +126,14 @@ export interface MessagingAdapter {
     onProgress?: (fraction: number) => void
   ): Promise<Message>;
   downloadAttachment(media: MediaRef): Promise<Uint8Array>;
-  /** Lo pide el homeserver, no este dispositivo: asi quien publica el enlace no sabe quien lo esta mirando. */
+  /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
   previewLink(url: string): Promise<LinkPreview>;
-  /** Una encuesta: la pregunta, sus respuestas y los votos. Cerrarla es definitivo. */
+  /** A poll: the question, its answers and the votes. Closing it is final. */
   startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;
   voteInPoll(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>;
   closePoll(conversationId: ConversationId, pollId: MessageId): Promise<void>;
   listPolls(conversationId: ConversationId): Promise<readonly Poll[]>;
-  /** Contar donde esta alguien mientras se mueve, durante un rato que acaba solo. */
+  /** Telling where somebody is while they move, for a while that ends on its own. */
   startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation>;
   updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void>;
   stopLiveLocation(sharingId: string): Promise<void>;

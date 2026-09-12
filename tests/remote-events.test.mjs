@@ -21,8 +21,8 @@ function collect(client, eventName) {
 }
 
 /**
- * Lo que llega de fuera se guarda antes de avisar, y guardar no es instantaneo. Esperar a que llegue dice lo
- * mismo que contarlo, sin depender de cuantos saltos de microtarea hagan falta para escribirlo.
+ * What arrives from outside is kept before anybody is told, and keeping is not instant. Waiting for it to
+ * arrive says the same as counting, without depending on how many microtask hops the writing takes.
  */
 function waitFor(received, howMany = 1) {
   return new Promise((resolve, reject) => {

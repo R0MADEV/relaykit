@@ -13,8 +13,8 @@ const pegatina = {
 };
 
 /**
- * Una pegatina no es un adjunto: se pinta sola, sin nombre de fichero ni boton de descarga, y quien la recibe
- * tiene que poder distinguirla para pintarla asi. En Matrix es un evento propio, `m.sticker`.
+ * A sticker is not an attachment: it draws itself, with no file name and no download button, and whoever
+ * receives it has to be able to tell it apart to draw it that way. In Matrix it is its own event, `m.sticker`.
  */
 async function startClient() {
   const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
@@ -23,7 +23,7 @@ async function startClient() {
   return { client, conversation };
 }
 
-test("una pegatina se envia y llega como pegatina, no como adjunto", async () => {
+test("a sticker is sent and arrives as a sticker, not as an attachment", async () => {
   const { client, conversation } = await startClient();
 
   const sent = await client.messages.sendSticker(conversation.id, pegatina);
@@ -34,7 +34,7 @@ test("una pegatina se envia y llega como pegatina, no como adjunto", async () =>
   assert.equal(sent.body, "saludo");
 });
 
-test("una pegatina se lee del historial como pegatina", async () => {
+test("a sticker is read back from the history as a sticker", async () => {
   const { client, conversation } = await startClient();
   await client.messages.sendSticker(conversation.id, pegatina);
 
@@ -44,7 +44,7 @@ test("una pegatina se lee del historial como pegatina", async () => {
   assert.ok(leida.attachment);
 });
 
-test("una pegatina sin imagen no es una pegatina", async () => {
+test("a sticker with no image is not a sticker", async () => {
   const { client, conversation } = await startClient();
 
   await assert.rejects(

@@ -3,9 +3,9 @@ import type { ConversationId, MessageId, Poll, PollAnswer, StartPollInput } from
 import { waitForRoom } from "./matrix-room-operations.js";
 
 /**
- * Una encuesta en Matrix son tres eventos que se relacionan: la pregunta, los votos que cuelgan de ella y el
- * cierre. Los nombres los pone el SDK, que ademas conoce el nombre inestable que usan los clientes que se
- * adelantaron al spec: sin eso, una encuesta creada por Element no se veria aqui.
+ * A poll in Matrix is three events that relate to each other: the question, the votes hanging off it, and the
+ * close. The SDK names them, and it also knows the unstable name used by the clients that got there before
+ * the spec did: without that, a poll started from Element would not show up here.
  */
 export async function startMatrixPoll(
   client: MatrixClient,
@@ -20,12 +20,12 @@ export async function startMatrixPoll(
       max_selections: input.maxSelections ?? 1,
       answers
     },
-    // Lo mismo en texto plano, para quien no sepa de encuestas: vera la pregunta y las opciones.
+    // The same in plain text, for whoever knows nothing about polls: they see the question and the options.
     "m.text": [input.question, ...input.answers.map((text, index) => `${index + 1}. ${text}`)].join("\n")
   };
   const sent = await client.sendEvent(conversationId, M_POLL_START.name as never, content as never);
-  // Mandarla y verla no son el mismo momento. Quien la crea la va a pintar acto seguido, y una lista vacia
-  // justo despues de preguntar algo parece que no ha funcionado.
+  // Sending it and seeing it are not the same moment. Whoever asks something is about to paint it, and an
+  // empty list right after asking looks like nothing happened. If `start` gives back a poll, that poll exists.
   await waitUntilThePollArrives(client, conversationId, sent.event_id);
   return {
     id: sent.event_id,
@@ -52,7 +52,7 @@ async function waitUntilThePollArrives(
   }
 }
 
-/** Votar otra vez no suma: sustituye. Es el propio protocolo el que dice que solo cuenta el ultimo voto. */
+/** Voting again does not add up: it replaces. The protocol itself says only the last vote of each person counts. */
 export async function voteInMatrixPoll(
   client: MatrixClient,
   conversationId: ConversationId,
@@ -63,8 +63,8 @@ export async function voteInMatrixPoll(
     "m.relates_to": { rel_type: "m.reference", event_id: pollId },
     [M_POLL_RESPONSE.name]: { answers: [answerId] }
   } as never);
-  // Igual que al preguntar: si votar vuelve, el voto cuenta. Quien acaba de votar repinta el recuento, y verlo
-  // igual que antes parece que el voto se ha perdido.
+  // As with asking: if voting comes back, the vote counts. Whoever just voted repaints the tally, and seeing
+  // it unchanged looks like the vote was lost.
   await waitUntilTheAnswerArrives(client, conversationId, pollId, sent.event_id);
 }
 
@@ -86,7 +86,7 @@ async function waitUntilTheAnswerArrives(
   }
 }
 
-/** Cerrar es definitivo: lo que valga en ese momento es el resultado. */
+/** Closing is final: whatever stands at that moment is the result. */
 export async function closeMatrixPoll(
   client: MatrixClient,
   conversationId: ConversationId,
@@ -95,9 +95,9 @@ export async function closeMatrixPoll(
   await client.sendEvent(conversationId, M_POLL_END.name as never, {
     "m.relates_to": { rel_type: "m.reference", event_id: pollId },
     [M_POLL_END.name]: {},
-    "m.text": "La encuesta se ha cerrado"
+    "m.text": "The poll has been closed"
   } as never);
-  // Y lo mismo al cerrar: si cerrar vuelve, esta cerrada.
+  // And the same on closing: if closing comes back, it is closed.
   const room = await waitForRoom(client, conversationId);
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
@@ -107,8 +107,8 @@ export async function closeMatrixPoll(
 }
 
 /**
- * El SDK mantiene las encuestas de una sala y sus votos, con la misma regla de "solo el ultimo voto". Se le
- * pregunta a el en vez de recorrer el historial contando referencias a mano.
+ * The SDK keeps the polls of a room and their votes, with the same "only the last vote" rule. It is asked
+ * rather than walking the history counting references by hand.
  */
 export async function listMatrixPolls(
   client: MatrixClient,
@@ -126,7 +126,7 @@ async function describe(client: MatrixClient, room: Room, poll: {
   getResponses: () => Promise<{ getRelations: () => readonly { getSender: () => string | undefined; getContent: () => Record<string, unknown> }[] }>;
 }): Promise<Poll> {
   const responses = await poll.getResponses();
-  // Solo el ultimo voto de cada persona, que es lo que dice el protocolo.
+  // Only the last vote of each person, which is what the protocol says.
   const lastByPerson = new Map<string, string>();
   for (const response of responses.getRelations()) {
     const sender = response.getSender();

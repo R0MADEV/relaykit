@@ -10,7 +10,7 @@ export interface MediaOperationsContext {
   readonly now: () => number;
 }
 
-/** Lo que el homeserver dice de un enlace cambia poco, y una conversacion repinta el mismo enlace muchas veces. */
+/** What a homeserver says about a link changes little, and a conversation repaints the same link many times. */
 const previewFreshMs = 30 * 60 * 1000;
 
 export class MediaOperations {
@@ -41,9 +41,9 @@ export class MediaOperations {
   }
 
   /**
-   * Lo que hay detras de un enlace, para poder pintarlo sin que nadie tenga que abrirlo. Lo pide el
-   * homeserver: si lo pidiera este dispositivo, quien publica el enlace sabria que alguien de esta
-   * organizacion lo esta mirando, y cuando.
+   * What is behind a link, so it can be painted without anybody having to open it. The homeserver asks: if
+   * this device asked, whoever publishes the link would learn that somebody from this organisation is
+   * looking at it, and when.
    */
   async preview(url: string): Promise<LinkPreview> {
     this.context.assertStarted();
@@ -80,7 +80,7 @@ export class MediaOperations {
   }
 }
 
-/** Solo http y https: cualquier otra cosa no es un enlace que un homeserver pueda mirar. */
+/** Only http and https: anything else is not a link a homeserver can look at. */
 function isSomewhereToGo(url: string): boolean {
   try {
     return ["http:", "https:"].includes(new URL(url).protocol);

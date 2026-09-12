@@ -11,11 +11,10 @@ export async function createMatrixConversation(
     invite: [...input.participantIds],
     ...(input.public ? { preset: Preset.PublicChat, visibility: Visibility.Public } : {}),
     ...(input.direct ? { is_direct: true } : {}),
-    // El cifrado en Matrix solo se puede sumar, nunca restar: quien llama puede forzarlo mandando este evento,
-    // pero no puede impedir que el homeserver lo anada por politica, y una vez puesto en una sala es para
-    // siempre. Asi que solo se pide cuando se pide expresamente; el resto de las veces decide el operador,
-    // que es quien tiene el contexto legal y de soporte y quien ya configura
-    // `encryption_enabled_by_default_for_room_type` en su homeserver.
+    // Encryption in Matrix can only be added, never taken away: the caller can force it by sending this
+    // event, but cannot stop the homeserver adding it by policy, and once on a room it is there for good. So
+    // it is only asked for when it is asked for expressly; the rest of the time the operator decides, who has
+    // the legal and support context and who already sets `encryption_enabled_by_default_for_room_type`.
     ...(input.encrypted === true
       ? {
           initial_state: [{
@@ -29,14 +28,14 @@ export async function createMatrixConversation(
   };
   const response = await client.createRoom(roomOptions);
   if (input.direct) await markAsDirect(client, response.room_id, input.participantIds);
-  // Esperar al estado antes de describirla. Contestar en cuanto el homeserver acepta devuelve una conversacion
-  // a medio saber: sin membresia, sin regla de entrada y, lo que mas importa, sin saber si esta cifrada. Y
-  // sobre eso ultimo nadie debe suponer, porque el cifrado no se puede quitar despues.
+  // Waiting for the state before describing it. Answering as soon as the homeserver accepts gives back a
+  // half known conversation: no membership, no join rule and, what matters most, no idea whether it is
+  // encrypted. And nobody should assume that last one, because encryption cannot be taken off afterwards.
   const room = await waitForRoom(client, response.room_id);
   await waitUntilRoomIsUsable(room);
-  // Si esta cifrada se le pregunta al servidor en vez de esperar a que lo cuente la sincronizacion, que llega
-  // despues. Sobre esto no se puede suponer ni contestar "todavia no se": el cifrado no se puede quitar, y
-  // quien crea una conversacion para que soporte pueda leerla necesita saberlo en ese momento, no mas tarde.
+  // Whether it is encrypted is asked of the server rather than waiting for sync to say so, which comes
+  // later. This cannot be assumed, nor answered with "not known yet": encryption cannot be taken off, and
+  // whoever creates a conversation so support can read it needs to know then, not later.
   return { ...mapConversation(room), isEncrypted: await isEncryptedOnTheServer(client, response.room_id) };
 }
 

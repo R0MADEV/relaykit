@@ -199,8 +199,8 @@ export class InMemoryAdapter implements MessagingAdapter {
       membership: "join",
       // A conversation is for the people invited to it unless it was asked to be open.
       joinRule: input.public ? "public" : "invite",
-      // Lo que la conversacion es, no lo que se pidio. Sin homeserver que tenga politica propia, aqui solo
-      // esta cifrada quien lo pidio, pero se dice siempre para que nadie tenga que suponerlo.
+      // What the conversation is, not what was asked for. With no homeserver to have a policy of its own,
+      // only what was asked for is encrypted here, but it is always said so nobody has to assume.
       isEncrypted: input.encrypted === true,
       ...(input.title ? { title: input.title } : {}),
       ...(input.direct ? { isDirect: true } : {})
@@ -547,7 +547,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       createdAt: Date.now(),
       status: "sent",
       attachment,
-      // Una pegatina se pinta sola, asi que quien la recibe tiene que poder distinguirla de un adjunto.
+      // A sticker draws itself, so whoever receives it has to be able to tell it apart from an attachment.
       ...(file.sticker ? { kind: "sticker" as const } : {}),
       ...(transactionId ? { transactionId } : {})
     });
@@ -732,7 +732,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   async updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
     const sharing = this.liveLocations.get(sharingId);
     if (!sharing) throw new Error("That sharing does not exist");
-    // Parada o caducada no admite mas: lo contrario seria seguir contando donde esta alguien que dijo basta.
+    // Stopped or expired takes no more: otherwise somebody who said stop would still be telling where they are.
     if (!sharing.isLive) throw new SdkError("INVALID_INPUT", "That sharing is no longer live");
     this.liveLocations.set(sharingId, { ...sharing, lastPosition: position });
   }
@@ -762,7 +762,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     return poll;
   }
 
-  /** Cambiar de idea sustituye el voto anterior, que es lo que dice el protocolo: solo cuenta el ultimo. */
+  /** Changing your mind replaces the previous vote, which is what the protocol says: only the last counts. */
   async voteInPoll(_conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void> {
     const poll = this.polls.get(pollId);
     if (!poll) throw new Error("The poll does not exist");
@@ -794,7 +794,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
-  /** Sin homeserver al que preguntar, este doble sabe de un enlace y de ninguno mas. */
+  /** With no homeserver to ask, this double knows about one link and no others. */
   async previewLink(url: string): Promise<LinkPreview> {
     if (url === "https://ejemplo.test/articulo") {
       return { url, title: "Un articulo de ejemplo", description: "De lo que va el articulo" };

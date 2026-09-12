@@ -6,9 +6,9 @@ import { MessagingClient } from "@relaykit/core";
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
 /**
- * La copia local es una comodidad, no la verdad: la verdad está en el homeserver. Si el navegador se queda sin
- * sitio, o alguien navega en privado, o la cuota se agota, guardar falla. Eso no puede dejar a nadie sin poder
- * leer ni escribir: lo que tiene que pasar es que se pierda la comodidad, no la conversación.
+ * The local copy is a convenience, not the truth: the truth is on the homeserver. If the browser runs out of
+ * room, or somebody browses privately, or the quota is spent, keeping things fails. That cannot leave anybody
+ * unable to read or write: what has to be lost is the convenience, not the conversation.
  */
 class FullStorage extends InMemoryStorage {
   async saveMessages() { throw new Error("QuotaExceededError: no queda sitio"); }
@@ -24,7 +24,7 @@ async function startClient() {
   return client;
 }
 
-test("sin sitio para guardar, todavia se puede leer la lista", async () => {
+test("with nowhere to keep things, the list can still be read", async () => {
   const client = await startClient();
 
   const conversations = await client.conversations.list();
@@ -33,7 +33,7 @@ test("sin sitio para guardar, todavia se puede leer la lista", async () => {
   await client.stop();
 });
 
-test("sin sitio para guardar, todavia se puede hablar", async () => {
+test("with nowhere to keep things, it is still possible to talk", async () => {
   const client = await startClient();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sin sitio" });
 
@@ -44,7 +44,7 @@ test("sin sitio para guardar, todavia se puede hablar", async () => {
   await client.stop();
 });
 
-test("sin sitio para guardar, todavia se puede leer lo dicho", async () => {
+test("with nowhere to keep things, what was said can still be read", async () => {
   const client = await startClient();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sin sitio" });
   await client.messages.send(conversation.id, "lo dicho");
@@ -55,7 +55,7 @@ test("sin sitio para guardar, todavia se puede leer lo dicho", async () => {
   await client.stop();
 });
 
-test("quedarse sin sitio se avisa, no se traga en silencio", async () => {
+test("running out of room is reported, not swallowed in silence", async () => {
   const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new FullStorage(), session });
   const avisos = [];
   client.on("error", error => avisos.push(error.message));
@@ -68,7 +68,7 @@ test("quedarse sin sitio se avisa, no se traga en silencio", async () => {
   await client.stop();
 });
 
-test("un almacen que tampoco puede leer manda al homeserver en vez de romper", async () => {
+test("a store that cannot read either sends you to the homeserver instead of breaking", async () => {
   class UnreadableStorage extends FullStorage {
     async getConversations() { throw new Error("QuotaExceededError: no se puede leer"); }
     async getMessages() { throw new Error("QuotaExceededError: no se puede leer"); }
@@ -79,7 +79,7 @@ test("un almacen que tampoco puede leer manda al homeserver en vez de romper", a
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "ilegible" });
   await client.messages.send(conversation.id, "lo dicho");
 
-  // Lo que el almacen no puede dar lo da el adaptador, que es donde esta la verdad.
+  // What the store cannot give, the adapter gives: that is where the truth is.
   assert.deepEqual((await client.messages.list(conversation.id)).map(m => m.body), ["lo dicho"]);
   assert.ok((await client.conversations.list()).some(item => item.id === conversation.id));
   await client.stop();

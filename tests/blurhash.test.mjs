@@ -10,7 +10,7 @@ const imagen = {
   name: "foto.png",
   width: 800,
   height: 600,
-  // Lo que cabe en una cadena corta: los colores de la imagen, borrosos. Se pinta mientras llega la de verdad.
+  // What fits in a short string: the colours of the image, blurred. Painted while the real one arrives.
   blurhash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
 };
 
@@ -21,7 +21,7 @@ async function startClient() {
   return { client, conversation };
 }
 
-test("una imagen puede llevar su borrón, para pintar algo mientras llega", async () => {
+test("an image can carry its blur, to paint something while it arrives", async () => {
   const { client, conversation } = await startClient();
 
   const sent = await client.messages.sendFile(conversation.id, imagen);
@@ -29,7 +29,7 @@ test("una imagen puede llevar su borrón, para pintar algo mientras llega", asyn
   assert.equal(sent.attachment.blurhash, "LEHV6nWB2yk8pyo0adR*.7kCMdnj");
 });
 
-test("el borrón sigue ahí al leer el historial, que es cuando hace falta", async () => {
+test("the blur is still there when reading the history, which is when it is needed", async () => {
   const { client, conversation } = await startClient();
   await client.messages.sendFile(conversation.id, imagen);
 
@@ -38,7 +38,7 @@ test("el borrón sigue ahí al leer el historial, que es cuando hace falta", asy
   assert.equal(leida.attachment.blurhash, "LEHV6nWB2yk8pyo0adR*.7kCMdnj");
 });
 
-test("una imagen sin borrón no se inventa ninguno", async () => {
+test("an image with no blur does not make one up", async () => {
   const { client, conversation } = await startClient();
   const { blurhash: _sin, ...sinBorron } = imagen;
 

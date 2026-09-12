@@ -24,7 +24,7 @@ const rememberedSession = "relaykit-demo-session";
 class DemoApp {
   private readonly client = buildClient();
   private conversationId: ConversationId | undefined;
-  /** Lo que se esta compartiendo ahora mismo, para poder pararlo con el mismo boton. */
+  /** What is being shared right now, so the same button can stop it. */
   private sharingId: string | undefined;
   private recorder: MediaRecorder | undefined;
   private previewedUrl: string | undefined;
@@ -55,7 +55,7 @@ class DemoApp {
     // purpose; the browser already slows down what a hidden tab is doing.
     this.element("door").addEventListener("click", () => void this.cycleJoinRule());
     this.element("discover").addEventListener("click", () => void this.discover());
-    // Un formulario, no un prompt: se puede usar con teclado, se puede traducir y se puede probar.
+    // A form, not a prompt: it works with a keyboard, it can be translated and it can be tested.
     this.element("poll").addEventListener("click", () => {
       const form = this.element("poll-form");
       form.hidden = !form.hidden;
@@ -68,7 +68,7 @@ class DemoApp {
     this.element("live-location").addEventListener("click", () => void this.shareWhereIAm());
     this.element("record").addEventListener("click", () => void this.recordVoice());
     this.element("sticker").addEventListener("click", () => void this.sendSticker());
-    // Al escribir un enlace se mira que hay detras, para no tener que abrirlo a ciegas.
+    // Typing a link looks at what is behind it, so nobody has to open it blind.
     this.input("message").addEventListener("input", () => this.lookAtTheLink());
   }
 
@@ -252,7 +252,7 @@ class DemoApp {
       this.renderTimeline(timeline.get());
       await this.markLastAsRead(timeline.get());
       await this.refreshConversations();
-      // Las encuestas van aparte del hilo, asi que se piden al abrir la conversacion.
+      // Polls live apart from the timeline, so they are asked for when the conversation opens.
       await this.showPolls();
     } catch (error) {
       this.showError(error);
@@ -290,7 +290,7 @@ class DemoApp {
       quoted.textContent = all.find(other => other.id === message.replyToId)?.body ?? "Mensaje anterior";
       children.push(quoted);
     }
-    // Una pegatina se pinta sola: es la imagen y nada mas, sin nombre de fichero ni boton de descarga.
+    // A sticker draws itself: the image and nothing else, no file name and no download button.
     if (message.kind === "sticker" && message.attachment && !message.deletedAt) {
       const sticker = document.createElement("img");
       sticker.alt = message.body;
@@ -698,8 +698,8 @@ class DemoApp {
   }
 
   /**
-   * El borron primero y la imagen despues. Ocupa el sitio exacto desde el principio, asi que la conversacion
-   * no salta cuando la foto acaba de llegar.
+   * The blur first and the image after. It takes the exact space from the start, so the conversation does
+   * not jump when the photo finally arrives.
    */
   private imageWithBlur(attachment: Attachment): HTMLElement {
     const holder = document.createElement("div");
@@ -730,7 +730,7 @@ class DemoApp {
     image.src = URL.createObjectURL(new Blob([bytes as BlobPart], { type: attachment.mimeType }));
   }
 
-  /** Preguntar algo a la conversacion. Las respuestas se separan por comas, que es lo mas rapido de teclear. */
+  /** Asking the conversation something. Answers are separated by commas, which is quickest to type. */
   private async askSomething(): Promise<void> {
     if (!this.conversationId) return;
     const question = this.input("poll-question").value.trim();
@@ -749,7 +749,7 @@ class DemoApp {
     }
   }
 
-  /** Las encuestas van aparte del hilo de mensajes, como en cualquier cliente que las pinte. */
+  /** Polls live apart from the message timeline, as in any client that paints them. */
   private async showPolls(): Promise<void> {
     if (!this.conversationId) return;
     const polls = await this.client.polls.list(this.conversationId).catch(() => []);
@@ -804,8 +804,8 @@ class DemoApp {
   }
 
   /**
-   * Contar donde estoy durante un rato. El navegador da la posicion; la duracion es obligatoria, y lo que la
-   * hace segura es que se acabe sola aunque nadie pare nada.
+   * Telling where I am for a while. The browser gives the position; the duration is required, and what
+   * makes it safe is that it ends on its own even if nobody stops anything.
    */
   private async shareWhereIAm(): Promise<void> {
     if (!this.conversationId) return;
@@ -837,13 +837,13 @@ class DemoApp {
       position => void this.client.location
         .update(sharingId, { latitude: position.coords.latitude, longitude: position.coords.longitude })
         .catch(error => this.showError(error)),
-      // Sin permiso no hay posicion, y eso no es un fallo: simplemente no se cuenta nada.
+      // No permission means no position, and that is not a failure: nothing is told, and that is all.
       () => this.setStatus("Sin permiso para saber dónde estás"),
       { enableHighAccuracy: false, timeout: 5000 }
     );
   }
 
-  /** Grabar con el microfono del navegador, y mandar lo grabado con su duracion y su forma de onda. */
+  /** Recording with the browser microphone, and sending it with its duration and its waveform. */
   private async recordVoice(): Promise<void> {
     if (!this.conversationId) return;
     if (this.recorder) {
@@ -875,8 +875,8 @@ class DemoApp {
   private async sendVoice(audio: Blob, durationMs: number): Promise<void> {
     if (!this.conversationId) return;
     const data = new Uint8Array(await audio.arrayBuffer());
-    // La onda que viaja con la nota: lo que deja ver de un vistazo donde estan las pausas. Se mide del propio
-    // audio, que es lo unico que hay a mano sin descodificarlo entero.
+    // The waveform that travels with the note: what shows at a glance where the pauses are. Measured from
+    // the audio itself, which is the only thing to hand without decoding the whole of it.
     const waveform = Array.from({ length: 30 }, (_unused, step) => {
       const at = Math.floor((step / 30) * data.length);
       return Math.abs((data[at] ?? 128) - 128) * 8;
@@ -892,7 +892,7 @@ class DemoApp {
     }
   }
 
-  /** Una pegatina cualquiera, dibujada aqui mismo: la gracia es verla pintada sola, no de donde salga. */
+  /** Any sticker, drawn right here: the point is seeing it painted on its own, not where it comes from. */
   private async sendSticker(): Promise<void> {
     if (!this.conversationId) return;
     const canvas = document.createElement("canvas");
@@ -922,7 +922,7 @@ class DemoApp {
     }
   }
 
-  /** Lo que hay detras del enlace que se esta escribiendo. Lo mira el homeserver, no este navegador. */
+  /** What is behind the link being typed. The homeserver looks, not this browser. */
   private lookAtTheLink(): void {
     const found = /(https?:\/\/\S+)/.exec(this.input("message").value);
     const preview = this.element("link-preview");
@@ -939,7 +939,7 @@ class DemoApp {
         preview.textContent = seen.title ? `🔗 ${seen.title}${seen.description ? ` — ${seen.description}` : ""}` : "";
         preview.hidden = !seen.title;
       },
-      // Un enlace que el homeserver no puede mirar no es un error que mostrar: simplemente no hay vista previa.
+      // A link the homeserver cannot look at is not an error to show: there is simply no preview.
       () => { preview.hidden = true; }
     );
   }
@@ -1013,8 +1013,8 @@ if (import.meta.hot) {
 
 
 /**
- * La forma de onda que viaja con la nota de voz, dibujada. Es lo que deja ver de un vistazo si alguien mando
- * dos segundos o dos minutos, y donde estan las pausas, sin tener que reproducirla.
+ * The waveform that travels with the voice note, drawn. It shows at a glance whether somebody sent two
+ * seconds or two minutes, and where the pauses are, without having to play it.
  */
 function drawWaveform(voice: VoiceInfo): HTMLElement {
   const holder = document.createElement("div");
@@ -1042,8 +1042,9 @@ function drawWaveform(voice: VoiceInfo): HTMLElement {
 }
 
 /**
- * Decodifica un blurhash a un lienzo diminuto que luego se estira. No lo trae ni Matrix ni el SDK porque no es
- * protocolo: es como se pinta. El algoritmo esta publicado y es el mismo que usan los demas clientes.
+ * Decodes a blurhash onto a tiny canvas that is then stretched. Neither Matrix nor the SDK carries this
+ * because it is not protocol: it is how it is painted. The algorithm is published and is the same one every
+ * other client uses.
  */
 function decodeBlurhash(hash: string, width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -1082,7 +1083,8 @@ function decodeBlurhash(hash: string, width: number, height: number): HTMLCanvas
         Math.sign(sign(value % 19)) * (Math.abs(sign(value % 19)) ** 2) * highest
       ]);
     }
-    // Se pinta pequeño y el navegador lo estira: asi el borron sale suave sin calcular pixel a pixel.
+    // Painted small and stretched by the browser: that way the blur comes out smooth without working out
+    // every pixel.
     const small = document.createElement("canvas");
     small.width = across * 4;
     small.height = down * 4;
@@ -1113,7 +1115,7 @@ function decodeBlurhash(hash: string, width: number, height: number): HTMLCanvas
     smallBrush.putImageData(picture, 0, 0);
     brush.drawImage(small, 0, 0, width, height);
   } catch {
-    // Un borron que no se entiende no es motivo para no pintar nada: se queda el hueco y ya.
+    // A blur that cannot be read is no reason to paint nothing: the gap stays, and that is that.
   }
   return canvas;
 }

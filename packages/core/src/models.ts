@@ -258,60 +258,60 @@ export interface AvatarOptions {
   readonly size?: number;
 }
 
-/** Alguien contando donde esta mientras se mueve, durante un rato acotado. */
+/** Somebody telling where they are while they move, for a bounded while. */
 export interface LiveLocation {
-  /** El identificador con el que se para o se actualiza. */
+  /** The identifier it is stopped or updated with. */
   readonly id: string;
   readonly conversationId: ConversationId;
   readonly sharedBy: UserId;
-  /** Sigue contando. Deja de estarlo al pararla o al agotarse el rato. */
+  /** Still telling. It stops being so when stopped, or when the while runs out. */
   readonly isLive: boolean;
   readonly startedAt: number;
   readonly durationMs: number;
   readonly description?: string;
-  /** Lo ultimo que se dijo. Ausente mientras no se haya dicho nada todavia. */
+  /** The last thing said. Absent while nothing has been said yet. */
   readonly lastPosition?: GeoLocation;
 }
 
 export interface ShareLocationInput {
   /**
-   * Cuanto rato se va a ir contando. Es obligatorio a proposito: sin un final, un descuido deja a alguien
-   * compartiendo donde esta para siempre.
+   * How long it will keep telling. Required on purpose: without an end, a slip leaves somebody sharing
+   * where they are for ever.
    */
   readonly durationMs: number;
   readonly description?: string;
 }
 
-/** Una respuesta posible de una encuesta, con lo que lleva votado. */
+/** One possible answer of a poll, with what it has been voted. */
 export interface PollAnswer {
   readonly id: string;
   readonly text: string;
-  /** Cuantas personas la han elegido. Solo cuenta el ultimo voto de cada una. */
+  /** How many people chose it. Only the last vote of each one counts. */
   readonly votes: number;
 }
 
 export interface Poll {
-  /** El identificador del mensaje que abrio la encuesta. */
+  /** The identifier of the message that opened the poll. */
   readonly id: MessageId;
   readonly conversationId: ConversationId;
   readonly question: string;
   readonly answers: readonly PollAnswer[];
   readonly startedBy: UserId;
   readonly startedAt: number;
-  /** Una encuesta cerrada ya no admite votos, y eso no se puede deshacer. */
+  /** A closed poll takes no more votes, and that cannot be undone. */
   readonly isClosed: boolean;
-  /** Lo que voto quien pregunta, para poder pintarlo marcado. */
+  /** What the person asking voted, so it can be drawn as chosen. */
   readonly ownAnswerId?: string;
 }
 
 export interface StartPollInput {
   readonly question: string;
   readonly answers: readonly string[];
-  /** Cuantas respuestas puede elegir cada persona. Una, si no se dice otra cosa. */
+  /** How many answers each person may choose. One, unless said otherwise. */
   readonly maxSelections?: number;
 }
 
-/** Lo que el homeserver cuenta de un enlace, para pintarlo sin abrirlo. Todo es opcional: hay paginas que no dicen nada. */
+/** What the homeserver says about a link, to paint it without opening it. All optional: some pages say nothing. */
 export interface LinkPreview {
   readonly url: string;
   readonly title?: string;
@@ -323,8 +323,8 @@ export interface LinkPreview {
 export interface MediaRef {
   readonly mimeType: string;
   /**
-   * Los colores de la imagen en una cadena corta, para pintar algo en su sitio mientras llega la de verdad.
-   * Evita que una lista de fotos salte al cargarse, porque el hueco ya tiene el tamano y el color que tendra.
+   * The colours of the image in a short string, to paint something in its place while the real one arrives.
+   * Stops a list of photos jumping as it loads, because the gap already has the size and colour it will have.
    */
   readonly blurhash?: string;
   readonly size?: number;
@@ -373,9 +373,9 @@ export interface FileInput {
   readonly thumbnail?: ThumbnailInput;
   /** Sending this makes it a voice note instead of a file somebody happened to record. */
   readonly voice?: VoiceInfo;
-  /** Una pegatina: se pinta sola, y viaja como `m.sticker` en vez de como adjunto. */
+  /** A sticker: it draws itself, and travels as `m.sticker` rather than as an attachment. */
   readonly sticker?: boolean;
-  /** Ver `MediaRef.blurhash`. Lo calcula quien envia; aqui solo viaja. */
+  /** See `MediaRef.blurhash`. Whoever sends works it out; here it only travels. */
   readonly blurhash?: string;
 }
 
@@ -411,7 +411,7 @@ export interface Message {
   readonly kind?: MessageKind;
 }
 
-/** `sticker` es una imagen que se pinta sola: sin nombre de fichero ni boton de descarga. */
+/** `sticker` is an image that draws itself: no file name and no download button. */
 export type MessageKind = "action" | "notice" | "sticker";
 
 /** Everything an adapter needs to put a message on the wire. */

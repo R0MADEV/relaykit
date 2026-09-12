@@ -361,7 +361,7 @@ function fakeRoom(members, state = {}) {
   };
 }
 
-test("una pegatina que llega se distingue de un adjunto", () => {
+test("a sticker that arrives is told apart from an attachment", () => {
   const { mapMessage } = mapper;
   const evento = {
     getId: () => "$pegatina",
@@ -390,15 +390,15 @@ test("una pegatina que llega se distingue de un adjunto", () => {
   assert.equal(mensaje.attachment.width, 128);
 });
 
-test("una conversacion dice si esta cifrada de verdad, no lo que se pidio", () => {
+test("a conversation says whether it really is encrypted, not what was asked for", () => {
   const { mapConversation } = mapper;
   const cifrada = fakeRoom([]);
   cifrada.hasEncryptionStateEvent = () => true;
   const enClaro = fakeRoom([]);
   enClaro.hasEncryptionStateEvent = () => false;
 
-  // El homeserver puede cifrar por politica aunque nadie lo pidiera, y el cifrado no se puede quitar. Suponer
-  // es como se acaba creyendo que soporte podra leer un historial que es una caja cerrada.
+  // The homeserver can encrypt by policy even though nobody asked, and encryption cannot be taken off.
+  // Assuming is how you end up believing support can read a history that is a locked box.
   assert.equal(mapConversation(cifrada).isEncrypted, true);
   assert.equal(mapConversation(enClaro).isEncrypted, false);
 });

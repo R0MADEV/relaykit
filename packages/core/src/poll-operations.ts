@@ -7,7 +7,7 @@ export interface PollOperationsContext {
   readonly assertStarted: () => void;
 }
 
-/** Al menos dos: una encuesta con una sola respuesta no pregunta nada. */
+/** At least two: a poll with a single answer asks nothing. */
 const fewestAnswers = 2;
 
 export class PollOperations {
@@ -31,8 +31,8 @@ export class PollOperations {
   }
 
   /**
-   * Cambiar de idea es normal, asi que votar otra vez sustituye al voto anterior en vez de sumarse. Lo que no
-   * se puede es votar en una encuesta cerrada: quien cerro dio el resultado por bueno.
+   * Changing your mind is normal, so voting again replaces the previous vote rather than adding to it. What
+   * cannot be done is voting in a closed poll: whoever closed it took the result as final.
    */
   async vote(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void> {
     this.context.assertStarted();
@@ -52,7 +52,7 @@ export class PollOperations {
     await this.context.adapter.voteInPoll(conversationId, pollId, answerId);
   }
 
-  /** Cerrar es definitivo: el resultado queda como estaba en ese momento. */
+  /** Closing is final: the result stays as it stood at that moment. */
   async close(conversationId: ConversationId, pollId: MessageId): Promise<void> {
     this.context.assertStarted();
     await this.context.adapter.closePoll(conversationId, pollId);
