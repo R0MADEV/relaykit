@@ -3,6 +3,7 @@ import {
   createConversationList,
   createMessageTimeline,
   type Attachment,
+  type Call,
   type Conversation,
   type ConversationId,
   type LiveCollection,
@@ -26,6 +27,8 @@ class DemoApp {
   private conversationId: ConversationId | undefined;
   /** What is being shared right now, so the same button can stop it. */
   private sharingId: string | undefined;
+  /** The call going on, so the same panel can answer it or hang it up. */
+  private callId: string | undefined;
   private recorder: MediaRecorder | undefined;
   private previewedUrl: string | undefined;
   private ownUserId: string | undefined;
@@ -55,6 +58,10 @@ class DemoApp {
     // purpose; the browser already slows down what a hidden tab is doing.
     this.element("door").addEventListener("click", () => void this.cycleJoinRule());
     this.element("discover").addEventListener("click", () => void this.discover());
+    this.element("call").addEventListener("click", () => void this.callThem(false));
+    this.element("video-call").addEventListener("click", () => void this.callThem(true));
+    this.element("answer").addEventListener("click", () => void this.answerThem());
+    this.element("hang-up").addEventListener("click", () => void this.hangUp());
     // A form, not a prompt: it works with a keyboard, it can be translated and it can be tested.
     this.element("poll").addEventListener("click", () => {
       const form = this.element("poll-form");
@@ -116,6 +123,9 @@ class DemoApp {
     this.client.on("notification", notification => this.setStatus(
       `${this.nameOf(notification.senderId)}${notification.isMention ? " te menciona" : ""}: ${notification.body}`
     ));
+    // Somebody calling is not something to be asked for: it arrives, and the screen has to ring.
+    this.client.on("call.incoming", call => this.showCall(call));
+    this.client.on("call.changed", call => this.showCall(call));
     this.client.on("error", error => this.setStatus(`Error: ${error.message}`));
   }
 
@@ -942,6 +952,52 @@ class DemoApp {
       // A link the homeserver cannot look at is not an error to show: there is simply no preview.
       () => { preview.hidden = true; }
     );
+  }
+
+  /**
+   * Ringing somebody. Only the signalling travels over Matrix: the audio and the video go straight between the
+   * two devices.
+   */
+  private async callThem(video: boolean): Promise<void> {
+    if (!this.conversationId) return;
+    try {
+      this.showCall(await this.client.calls.place(this.conversationId, { video }));
+    } catch (error) {
+      // Refusing the microphone or the camera is the usual reason, and whoever pressed the button is the one
+      // who has to hear about it.
+      this.setStatus(`No se pudo llamar: ${(error as Error).message}`);
+    }
+  }
+
+  private async answerThem(): Promise<void> {
+    if (!this.callId) return;
+    this.showCall(await this.client.calls.answer(this.callId, { video: false }));
+  }
+
+  private async hangUp(): Promise<void> {
+    if (!this.callId) return;
+    await this.client.calls.hangUp(this.callId);
+  }
+
+  /** What there is to see and hear while a call is going on. */
+  private showCall(call: Call): void {
+    const isOver = call.state === "ended";
+    this.callId = isOver ? undefined : call.id;
+    this.element("call-panel").hidden = isOver;
+
+    const placedByMe = call.callerId === this.ownUserId;
+    const beingRung = call.state === "ringing" && !placedByMe;
+    this.element("answer").hidden = !beingRung;
+    // Naming whoever placed it only says something when it was not this side: "calling myself" is nonsense.
+    this.element("call-state").textContent = beingRung
+      ? `${this.nameOf(call.callerId)} te llama`
+      : placedByMe
+        ? `Llamando: ${call.state}`
+        : `Hablando con ${this.nameOf(call.callerId)}: ${call.state}`;
+
+    // The stream goes to the element as it is. This is what the library hands over, and what a browser plays.
+    const media = this.element("call-media") as HTMLVideoElement;
+    media.srcObject = call.remoteMedia ?? null;
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {

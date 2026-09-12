@@ -16,6 +16,9 @@ import type { Call, CallState, ConversationId, PlaceCallOptions } from "@relayki
  */
 export class MatrixCalls {
   private readonly going = new Map<string, MatrixCall>();
+  // The SDK says the state changed while it is still placing the call, before it has written down which way
+  // the call goes. Whose call it is was never in doubt, so it is remembered rather than asked for.
+  private readonly placedHere = new Set<string>();
   private report: ((call: Call) => void) | undefined;
   private ownUserId = "";
 
@@ -34,6 +37,7 @@ export class MatrixCalls {
     if (!call) {
       throw new Error("This conversation cannot be called");
     }
+    this.placedHere.add(call.callId);
     this.keep(call);
     // Waited for, not let go. Placing a call asks for the microphone or the camera before it can send
     // anything, and that can be refused: letting it go would answer with a call that looks like it is ringing
@@ -43,6 +47,7 @@ export class MatrixCalls {
       await (options.video ? call.placeVideoCall() : call.placeVoiceCall());
     } catch (error) {
       this.going.delete(call.callId);
+      this.placedHere.delete(call.callId);
       throw error;
     }
     return this.describe(call);
@@ -74,13 +79,16 @@ export class MatrixCalls {
     call.on(CallEvent.State, () => {
       this.report?.(this.describe(call));
       // A call that is over stops being one that is going on, so a screen listing them does not keep it.
-      if (call.state === MatrixCallState.Ended) this.going.delete(call.callId);
+      if (call.state === MatrixCallState.Ended) {
+        this.going.delete(call.callId);
+        this.placedHere.delete(call.callId);
+      }
     });
   }
 
   /** The neutral shape. `ringing` covers waiting for an answer and being rung: a screen draws the same. */
   private describe(call: MatrixCall): Call {
-    const placedHere = call.direction === CallDirection.Outbound;
+    const placedHere = this.placedHere.has(call.callId) || call.direction === CallDirection.Outbound;
     // The SDK keeps one feed per side and the audio and video live in them. Handed over as they are: a
     // component gets something it can give to an element, without reaching into `MatrixCall` to find it.
     const feeds = call.getFeeds();

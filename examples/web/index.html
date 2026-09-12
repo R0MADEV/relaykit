@@ -122,7 +122,16 @@
           <button id="door" type="button">Puerta</button>
           <button id="discover" type="button">Buscar publicas</button>
           <button id="kick" type="button">Expulsar</button>
+          <button id="call" type="button">Llamar</button>
+          <button id="video-call" type="button">Videollamada</button>
           <button id="leave" type="button">Salir</button>
+        </div>
+        <div id="call-panel" hidden>
+          <p id="call-state"></p>
+          <button id="answer" type="button" hidden>Descolgar</button>
+          <button id="hang-up" type="button">Colgar</button>
+          <!-- One element for both: a call with no picture still has to be heard. -->
+          <video id="call-media" autoplay playsinline></video>
         </div>
         <p id="empty">Abre una conversación para empezar.</p>
         <div id="timeline" hidden>

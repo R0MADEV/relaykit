@@ -55,14 +55,6 @@ async function open(who, address) {
   return page;
 }
 
-/** Whatever the call is doing now, as this side sees it. Undefined once it is over. */
-function stateOfTheCall(page, callId) {
-  return page.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.list()
-      .then(calls => calls.find(call => call.id === ${JSON.stringify(callId)})?.state ?? "over")
-  `);
-}
-
 async function run() {
   const server = await serve(root);
   const address = `https://127.0.0.1:${server.address().port}/`;
@@ -77,12 +69,21 @@ async function run() {
     true;
   `);
 
-  const conversationId = await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.conversations.open("@bob:localhost").then(conversation => conversation.id)
+  // Opened the way a person opens it: the picker, not the API. What is being checked is that a call can be
+  // placed and answered from the screen, so the screen is what is used.
+  await alice.webContents.executeJavaScript(`
+    document.getElementById("participant").value = "@bob:localhost";
+    document.getElementById("open-form").requestSubmit();
+    true;
+  `);
+  const conversationId = await waitFor(alice, "the conversation with bob", `
+    window.relaykitDemo.client.conversations.list()
+      .then(list => list.find(item => item.isDirect && item.participantIds.includes("@bob:localhost"))?.id ?? false)
   `);
   detail.conversationId = conversationId;
 
-  // An invitation is not a conversation yet: bob has to be in the room to be rung in it.
+  // An invitation is not a conversation yet: bob has to be in the room to be rung in it. Setting up, not the
+  // thing being checked, so it is asked for plainly.
   await waitFor(bob, "bob to see the invitation", `
     window.relaykitDemo.client.conversations.list()
       .then(list => list.some(item => item.id === ${JSON.stringify(conversationId)}))
@@ -92,46 +93,40 @@ async function run() {
   `);
   detail.bobJoined = true;
 
-  const placed = await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.place(${JSON.stringify(conversationId)}, { video: false })
+  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
+  detail.aliceCalled = await waitFor(alice, "alice's call panel", `
+    !document.getElementById("call-panel").hidden && document.getElementById("call-state").textContent
   `);
-  detail.placed = placed.state;
+  // The very first thing the screen says has to be right. Whose call it is is known before the SDK has
+  // written down which way it goes, and a screen that draws a call from nobody is what that looked like.
+  if (!detail.aliceCalled.startsWith("Llamando")) {
+    throw new Error(`Alice placed the call and her screen says: ${detail.aliceCalled}`);
+  }
 
-  const arrived = await waitFor(bob, "the call to reach bob", `window.arrived`);
-  detail.arrivedAtBob = arrived.state;
-
-  await bob.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.answer(window.arrived.id, { video: false }).then(() => true)
+  // Bob's screen has to ring on its own, and the button to answer has to be the one that is showing.
+  detail.bobWasRung = await waitFor(bob, "bob's screen to ring", `
+    !document.getElementById("answer").hidden && document.getElementById("call-state").textContent
   `);
+  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
 
-  // Both sides, because a call that only one side thinks is connected is not a call.
-  detail.aliceReached = await waitFor(alice, "alice to be connected",
-    `window.relaykitDemo.client.calls.list().then(calls => calls.some(call => call.state === "connected") && "connected")`);
-  detail.bobReached = await waitFor(bob, "bob to be connected",
-    `window.relaykitDemo.client.calls.list().then(calls => calls.some(call => call.state === "connected") && "connected")`);
-
-  // Connected is not the same as audible. What has to be true is that there is a stream with a track that is
-  // live on it, which is what an `<audio>` element would be given. The stream itself cannot come back from the
-  // page, so it is asked about in there.
-  const audible = `
-    window.relaykitDemo.client.calls.list().then(calls => {
-      const stream = calls[0]?.remoteMedia;
-      const tracks = stream ? stream.getAudioTracks() : [];
-      return { has: !!stream, live: tracks.some(track => track.readyState === "live") };
-    })
+  // Connected is not the same as audible. What has to be true is that the element on the screen has been given
+  // a stream with a live track on it, which is the whole point of a call.
+  const playing = `
+    (() => {
+      const media = document.getElementById("call-media").srcObject;
+      const tracks = media ? media.getAudioTracks() : [];
+      return tracks.some(track => track.readyState === "live") && { tracks: tracks.length };
+    })()
   `;
-  detail.aliceHears = await waitFor(alice, "alice to have something to play", `${audible}.then(m => m.live && m)`);
-  detail.bobHears = await waitFor(bob, "bob to have something to play", `${audible}.then(m => m.live && m)`);
+  detail.aliceHears = await waitFor(alice, "alice's screen to be playing bob", playing);
+  detail.bobHears = await waitFor(bob, "bob's screen to be playing alice", playing);
 
-  await alice.webContents.executeJavaScript(`
-    window.relaykitDemo.client.calls.hangUp(${JSON.stringify(placed.id)}).then(() => true)
-  `);
+  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
 
-  // Hanging up is told to the other side over Matrix, so bob has to find out without being asked.
-  await waitFor(alice, "the call to be over for alice",
-    `window.relaykitDemo.client.calls.list().then(calls => calls.length === 0)`);
-  await waitFor(bob, "the call to be over for bob",
-    `window.relaykitDemo.client.calls.list().then(calls => calls.length === 0)`);
+  // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being
+  // touched.
+  await waitFor(alice, "alice's call panel to go away", `document.getElementById("call-panel").hidden`);
+  await waitFor(bob, "bob's call panel to go away", `document.getElementById("call-panel").hidden`);
   detail.hungUpOnBothSides = true;
 
   server.close();

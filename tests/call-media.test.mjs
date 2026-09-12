@@ -54,3 +54,30 @@ test("a call with nothing to play yet hands over nothing, rather than something 
   assert.equal(call.remoteMedia, undefined);
   assert.equal(call.hasRemoteMedia, false);
 });
+
+/**
+ * The SDK says the state changed while it is still placing the call, before it has written down which way the
+ * call goes. Describing it then leaves nobody as the caller, and a screen draws a call from no one.
+ *
+ * Whose call it is was never in doubt: it is being placed from here.
+ */
+test("a call says who is calling from the first word, even before the SDK writes down which way it goes", async () => {
+  const told = [];
+  const listeners = [];
+  const call = {
+    ...callWith([]),
+    direction: undefined,
+    on: (_event, handler) => listeners.push(handler),
+    placeVoiceCall: async () => {
+      for (const handler of listeners) handler();
+    }
+  };
+  const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, reported => told.push(reported));
+
+  await calls.place(client, "!room:localhost", { video: false });
+
+  assert.ok(told.length > 0, "nothing was reported while the call was being placed");
+  assert.equal(told[0].callerId, "@alice:localhost", "a call was reported with nobody calling");
+});

@@ -163,6 +163,12 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- El ejemplo web tiene botones de llamar y de videollamada, aviso de llamada entrante con descolgar y colgar,
+  y un elemento que reproduce lo que llega. La comprobacion de dos navegadores los pulsa en vez de usar la
+  API, porque lo que hay que probar es que se puede llamar desde una pantalla.
+- Corregido: una llamada recien colocada se anunciaba sin decir quien llamaba. El SDK avisa del cambio de
+  estado mientras todavia la esta colocando, antes de anotar en que direccion va, y la pantalla dibujaba una
+  llamada de nadie. De quien es no estaba en duda: se recuerda al colocarla.
 - Corregido: colocar una llamada devolvia antes de haberla enviado. Pedir el microfono o la camara puede ser
   denegado, y ese fallo se perdia: quedaba una llamada que parecia estar sonando y no habia salido de la
   maquina. Ahora se espera a que salga, y la que no puede colocarse lo dice y deja de estar en curso.
