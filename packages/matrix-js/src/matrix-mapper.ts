@@ -1,11 +1,30 @@
-import { MatrixEvent, NotificationCountType, RelationType, type Room } from "matrix-js-sdk";
-import type { Attachment, Conversation, MediaRef, Message, PresenceState, Reaction, ReadReceipt, TypingUpdate, UserPresence } from "@relaykit/core";
+import {
+  MsgType,
+  ReceiptType,
+  EventType, MatrixEvent, NotificationCountType, RelationType, type Room } from "matrix-js-sdk";
+import type {
+  Attachment,
+  Conversation,
+  MediaRef,
+  Mentions,
+  Message,
+  GeoLocation,
+  HistoryVisibility,
+  JoinRule,
+  MessageKind,
+  NotificationLevel,
+  Reaction,
+  ReadReceipt,
+  VoiceInfo,
+  TypingUpdate,
+  UserPresence
+} from "@relaykit/core";
 import { isDirectRoom } from "./matrix-conversations.js";
 
-const presenceStates: readonly PresenceState[] = ["online", "offline", "unavailable"];
+import { presenceStates } from "@relaykit/core";
 
 interface MatrixReceiptContent {
-  readonly [eventId: string]: { readonly "m.read"?: { readonly [userId: string]: { readonly ts?: unknown } } };
+  readonly [eventId: string]: { readonly [ReceiptType.Read]?: { readonly [userId: string]: { readonly ts?: unknown } } };
 }
 
 interface MatrixPresenceContent {
@@ -17,6 +36,9 @@ interface MatrixPresenceContent {
 interface MatrixMessageContent {
   readonly body?: unknown;
   readonly msgtype?: string;
+  readonly format?: string;
+  readonly formatted_body?: string;
+  readonly "m.mentions"?: { readonly user_ids?: string[]; readonly room?: boolean };
   readonly url?: unknown;
   readonly file?: { readonly url?: unknown };
   readonly info?: {
@@ -27,16 +49,19 @@ interface MatrixMessageContent {
     readonly thumbnail_url?: unknown;
     readonly thumbnail_file?: { readonly url?: unknown };
     readonly thumbnail_info?: { readonly mimetype?: unknown; readonly size?: unknown; readonly w?: unknown; readonly h?: unknown };
+    /** Los colores de la imagen, borrosos, donde los ponen los clientes que los pintan. */
+    readonly "xyz.amorgan.blurhash"?: unknown;
   };
   readonly "m.new_content"?: { readonly body?: unknown };
   readonly "m.relates_to"?: {
     readonly event_id?: string;
     readonly rel_type?: string;
+    readonly is_falling_back?: boolean;
     readonly "m.in_reply_to"?: { readonly event_id?: string };
   };
 }
 
-const attachmentMsgTypes = new Set(["m.file", "m.image", "m.video", "m.audio"]);
+const attachmentMsgTypes = new Set<string>([MsgType.File, MsgType.Image, MsgType.Video, MsgType.Audio]);
 
 function mapAttachment(content: MatrixMessageContent, name: string): Attachment | undefined {
   if (!attachmentMsgTypes.has(String(content.msgtype))) return undefined;
@@ -44,7 +69,9 @@ function mapAttachment(content: MatrixMessageContent, name: string): Attachment 
   if (typeof url !== "string") return undefined;
   const info = content.info ?? {};
   const thumbnail = mapThumbnail(info);
+  const blurhash = info["xyz.amorgan.blurhash"];
   return {
+    ...(typeof blurhash === "string" ? { blurhash } : {}),
     id: url,
     name,
     mimeType: typeof info.mimetype === "string" ? info.mimetype : "application/octet-stream",
@@ -52,8 +79,36 @@ function mapAttachment(content: MatrixMessageContent, name: string): Attachment 
     ...(typeof info.w === "number" ? { width: info.w } : {}),
     ...(typeof info.h === "number" ? { height: info.h } : {}),
     ...(thumbnail ? { thumbnail } : {}),
+    ...(mapVoice(content) ?? {}),
     source: JSON.stringify(content.file ? { url, file: content.file } : { url })
   };
+}
+
+/** A voice note says so with an empty marker; without it an audio file is just a file somebody attached. */
+function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefined {
+  const record = content as unknown as Record<string, unknown>;
+  if (record["org.matrix.msc3245.voice"] === undefined) return undefined;
+  const audio = (record["org.matrix.msc1767.audio"] ?? {}) as { duration?: unknown; waveform?: unknown };
+  const fallback = (content.info as { duration?: unknown } | undefined)?.duration;
+  const duration = typeof audio.duration === "number" ? audio.duration : fallback;
+  if (typeof duration !== "number") return undefined;
+  const waveform = Array.isArray(audio.waveform) ? audio.waveform.filter(value => typeof value === "number") : [];
+  return { voice: { durationMs: duration, ...(waveform.length > 0 ? { waveform } : {}) } };
+}
+
+/** A place is read from the pieces when they are there, and from the geo URI when they are not. */
+function mapLocation(content: MatrixMessageContent): { location: GeoLocation } | undefined {
+  if (content.msgtype !== MsgType.Location) return undefined;
+  const record = content as unknown as Record<string, unknown>;
+  const asset = (record["org.matrix.msc3488.location"] ?? {}) as { uri?: unknown; description?: unknown };
+  const uri = typeof asset.uri === "string" ? asset.uri : record["geo_uri"];
+  if (typeof uri !== "string" || !uri.startsWith("geo:")) return undefined;
+  const [latitude, longitude] = uri.slice(4).split(";")[0]?.split(",").map(Number) ?? [];
+  if (latitude === undefined || longitude === undefined || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    return undefined;
+  }
+  const description = typeof asset.description === "string" ? asset.description : undefined;
+  return { location: { latitude, longitude, ...(description ? { description } : {}) } };
 }
 
 function mapThumbnail(info: NonNullable<MatrixMessageContent["info"]>): MediaRef | undefined {
@@ -82,6 +137,15 @@ export function mapMessages(events: readonly MatrixEvent[]): Message[] {
   return messages;
 }
 
+/**
+ * Somebody who read a conversation and put it back on the pile. It is their own mark, kept alongside the
+ * conversation, and absent when nobody ever made one.
+ */
+function mapUnreadMark(room: Room): { isUnread: boolean } | undefined {
+  const marked = room.getAccountData(EventType.MarkedUnread)?.getContent<{ unread?: boolean }>();
+  return typeof marked?.unread === "boolean" ? { isUnread: marked.unread } : undefined;
+}
+
 export function mapConversation(room: Room): Conversation {
   const messages = mapMessages(room.getLiveTimeline().getEvents());
   const lastMessage = messages.at(-1);
@@ -93,16 +157,115 @@ export function mapConversation(room: Room): Conversation {
     // Whoever left or was banned is no longer part of the conversation, only those in it or invited to it.
     participantIds: members.map(member => member.userId),
     invitedIds: members.filter(member => member.membership === "invite").map(member => member.userId),
+    // Whoever asked to come in is still at the door, so they are listed apart from the participants.
+    knockingIds: room.getMembers().filter(member => member.membership === "knock").map(member => member.userId),
     membership: room.getMyMembership() === "invite" ? "invite" : "join",
     unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total),
-    ...(isDirectRoom(room) ? { isDirect: true } : {})
+    ...(isDirectRoom(room) ? { isDirect: true } : {}),
+    ...(room.tags?.["m.favourite"] ? { isFavourite: true } : {}),
+    isEncrypted: room.hasEncryptionStateEvent(),
+    ...(mapUnreadMark(room) ?? {}),
+    ...(mapTopic(room) ?? {}),
+    ...(mapRoomAvatar(room) ?? {}),
+    ...(mapNotifications(room) ?? {}),
+    ...(mapJoinRule(room) ?? {}),
+    ...(mapHistoryVisibility(room) ?? {}),
+    ...(mapReadMarker(room) ?? {}),
+    ...(mapAlias(room) ?? {}),
+    ...(mapPinned(room) ?? {}),
+    ...(mapReplacement(room) ?? {}),
+    ...(mapPredecessor(room) ?? {})
   };
 
   return lastMessage ? { ...conversation, lastMessage } : conversation;
 }
 
+/**
+ * How loud a conversation is allowed to be is a push rule, and the two quiet settings are told apart the way
+ * every other Matrix client tells them apart: an override rule silences the room, a room rule leaves only mentions.
+ */
+function mapNotifications(room: Room): { notifications: NotificationLevel } | undefined {
+  const rules = room.client?.pushRules?.global;
+  const isForThisRoom = (rule: { rule_id?: string; enabled?: boolean }) =>
+    rule.rule_id === room.roomId && rule.enabled !== false;
+  if (rules?.override?.some(isForThisRoom)) return { notifications: "none" };
+  if (rules?.room?.some(isForThisRoom)) return { notifications: "mentions" };
+  return undefined;
+}
+
+const joinRuleNames: Record<string, JoinRule> = { invite: "invite", public: "public", knock: "knock" };
+
+const historyVisibilityNames: Record<string, HistoryVisibility> = {
+  world_readable: "world",
+  shared: "shared",
+  invited: "invited",
+  joined: "joined"
+};
+
+/** Where this person stopped reading, which is their own decision and travels with their account. */
+/** The name people type, which is the canonical alias and not any of the other names pointing here. */
+/** A conversation nobody talks in any more says where everyone went, so nobody is left behind in it. */
+function mapReplacement(room: Room): { replacedBy: string } | undefined {
+  const replacement = room.currentState
+    .getStateEvents(EventType.RoomTombstone, "")
+    ?.getContent<{ replacement_room?: string }>().replacement_room;
+  return typeof replacement === "string" && replacement.length > 0 ? { replacedBy: replacement } : undefined;
+}
+
+function mapPredecessor(room: Room): { replaces: string } | undefined {
+  const predecessor = room.currentState
+    .getStateEvents(EventType.RoomCreate, "")
+    ?.getContent<{ predecessor?: { room_id?: string } }>().predecessor;
+  const previous = predecessor?.room_id;
+  return typeof previous === "string" && previous.length > 0 ? { replaces: previous } : undefined;
+}
+
+/** What this conversation keeps to hand, so it is still known when there is no homeserver to ask. */
+function mapPinned(room: Room): { pinnedIds: readonly string[] } | undefined {
+  const pinned = room.currentState
+    .getStateEvents(EventType.RoomPinnedEvents, "")
+    ?.getContent<{ pinned?: unknown }>().pinned;
+  if (!Array.isArray(pinned)) return undefined;
+  const ids = pinned.filter((id): id is string => typeof id === "string");
+  return ids.length > 0 ? { pinnedIds: ids } : undefined;
+}
+
+function mapAlias(room: Room): { alias: string } | undefined {
+  const alias = room.getCanonicalAlias();
+  return alias ? { alias } : undefined;
+}
+
+function mapReadMarker(room: Room): { lastReadMessageId: string } | undefined {
+  const marker = room.getAccountData(EventType.FullyRead)?.getContent<{ event_id?: string }>().event_id;
+  return typeof marker === "string" && marker.length > 0 ? { lastReadMessageId: marker } : undefined;
+}
+
+function mapJoinRule(room: Room): { joinRule: JoinRule } | undefined {
+  const known = joinRuleNames[room.getJoinRule()];
+  // A rule RelayKit does not model, such as "restricted", is left unsaid rather than reported as something else.
+  return known ? { joinRule: known } : undefined;
+}
+
+function mapHistoryVisibility(room: Room): { historyVisibility: HistoryVisibility } | undefined {
+  const known = historyVisibilityNames[room.currentState.getHistoryVisibility()];
+  return known ? { historyVisibility: known } : undefined;
+}
+
+function mapTopic(room: Room): { topic: string } | undefined {
+  const topic = room.currentState.getStateEvents(EventType.RoomTopic, "")?.getContent<{ topic?: string }>().topic;
+  return typeof topic === "string" && topic.length > 0 ? { topic } : undefined;
+}
+
+function mapRoomAvatar(room: Room): { avatar: MediaRef } | undefined {
+  const url = room.currentState.getStateEvents(EventType.RoomAvatar, "")?.getContent<{ url?: string }>().url;
+  if (typeof url !== "string" || url.length === 0) return undefined;
+  return { avatar: { mimeType: "image/*", source: JSON.stringify({ url }) } };
+}
+
 export function mapMessage(event: MatrixEvent): Message | undefined {
-  if (event.getType() !== "m.room.message") {
+  // Una pegatina es su propio tipo de evento, no un mensaje con msgtype. Todo lo demas de su forma es igual.
+  const isSticker = event.getType() === EventType.Sticker;
+  if (event.getType() !== EventType.RoomMessage && !isSticker) {
     return undefined;
   }
 
@@ -114,7 +277,7 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   const editedBody = content["m.new_content"]?.body;
   const bodyValue = isEdit && typeof editedBody === "string" ? editedBody : content.body;
   const body = undecryptable ? "" : (typeof bodyValue === "string" ? bodyValue : undefined);
-  const relatedMessageId = relation?.event_id;
+  const relatedMessageId = relation?.rel_type === RelationType.Thread ? undefined : relation?.event_id;
   const id = relatedMessageId ?? event.getId();
   const senderId = event.getSender();
   const conversationId = event.getRoomId();
@@ -124,8 +287,17 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     return undefined;
   }
 
-  const attachment = mapAttachment(content, body);
-  const replyToId = relation?.["m.in_reply_to"]?.event_id;
+  // Sin msgtype, pero con la misma forma que una imagen: quien la recibe la pinta sola, sin nombre de fichero
+  // ni boton de descarga.
+  const attachment = isSticker
+    ? mapAttachment({ ...content, msgtype: MsgType.Image }, body)
+    : mapAttachment(content, body);
+  const isThreaded = relation?.rel_type === RelationType.Thread;
+  const threadId = isThreaded ? relation?.event_id : undefined;
+  // Inside a thread the reply pointer is only a fallback for clients that do not know about threads.
+  const replyToId = isThreaded && relation?.is_falling_back !== false
+    ? undefined
+    : relation?.["m.in_reply_to"]?.event_id;
   const message: Message = {
     id,
     conversationId,
@@ -137,10 +309,35 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     ...(isEdit ? { editedAt: event.getTs() } : {}),
     ...(attachment ? { attachment } : {}),
     ...(replyToId ? { replyToId } : {}),
-    ...(undecryptable ? { undecryptable: true } : {})
+    ...(undecryptable ? { undecryptable: true } : {}),
+    ...(threadId ? { threadId } : {}),
+    ...(mapFormatted(content) ?? {}),
+    ...(mapMentions(content) ?? {}),
+    ...(isSticker ? { kind: "sticker" as const } : mapKind(content.msgtype) ?? {}),
+    ...(mapLocation(content) ?? {})
   };
 
   return message;
+}
+
+function mapFormatted(content: MatrixMessageContent): { formattedBody: string } | undefined {
+  const isHtml = content.format === "org.matrix.custom.html" && typeof content.formatted_body === "string";
+  return isHtml ? { formattedBody: content.formatted_body as string } : undefined;
+}
+
+function mapMentions(content: MatrixMessageContent): { mentions: Mentions } | undefined {
+  const raw = content["m.mentions"];
+  if (!raw) return undefined;
+  const userIds = Array.isArray(raw.user_ids) ? raw.user_ids.filter((id): id is string => typeof id === "string") : [];
+  const everyone = raw.room === true;
+  if (userIds.length === 0 && !everyone) return undefined;
+  return { mentions: { ...(userIds.length > 0 ? { userIds } : {}), ...(everyone ? { everyone: true } : {}) } };
+}
+
+function mapKind(msgtype: string | undefined): { kind: MessageKind } | undefined {
+  if (msgtype === MsgType.Emote) return { kind: "action" };
+  if (msgtype === MsgType.Notice) return { kind: "notice" };
+  return undefined;
 }
 
 export function isMessageEdit(event: MatrixEvent): boolean {
@@ -149,7 +346,7 @@ export function isMessageEdit(event: MatrixEvent): boolean {
 }
 
 export function mapReaction(event: MatrixEvent): Reaction | undefined {
-  if (event.getType() !== "m.reaction") {
+  if (event.getType() !== EventType.Reaction) {
     return undefined;
   }
 
@@ -176,7 +373,7 @@ export function mapReaction(event: MatrixEvent): Reaction | undefined {
 }
 
 export function mapRedactedMessage(redacted: MatrixEvent, redaction: MatrixEvent): Message | undefined {
-  if (redacted.getType() !== "m.room.message") {
+  if (redacted.getType() !== EventType.RoomMessage) {
     return undefined;
   }
   const id = redacted.getId();
@@ -196,15 +393,16 @@ export function mapRedactedMessage(redacted: MatrixEvent, redaction: MatrixEvent
   };
 }
 
-export function mapReadReceipts(event: MatrixEvent): ReadReceipt[] {
-  const conversationId = event.getRoomId();
+/** Like a typing notification, a receipt arrives with no room of its own, so it comes from what was told. */
+export function mapReadReceipts(event: MatrixEvent, roomId: string | undefined): ReadReceipt[] {
+  const conversationId = roomId ?? event.getRoomId();
   if (!conversationId) {
     return [];
   }
   const content = event.getContent<MatrixReceiptContent>();
   const receipts: ReadReceipt[] = [];
   for (const [messageId, receiptTypes] of Object.entries(content)) {
-    for (const [userId, receipt] of Object.entries(receiptTypes["m.read"] ?? {})) {
+    for (const [userId, receipt] of Object.entries(receiptTypes[ReceiptType.Read] ?? {})) {
       const readAt = typeof receipt.ts === "number" ? receipt.ts : Date.now();
       receipts.push({ conversationId, messageId, userId, readAt });
     }
@@ -212,8 +410,12 @@ export function mapReadReceipts(event: MatrixEvent): ReadReceipt[] {
   return receipts;
 }
 
-export function mapTyping(event: MatrixEvent): TypingUpdate | undefined {
-  const conversationId = event.getRoomId();
+/**
+ * A typing notification arrives as an ephemeral event with no room of its own, so the room has to come from
+ * whoever was told about it. Reading it off the event drops every notification a real homeserver sends.
+ */
+export function mapTyping(event: MatrixEvent, roomId: string | undefined): TypingUpdate | undefined {
+  const conversationId = roomId ?? event.getRoomId();
   if (!conversationId) {
     return undefined;
   }
