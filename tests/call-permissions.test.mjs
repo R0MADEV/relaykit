@@ -71,3 +71,87 @@ test("letting people join a call does not let them run the room", async () => {
   assert.equal(events[EventType.RoomAvatar], 50);
   assert.equal(events[EventType.RoomCanonicalAlias], 50);
 });
+
+const { MatrixRtc } = await import("../packages/matrix-js/dist/matrix-rtc.js");
+
+/**
+ * A room made before this, or by another client, still has the defaults: only admins may say they are on a
+ * call. Whoever starts a call in it and may change the room's power levels opens the two names a membership
+ * is written under to everybody, once, and the room is a room anybody can be called in from then on. Whoever
+ * may not leaves it as it is, and their own join says why when the room refuses them.
+ *
+ * The levels are asked of the homeserver, never read off local state: a window over the conversations
+ * brings only the state it asked for, and levels worked out from a missing event once replaced a room's
+ * whole list with two entries and locked its own admin out.
+ */
+function roomWhosePowerLevelsSay(content) {
+  const written = [];
+  const client = {
+    getSafeUserId: () => "@alice:localhost",
+    getStateEvent: async (roomId, type, key) => {
+      const asked = type === "m.room.power_levels" && key === "";
+      if (!asked || content === undefined) throw new Error("M_NOT_FOUND");
+      return content;
+    },
+    sendStateEvent: async (roomId, type, newContent, key) => {
+      written.push({ roomId, type, newContent, key });
+      return { event_id: "$pl" };
+    }
+  };
+  return { client, written };
+}
+
+test("an admin starting a call in an old room opens it to everybody, and touches nothing else", async () => {
+  const defaults = {
+    users: { "@alice:localhost": 100 },
+    users_default: 0,
+    state_default: 50,
+    events: { "m.room.name": 50, "m.room.power_levels": 100 }
+  };
+  const { client, written } = roomWhosePowerLevelsSay(defaults);
+
+  await new MatrixRtc("http://jwt").openTheDoorToCalls(client, "!old:localhost");
+
+  assert.equal(written.length, 1);
+  assert.equal(written[0].type, "m.room.power_levels");
+  assert.equal(written[0].key, "");
+  assert.equal(written[0].newContent.events[EventType.GroupCallMemberPrefix], 0);
+  assert.equal(written[0].newContent.events[EventType.RTCMembership], 0);
+  // What was there stays there: this opens one door, it does not rebuild the house.
+  assert.equal(written[0].newContent.events["m.room.name"], 50);
+  assert.equal(written[0].newContent.events["m.room.power_levels"], 100);
+  assert.equal(written[0].newContent.state_default, 50);
+  // And above all who is who: the admin who opened the door is still the admin afterwards.
+  assert.deepEqual(written[0].newContent.users, { "@alice:localhost": 100 });
+});
+
+test("a room that is already open is left alone", async () => {
+  const open = {
+    users: { "@alice:localhost": 100 },
+    users_default: 0,
+    state_default: 50,
+    events: { [EventType.GroupCallMemberPrefix]: 0, [EventType.RTCMembership]: 0 }
+  };
+  const { client, written } = roomWhosePowerLevelsSay(open);
+
+  await new MatrixRtc("http://jwt").openTheDoorToCalls(client, "!old:localhost");
+
+  assert.deepEqual(written, []);
+});
+
+test("somebody who may not change the room's power levels does not try", async () => {
+  const defaults = { users: { "@bob:localhost": 100 }, users_default: 0, state_default: 50, events: {} };
+  const { client, written } = roomWhosePowerLevelsSay(defaults);
+
+  await new MatrixRtc("http://jwt").openTheDoorToCalls(client, "!old:localhost");
+
+  assert.deepEqual(written, []);
+});
+
+test("a room the homeserver has no power levels for is not given some", async () => {
+  const { client, written } = roomWhosePowerLevelsSay(undefined);
+
+  await new MatrixRtc("http://jwt").openTheDoorToCalls(client, "!old:localhost");
+
+  assert.deepEqual(written, []);
+});

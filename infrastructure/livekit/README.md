@@ -62,8 +62,12 @@ smoke, igual que pasó con la federación.
   una sala deja escribir estado solo a sus administradores. El resto recibía `403 user_level (0) <
   send_level (50)`, el SDK se rendía en segundo plano y, para los demás, esa persona nunca había estado. Las
   salas nuevas nacen con ese permiso abierto a todos sus miembros (`matrix-conversations.ts`); las creadas
-  antes necesitan que un administrador lo abra. Y una conferencia que la sala rechaza ahora termina diciendo
-  por qué (`wentWrong`), en vez de quedarse conectada y muda.
+  antes las abre, una sola vez, el primer administrador que empiece una llamada en ellas
+  (`MatrixRtc.openTheDoorToCalls`); quien no puede las deja como están, y su llamada termina diciendo por
+  qué (`wentWrong`) en vez de quedarse conectada y muda. **Los niveles se le piden al homeserver, nunca al
+  estado local**: con ventana deslizante el cliente no tenía el evento `m.room.power_levels`, leyó `{}` y la
+  primera versión escribió `{events: {…}}` a secas — sin `users`, sin `state_default` — dejando a la propia
+  administradora sin poderes y la sala bloqueada. La ventana pide ahora ese evento también.
 
 Y tres cosas que no son obstáculos pero conviene saber:
 

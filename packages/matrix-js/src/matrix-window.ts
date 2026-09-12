@@ -97,6 +97,9 @@ const whatAConversationIs: [string, string][] = [
   [EventType.RoomCanonicalAlias, ""],
   [EventType.RoomJoinRules, ""],
   [EventType.RoomEncryption, ""],
+  // Who may do what. Permissions are read off this, and so is whether somebody may say they are on a call;
+  // without it a client works those out from nothing and gets them wrong.
+  [EventType.RoomPowerLevels, ""],
   // Whether a conference is going on in it, and who is on it. A window brings only the state it is asked
   // for, and without these the SDK's own session sees an empty room: nobody's screen rings, and whoever
   // joined never sees their own membership come back, so the key that is made once it does never is. Both

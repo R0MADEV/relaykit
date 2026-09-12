@@ -1,6 +1,7 @@
 import { SdkError } from "@relaykit/core";
 import type { ConversationId } from "@relaykit/core";
-import type { MatrixClient } from "matrix-js-sdk";
+import { EventType, type MatrixClient } from "matrix-js-sdk";
+import type { RoomPowerLevelsEventContent } from "matrix-js-sdk/lib/@types/state_events.js";
 import { isLivekitTransportConfig, type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc/index.js";
 import type { LivekitTransportConfig } from "matrix-js-sdk/lib/matrixrtc/LivekitTransport.js";
 
@@ -19,6 +20,9 @@ export interface ConferenceTicket {
   readonly url: string;
   readonly jwt: string;
 }
+
+/** The two names a call membership is written under: the one the SDK writes today, and the settled one. */
+const membershipEventTypes = [EventType.GroupCallMemberPrefix, EventType.RTCMembership];
 
 /** The homeserver advertises where its conferences are carried under this name, alongside its own address. */
 const rtcFociWellKnownKey = "org.matrix.msc4143.rtc_foci";
@@ -79,6 +83,50 @@ export class MatrixRtc {
       );
     }
     return readTicket(await response.json());
+  }
+
+  /**
+   * A room made before calls were, or by another client, still has the defaults: only its admins may say
+   * they are on a call, and everybody else is refused with a 403 they never see. Whoever starts a call in
+   * it and may change the room's power levels opens the two names a membership is written under to
+   * everybody, once, and touches nothing else. Whoever may not leaves it as it is, and their own join says
+   * why when the room refuses them.
+   *
+   * The levels are asked of the homeserver and never read off what this client happens to hold: a window
+   * over the conversations brings only the state it was asked for, and writing power levels worked out from
+   * a missing event once replaced a room's whole list with two entries — and locked its own admin out.
+   */
+  async openTheDoorToCalls(client: MatrixClient, conversationId: ConversationId): Promise<void> {
+    const levels = await this.powerLevelsOf(client, conversationId);
+    // A room the homeserver has no power levels for is not one to invent them for.
+    if (!levels) return;
+    const everybody = levels.users_default ?? 0;
+    const neededFor = (eventType: string): number => levels.events?.[eventType] ?? levels.state_default ?? 50;
+    const alreadyOpen = membershipEventTypes.every(eventType => neededFor(eventType) <= everybody);
+    if (alreadyOpen) return;
+    const mine = levels.users?.[client.getSafeUserId()] ?? everybody;
+    const mayOpenIt = mine >= neededFor(EventType.RoomPowerLevels);
+    if (!mayOpenIt) return;
+    const opened: RoomPowerLevelsEventContent = {
+      ...levels,
+      events: {
+        ...levels.events,
+        ...Object.fromEntries(membershipEventTypes.map(eventType => [eventType, everybody]))
+      }
+    };
+    await client.sendStateEvent(conversationId, EventType.RoomPowerLevels, opened, "");
+  }
+
+  /** What the homeserver says the room's power levels are, or nothing when it says there are none. */
+  private async powerLevelsOf(
+    client: MatrixClient,
+    conversationId: ConversationId
+  ): Promise<RoomPowerLevelsEventContent | undefined> {
+    try {
+      return await client.getStateEvent(conversationId, EventType.RoomPowerLevels, "");
+    } catch {
+      return undefined;
+    }
   }
 
   /**
