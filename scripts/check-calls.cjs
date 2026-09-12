@@ -113,6 +113,42 @@ async function ring(alice, bob, { video }) {
     }
   }
 
+  // Silencing has to reach the track. A flag that says silenced while the microphone is still sending is
+  // worse than no button at all, and only a real call can tell one from the other.
+  const track = video ? "getVideoTracks" : "getAudioTracks";
+  const silence = muted => `
+    window.relaykitDemo.client.calls.list().then(async calls => {
+      const call = calls[0];
+      await window.relaykitDemo.client.calls.${video ? "muteCamera" : "muteMicrophone"}(call.id, ${muted});
+      const now = (await window.relaykitDemo.client.calls.list())[0];
+      return {
+        says: ${video ? "now.isCameraMuted" : "now.isMicrophoneMuted"},
+        sending: now.ownMedia.${track}().some(one => one.enabled)
+      };
+    })
+  `;
+  said.silenced = await alice.webContents.executeJavaScript(silence(true));
+  if (!said.silenced.says || said.silenced.sending) {
+    throw new Error(`Silencing did not reach the track: ${JSON.stringify(said.silenced)}`);
+  }
+  said.spokeAgain = await alice.webContents.executeJavaScript(silence(false));
+  if (said.spokeAgain.says || !said.spokeAgain.sending) {
+    throw new Error(`Letting it speak again did not reach the track: ${JSON.stringify(said.spokeAgain)}`);
+  }
+
+  // Hold is told to the other side, so it is asked of both.
+  said.held = await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.list().then(async calls => {
+      await window.relaykitDemo.client.calls.hold(calls[0].id, true);
+      return (await window.relaykitDemo.client.calls.list())[0].isOnHold;
+    })
+  `);
+  if (!said.held) throw new Error("A call was put on hold and does not say so");
+  await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.list()
+      .then(calls => window.relaykitDemo.client.calls.hold(calls[0].id, false)).then(() => true)
+  `);
+
   await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
 
   // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being

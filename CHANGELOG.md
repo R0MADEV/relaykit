@@ -163,6 +163,10 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Lo que se hace durante una llamada, que antes no estaba: silenciar el microfono, apagar la camara, poner en
+  espera, rechazar (que no es colgar: al otro lado se le dice otra cosa), compartir pantalla, transferir y
+  elegir microfono y camara. Todo lo hace el SDK; aqui solo se le pide. La llamada dice ademas como esta:
+  `isMicrophoneMuted`, `isCameraMuted`, `isOnHold` e `isSharingScreen`.
 - Corregido: en una videollamada, quien llamaba no veia nada. Lo que hay que reproducir no llega cuando la
   llamada cambia de estado, llega cuando llega, y en video eso es casi siempre despues de estar conectada.
   Solo escuchabamos los cambios de estado, asi que la ultima palabra sobre la llamada era una sin imagen y la

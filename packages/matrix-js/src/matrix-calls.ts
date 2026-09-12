@@ -53,6 +53,52 @@ export class MatrixCalls {
     return this.describe(call);
   }
 
+  /**
+   * What somebody does during a call. Every one of these is the SDK's own: it is what knows how to stop a
+   * track without dropping the call, what to tell the other side, and how to renegotiate afterwards.
+   */
+  async muteMicrophone(callId: string, muted: boolean): Promise<void> {
+    await this.require(callId).setMicrophoneMuted(muted);
+  }
+
+  async muteCamera(callId: string, muted: boolean): Promise<void> {
+    await this.require(callId).setLocalVideoMuted(muted);
+  }
+
+  /** On hold the other side is told, and stops hearing and seeing, which is not the same as being silenced. */
+  async hold(callId: string, onHold: boolean): Promise<void> {
+    this.require(callId).setRemoteOnHold(onHold);
+  }
+
+  /**
+   * Refusing is not hanging up. The other side is told a different thing, and a refused call can be shown as
+   * refused rather than as one that was answered and cut off.
+   */
+  async reject(callId: string): Promise<void> {
+    this.require(callId).reject();
+  }
+
+  async shareScreen(callId: string, sharing: boolean): Promise<void> {
+    await this.require(callId).setScreensharingEnabled(sharing);
+  }
+
+  /** Handing the call to somebody else, who then talks to whoever was on the other end. */
+  async transfer(callId: string, userId: string): Promise<void> {
+    await this.require(callId).transfer(userId);
+  }
+
+  /**
+   * Which microphone and which camera to use. This belongs to the client and not to one call: it is what the
+   * next call will be made with, and the SDK keeps it.
+   */
+  async useMicrophone(client: MatrixClient, deviceId: string): Promise<void> {
+    await client.getMediaHandler().setAudioInput(deviceId);
+  }
+
+  async useCamera(client: MatrixClient, deviceId: string): Promise<void> {
+    await client.getMediaHandler().setVideoInput(deviceId);
+  }
+
   async answer(callId: string, options: PlaceCallOptions): Promise<Call> {
     const call = this.require(callId);
     await call.answer(true, options.video === true);
@@ -105,6 +151,10 @@ export class MatrixCalls {
       conversationId: call.roomId ?? "",
       callerId: placedHere ? this.ownUserId : (call.getOpponentMember()?.userId ?? ""),
       isVideo: call.type === CallType.Video,
+      isMicrophoneMuted: call.isMicrophoneMuted(),
+      isCameraMuted: call.isLocalVideoMuted(),
+      isOnHold: call.isRemoteOnHold(),
+      isSharingScreen: call.isScreensharing(),
       state: mapState(call.state),
       startedAt: Date.now(),
       hasRemoteMedia: remoteMedia !== undefined

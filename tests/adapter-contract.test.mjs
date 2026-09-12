@@ -265,6 +265,44 @@ function runContract(name, setup) {
       await adapter.hangUpCall(call.id);
     });
 
+    it("what somebody does during a call: silence, camera, hold", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, { video: true });
+
+      const asItStands = async () => (await adapter.listCalls()).find(item => item.id === call.id);
+      assert.equal((await asItStands()).isMicrophoneMuted, false, "a new call started silenced");
+
+      await adapter.muteCallMicrophone(call.id, true);
+      assert.equal((await asItStands()).isMicrophoneMuted, true);
+      await adapter.muteCallCamera(call.id, true);
+      assert.equal((await asItStands()).isCameraMuted, true);
+      await adapter.holdCall(call.id, true);
+      assert.equal((await asItStands()).isOnHold, true);
+
+      // And back, because a button that only goes one way is half a button.
+      await adapter.muteCallMicrophone(call.id, false);
+      await adapter.holdCall(call.id, false);
+      assert.equal((await asItStands()).isMicrophoneMuted, false);
+      assert.equal((await asItStands()).isOnHold, false);
+
+      await adapter.hangUpCall(call.id);
+    });
+
+    it("refusing a call leaves it no longer going on", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, {});
+
+      await adapter.rejectCall(call.id);
+
+      await waitFor("the refused call to be over", async () =>
+        (await adapter.listCalls()).every(item => item.id !== call.id));
+    });
+
+    it("choosing a microphone and a camera is taken notice of", { skip: !callsArePossible }, async () => {
+      // Nothing comes back to look at: what is required is that asking is not a failure, because an
+      // application with a device picker asks this on every change.
+      await adapter.useMicrophone("default");
+      await adapter.useCamera("default");
+    });
+
     it("hanging up a call that is already over is not a failure", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, {});
       await adapter.hangUpCall(call.id);

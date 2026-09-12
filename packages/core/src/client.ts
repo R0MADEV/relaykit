@@ -258,6 +258,18 @@ export class MessagingClient {
     answer: (callId: string, options?: PlaceCallOptions): Promise<Call> =>
       this.callOperations.answer(callId, options),
     hangUp: (callId: string): Promise<void> => this.callOperations.hangUp(callId),
+    reject: (callId: string): Promise<void> => this.callOperations.reject(callId),
+    muteMicrophone: (callId: string, muted: boolean): Promise<void> =>
+      this.callOperations.muteMicrophone(callId, muted),
+    muteCamera: (callId: string, muted: boolean): Promise<void> =>
+      this.callOperations.muteCamera(callId, muted),
+    hold: (callId: string, onHold: boolean): Promise<void> => this.callOperations.hold(callId, onHold),
+    shareScreen: (callId: string, sharing: boolean): Promise<void> =>
+      this.callOperations.shareScreen(callId, sharing),
+    transfer: (callId: string, userId: string): Promise<void> =>
+      this.callOperations.transfer(callId, userId),
+    useMicrophone: (deviceId: string): Promise<void> => this.callOperations.useMicrophone(deviceId),
+    useCamera: (deviceId: string): Promise<void> => this.callOperations.useCamera(deviceId),
     list: (): Promise<readonly Call[]> => this.callOperations.list()
   };
   /** Asking the conversation something and counting the votes. */

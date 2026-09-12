@@ -136,6 +136,16 @@ export interface MessagingAdapter {
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;
   hangUpCall(callId: string): Promise<void>;
+  /** Refusing is not hanging up: the other side is told a different thing. */
+  rejectCall(callId: string): Promise<void>;
+  muteCallMicrophone(callId: string, muted: boolean): Promise<void>;
+  muteCallCamera(callId: string, muted: boolean): Promise<void>;
+  holdCall(callId: string, onHold: boolean): Promise<void>;
+  shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
+  transferCall(callId: string, userId: UserId): Promise<void>;
+  /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */
+  useMicrophone(deviceId: string): Promise<void>;
+  useCamera(deviceId: string): Promise<void>;
   listCalls(): Promise<readonly Call[]>;
   /** A poll: the question, its answers and the votes. Closing it is final. */
   startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;

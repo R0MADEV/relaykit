@@ -334,6 +334,12 @@ export interface Call {
   readonly startedAt: number;
   /** Present once there is something to show, which is not the same moment as answering. */
   readonly hasRemoteMedia?: boolean;
+  /** Silenced here: the other side stops hearing, and the call carries on. */
+  readonly isMicrophoneMuted: boolean;
+  readonly isCameraMuted: boolean;
+  /** On hold the other side is told, and stops hearing and seeing. Not the same as being silenced. */
+  readonly isOnHold: boolean;
+  readonly isSharingScreen: boolean;
   /**
    * What to play, handed over rather than described: a screen cannot play a boolean. They go straight into an
    * `<audio>` or a `<video>` through `srcObject`, which is what the browser is waiting for.

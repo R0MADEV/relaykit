@@ -63,6 +63,14 @@ export interface InMemoryAdapterOptions {
   readonly messages?: readonly Message[];
 }
 
+/** A call that has just started: nobody has silenced anything, held it or shown their screen. */
+const nothingTouchedYet = {
+  isMicrophoneMuted: false,
+  isCameraMuted: false,
+  isOnHold: false,
+  isSharingScreen: false
+} as const;
+
 export class InMemoryAdapter implements MessagingAdapter {
   private readonly conversations: Conversation[];
   private readonly messages: Message[];
@@ -572,6 +580,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly polls = new Map<MessageId, Poll>();
   private readonly liveLocations = new Map<string, LiveLocation>();
   private readonly calls = new Map<string, Call>();
+  /** What the next call would be made with. Kept so a test can see that choosing one was taken notice of. */
+  private chosenMicrophone: string | undefined;
+  private chosenCamera: string | undefined;
   private readonly pollVotes = new Map<MessageId, Map<UserId, string>>();
   /** How far each thread was read, kept apart from how far its conversation was. */
   private readonly threadReads = new Map<string, MessageId>();
@@ -808,7 +819,8 @@ export class InMemoryAdapter implements MessagingAdapter {
       callerId: this.requireUserId(),
       isVideo: options.video === true,
       state: "ringing",
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      ...nothingTouchedYet
     };
     this.calls.set(call.id, call);
     return call;
@@ -831,6 +843,49 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.handlers.onCallChanged?.({ ...call, state: "ended" });
   }
 
+  async rejectCall(callId: string): Promise<void> {
+    // Refusing ends it here just as hanging up does. What differs is what the other side is told, and a double
+    // has no other side to tell.
+    await this.hangUpCall(callId);
+  }
+
+  async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
+    this.changeCall(callId, { isMicrophoneMuted: muted });
+  }
+
+  async muteCallCamera(callId: string, muted: boolean): Promise<void> {
+    this.changeCall(callId, { isCameraMuted: muted });
+  }
+
+  async holdCall(callId: string, onHold: boolean): Promise<void> {
+    this.changeCall(callId, { isOnHold: onHold });
+  }
+
+  async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
+    this.changeCall(callId, { isSharingScreen: sharing });
+  }
+
+  /** Handing it over ends it here: whoever transferred it is no longer in the call. */
+  async transferCall(callId: string, _userId: UserId): Promise<void> {
+    await this.hangUpCall(callId);
+  }
+
+  async useMicrophone(deviceId: string): Promise<void> {
+    this.chosenMicrophone = deviceId;
+  }
+
+  async useCamera(deviceId: string): Promise<void> {
+    this.chosenCamera = deviceId;
+  }
+
+  private changeCall(callId: string, change: Partial<Call>): void {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    const changed: Call = { ...call, ...change };
+    this.calls.set(callId, changed);
+    this.handlers.onCallChanged?.(changed);
+  }
+
   async listCalls(): Promise<readonly Call[]> {
     return [...this.calls.values()];
   }
@@ -843,7 +898,8 @@ export class InMemoryAdapter implements MessagingAdapter {
       callerId,
       isVideo: options.video === true,
       state: "ringing",
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      ...nothingTouchedYet
     };
     this.calls.set(call.id, call);
     this.handlers.onCallIncoming?.(call);

@@ -461,6 +461,38 @@ export class MatrixJsAdapter implements MessagingAdapter {
     await this.run(async () => this.runtime.calls.hangUp(callId));
   }
 
+  async rejectCall(callId: string): Promise<void> {
+    await this.run(() => this.runtime.calls.reject(callId));
+  }
+
+  async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
+    await this.run(() => this.runtime.calls.muteMicrophone(callId, muted));
+  }
+
+  async muteCallCamera(callId: string, muted: boolean): Promise<void> {
+    await this.run(() => this.runtime.calls.muteCamera(callId, muted));
+  }
+
+  async holdCall(callId: string, onHold: boolean): Promise<void> {
+    await this.run(() => this.runtime.calls.hold(callId, onHold));
+  }
+
+  async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
+    await this.run(() => this.runtime.calls.shareScreen(callId, sharing));
+  }
+
+  async transferCall(callId: string, userId: string): Promise<void> {
+    await this.run(() => this.runtime.calls.transfer(callId, userId));
+  }
+
+  async useMicrophone(deviceId: string): Promise<void> {
+    await this.run(() => this.runtime.calls.useMicrophone(this.runtime.getClient(), deviceId));
+  }
+
+  async useCamera(deviceId: string): Promise<void> {
+    await this.run(() => this.runtime.calls.useCamera(this.runtime.getClient(), deviceId));
+  }
+
   async listCalls(): Promise<readonly Call[]> {
     return this.runtime.calls.list();
   }

@@ -363,6 +363,38 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new SdkError("NOT_CONFIGURED", "Cannot hang up a call");
   }
 
+  async rejectCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot refuse a call");
+  }
+
+  async muteCallMicrophone(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot silence a call");
+  }
+
+  async muteCallCamera(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot put the camera away");
+  }
+
+  async holdCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot hold a call");
+  }
+
+  async shareScreenInCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot show the screen");
+  }
+
+  async transferCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot transfer a call");
+  }
+
+  async useMicrophone(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot choose a microphone");
+  }
+
+  async useCamera(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot choose a camera");
+  }
+
   async listCalls(): Promise<readonly Call[]> {
     throw new SdkError("NOT_CONFIGURED", "Cannot list calls");
   }

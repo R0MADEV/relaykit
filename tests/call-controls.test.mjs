@@ -1,0 +1,153 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
+import { MessagingClient } from "@relaykit/core";
+
+const { MatrixCalls } = await import("../packages/matrix-js/dist/matrix-calls.js");
+
+/**
+ * Everything a person does during a call besides starting it and ending it: silencing themselves, putting the
+ * camera away, holding, refusing, showing their screen, handing the call to somebody else, and choosing which
+ * microphone to use.
+ *
+ * The SDK does all of it. What is checked here is twofold: that the call behaves as somebody would expect,
+ * and that underneath it is the SDK's own method being used and not something written here.
+ */
+function fakeCall(asked) {
+  const state = { microphone: false, camera: false, held: false, sharing: false };
+  return {
+    callId: "call-1",
+    roomId: "!room:localhost",
+    direction: "outbound",
+    type: "voice",
+    state: "connected",
+    getFeeds: () => [],
+    getOpponentMember: () => ({ userId: "@bob:localhost" }),
+    on: () => undefined,
+    placeVoiceCall: async () => undefined,
+    placeVideoCall: async () => undefined,
+    setMicrophoneMuted: muted => { asked.push(`setMicrophoneMuted(${muted})`); state.microphone = muted; return true; },
+    isMicrophoneMuted: () => state.microphone,
+    setLocalVideoMuted: muted => { asked.push(`setLocalVideoMuted(${muted})`); state.camera = muted; return true; },
+    isLocalVideoMuted: () => state.camera,
+    setRemoteOnHold: held => { asked.push(`setRemoteOnHold(${held})`); state.held = held; },
+    isRemoteOnHold: () => state.held,
+    reject: () => asked.push("reject()"),
+    hangup: () => asked.push("hangup()"),
+    setScreensharingEnabled: async sharing => { asked.push(`setScreensharingEnabled(${sharing})`); state.sharing = sharing; return sharing; },
+    isScreensharing: () => state.sharing,
+    transfer: async userId => asked.push(`transfer(${userId})`)
+  };
+}
+
+async function placed(asked) {
+  const call = fakeCall(asked);
+  const mediaHandler = {
+    setAudioInput: id => asked.push(`setAudioInput(${id})`),
+    setVideoInput: id => asked.push(`setVideoInput(${id})`)
+  };
+  const client = {
+    createCall: () => call,
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => mediaHandler,
+    on: () => undefined
+  };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, () => undefined);
+  await calls.place(client, "!room:localhost", { video: false });
+  return { calls, client, call };
+}
+
+test("silencing the microphone is the SDK's, and the call says it is silenced", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.muteMicrophone("call-1", true);
+
+  assert.deepEqual(asked, ["setMicrophoneMuted(true)"]);
+  assert.equal(calls.list()[0].isMicrophoneMuted, true);
+});
+
+test("putting the camera away is the SDK's, and the call says it is away", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.muteCamera("call-1", true);
+
+  assert.deepEqual(asked, ["setLocalVideoMuted(true)"]);
+  assert.equal(calls.list()[0].isCameraMuted, true);
+});
+
+test("holding is the SDK's, and the call says it is held", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.hold("call-1", true);
+
+  assert.deepEqual(asked, ["setRemoteOnHold(true)"]);
+  assert.equal(calls.list()[0].isOnHold, true);
+});
+
+test("refusing a call is refusing it, not hanging it up: the other side is told a different thing", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.reject("call-1");
+
+  assert.deepEqual(asked, ["reject()"], "a refused call was hung up instead of refused");
+});
+
+test("showing the screen is the SDK's, and the call says it is being shown", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.shareScreen("call-1", true);
+
+  assert.deepEqual(asked, ["setScreensharingEnabled(true)"]);
+  assert.equal(calls.list()[0].isSharingScreen, true);
+});
+
+test("handing the call to somebody else is the SDK's", async () => {
+  const asked = [];
+  const { calls } = await placed(asked);
+
+  await calls.transfer("call-1", "@carol:localhost");
+
+  assert.deepEqual(asked, ["transfer(@carol:localhost)"]);
+});
+
+test("choosing a microphone and a camera is the SDK's media handler, not ours", async () => {
+  const asked = [];
+  const { calls, client } = await placed(asked);
+
+  await calls.useMicrophone(client, "mic-2");
+  await calls.useCamera(client, "cam-2");
+
+  assert.deepEqual(asked, ["setAudioInput(mic-2)", "setVideoInput(cam-2)"]);
+});
+
+/** The same, asked of the contract rather than of the adapter: the double has to do it too. */
+test("what somebody does during a call works the same on a double", async () => {
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session: { homeserver: "memory://test", userId: "alice", accessToken: "token" }
+  });
+  await client.start();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "controls" });
+  const call = await client.calls.place(conversation.id, { video: true });
+
+  await client.calls.muteMicrophone(call.id, true);
+  await client.calls.muteCamera(call.id, true);
+  await client.calls.hold(call.id, true);
+
+  const going = (await client.calls.list())[0];
+  assert.equal(going.isMicrophoneMuted, true);
+  assert.equal(going.isCameraMuted, true);
+  assert.equal(going.isOnHold, true);
+
+  await client.calls.hold(call.id, false);
+  assert.equal((await client.calls.list())[0].isOnHold, false);
+
+  await client.stop();
+});
