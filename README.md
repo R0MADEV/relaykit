@@ -5,6 +5,9 @@ SDK de mensajería headless para aplicaciones web y Electron, construido sobre e
 RelayKit proporciona a una aplicación una API pequeña y estable para incorporar chat sin exponer conceptos de
 Matrix como `room_id`, `event_id`, tokens de sincronización o eventos Matrix.
 
+- [API.md](API.md) — lo que la biblioteca da a quien construye la interfaz.
+- [PIEZAS.md](PIEZAS.md) — qué usa por debajo y qué hace cada cosa.
+
 > Estado: **0.1.0-alpha.1**. La API publica puede cambiar entre versiones menores hasta 1.0.0. Ver `CHANGELOG.md`.
 
 ## Instalacion
