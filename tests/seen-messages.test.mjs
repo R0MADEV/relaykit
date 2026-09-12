@@ -32,7 +32,7 @@ test("what has been seen is not remembered for ever", async () => {
   client.on("message.received", message => received.push(message.id));
   const first = adapter.receiveMessage(conversation.id, "bob", "el primero");
   for (let index = 0; index < 20; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`);
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`);
   }
   await new Promise(resolve => setTimeout(resolve, 5));
   const seenSoFar = received.length;

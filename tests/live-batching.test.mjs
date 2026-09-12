@@ -42,7 +42,7 @@ test("what is on screen after the burst is everything that arrived", async () =>
   timeline.subscribe(() => { repaints += 1; });
 
   for (let index = 0; index < 30; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`, { createdAt: 1000 + index });
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 + index });
   }
   await settle();
 
@@ -143,7 +143,7 @@ test("messages stamped at the same moment are shown in the same order the client
 
   // A backfill stamps many messages with the same moment, and both sides have to agree on the order anyway.
   for (let index = 0; index < 12; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`, { createdAt: 1000 });
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 });
   }
   await settle();
 
@@ -160,7 +160,7 @@ test("what is on screen does not reshuffle when one more arrives at the same mom
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   for (let index = 0; index < 8; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`, { createdAt: 1000 });
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 });
   }
   await settle();
   const before = timeline.get().map(message => message.id);

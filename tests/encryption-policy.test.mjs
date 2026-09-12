@@ -8,10 +8,10 @@ const { createMatrixConversation } = await import("../packages/matrix-js/dist/ma
  * event, but cannot stop the homeserver adding it by policy. And once on a room, it is there for good. So the
  * library asks when it is told to and says nothing when it is not, leaving the operator to decide.
  */
-function fakeClient(asked, { elServidorCifra = false } = {}) {
-  const sala = {
-    roomId: "!sala:localhost",
-    name: "sala",
+function fakeClient(asked, { theServerEncrypts = false } = {}) {
+  const room = {
+    roomId: "!room:localhost",
+    name: "room",
     tags: {},
     getMyMembership: () => "join",
     getDMInviter: () => undefined,
@@ -32,14 +32,14 @@ function fakeClient(asked, { elServidorCifra = false } = {}) {
   return {
     createRoom: async options => {
       asked.push(options);
-      return { room_id: "!sala:localhost" };
+      return { room_id: "!room:localhost" };
     },
-    getRoom: () => sala,
+    getRoom: () => room,
     getSafeUserId: () => "@alice:localhost",
     // What the server ended up putting there, which is what it is asked at creation.
     getStateEvent: async () => {
       const loPidio = asked.at(-1)?.initial_state?.some(e => e.type === "m.room.encryption");
-      if (loPidio || elServidorCifra) return { algorithm: "m.megolm.v1.aes-sha2" };
+      if (loPidio || theServerEncrypts) return { algorithm: "m.megolm.v1.aes-sha2" };
       throw new Error("M_NOT_FOUND");
     }
   };
@@ -88,10 +88,10 @@ test("when the homeserver encrypts by policy, the conversation says so even thou
   const asked = [];
 
   const conversation = await createMatrixConversation(
-    fakeClient(asked, { elServidorCifra: true }),
+    fakeClient(asked, { theServerEncrypts: true }),
     { participantIds: ["@bob:localhost"] }
   );
 
   assert.equal(encryptionAskedFor(asked[0]), false, "la librería lo pidio, y no debia");
-  assert.equal(conversation.isEncrypted, true, "el servidor cifro y la conversacion no lo cuenta");
+  assert.equal(conversation.isEncrypted, true, "the server encrypted it and the conversation does not say so");
 });

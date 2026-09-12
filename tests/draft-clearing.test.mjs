@@ -29,7 +29,7 @@ test("sending one after another does not clear a draft that is not there over an
   storage.draftWrites = 0;
 
   for (let index = 0; index < 10; index += 1) {
-    await client.messages.send(conversation.id, `mensaje ${index}`);
+    await client.messages.send(conversation.id, `message ${index}`);
   }
 
   assert.equal(storage.draftWrites, 0, `it cleared the draft ${storage.draftWrites} times for nothing`);

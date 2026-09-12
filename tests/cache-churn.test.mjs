@@ -41,7 +41,7 @@ async function startClient(cache = { messagesPerConversation: 20 }) {
 
 function fill(adapter, conversationId, howMany) {
   for (let index = 0; index < howMany; index += 1) {
-    adapter.receiveMessage(conversationId, "bob", `mensaje ${index}`, { createdAt: 1000 + index });
+    adapter.receiveMessage(conversationId, "bob", `message ${index}`, { createdAt: 1000 + index });
   }
 }
 
@@ -77,7 +77,7 @@ test("messages stamped at the same moment do not flip in and out of the cache", 
   const { adapter, client, storage, conversation } = await startClient();
   // A backfill stamps many messages with the same moment, and the cache boundary has to be steady anyway.
   for (let index = 0; index < 100; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`, { createdAt: 1000 });
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 });
   }
   await client.messages.list(conversation.id);
   storage.written = 0;
@@ -99,7 +99,7 @@ test("the messages kept are the newest ones", async () => {
 
   const kept = await storage.getMessages(conversation.id);
   assert.equal(kept.length, 20);
-  assert.equal(kept.at(-1)?.body, "mensaje 99");
+  assert.equal(kept.at(-1)?.body, "message 99");
   await client.stop();
 });
 

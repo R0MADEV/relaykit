@@ -41,7 +41,7 @@ async function startClient() {
 
 function fill(adapter, conversationId, howMany) {
   for (let index = 0; index < howMany; index += 1) {
-    adapter.receiveMessage(conversationId, "bob", `mensaje ${index}`, { createdAt: 1000 + index });
+    adapter.receiveMessage(conversationId, "bob", `message ${index}`, { createdAt: 1000 + index });
   }
 }
 

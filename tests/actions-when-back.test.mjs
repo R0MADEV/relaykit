@@ -98,13 +98,13 @@ test("only the last wording is sent, not every correction on the way", async () 
     return original.apply(this, args);
   };
 
-  await client.messages.edit(conversation.id, sent.id, "primera");
-  await client.messages.edit(conversation.id, sent.id, "segunda");
+  await client.messages.edit(conversation.id, sent.id, "first");
+  await client.messages.edit(conversation.id, sent.id, "second");
   await comeBack(adapter);
 
   assert.equal(edits, 1);
   const messages = await client.messages.list(conversation.id);
-  assert.ok(messages.some(message => message.body === "segunda"));
+  assert.ok(messages.some(message => message.body === "second"));
   await client.stop();
 });
 

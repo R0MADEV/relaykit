@@ -18,7 +18,7 @@ function message(index) {
     id: `message-${index}`,
     conversationId: "conversation-1",
     senderId: "bob",
-    body: `mensaje ${index}`,
+    body: `message ${index}`,
     createdAt: 1000 + index,
     status: "sent"
   };
@@ -30,7 +30,7 @@ test("many messages can be kept in one go", async () => {
   await storage.saveMessages([message(1), message(2), message(3)]);
 
   const kept = await storage.getMessages("conversation-1");
-  assert.deepEqual(kept.map(item => item.body), ["mensaje 1", "mensaje 2", "mensaje 3"]);
+  assert.deepEqual(kept.map(item => item.body), ["message 1", "message 2", "message 3"]);
 });
 
 test("keeping nothing does nothing", async () => {

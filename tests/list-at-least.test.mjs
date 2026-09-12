@@ -33,7 +33,7 @@ async function startClient() {
   await filling.start();
   const conversation = await filling.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   for (let index = 0; index < 40; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `mensaje ${index}`, { createdAt: 1000 + index });
+    adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 + index });
   }
   await filling.stop();
 

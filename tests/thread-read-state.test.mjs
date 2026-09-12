@@ -56,8 +56,8 @@ test("reading a thread is told apart from reading the conversation", async () =>
 
 test("reading one thread does not say the other was read", async () => {
   const { client, conversation } = await startClient();
-  const first = await client.messages.send(conversation.id, "primera");
-  const second = await client.messages.send(conversation.id, "segunda");
+  const first = await client.messages.send(conversation.id, "first");
+  const second = await client.messages.send(conversation.id, "second");
   const inFirst = await client.messages.send(conversation.id, "a", { threadId: first.id });
   await client.messages.send(conversation.id, "b", { threadId: second.id });
 

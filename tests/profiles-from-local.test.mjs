@@ -26,7 +26,7 @@ function memberCalled(name, avatar) {
 
 test("the name somebody uses in a conversation is taken from what is already here", async () => {
   const asked = { profile: 0 };
-  const client = fakeClient({ member: memberCalled("Bob de guardia", "mxc://example.org/sala"), asked });
+  const client = fakeClient({ member: memberCalled("Bob de guardia", "mxc://example.org/room"), asked });
 
   const profile = await getMatrixProfile(client, userId, roomId);
 
@@ -66,7 +66,7 @@ test("without a conversation the name everywhere is asked for, which is what it 
 
 test("the picture of somebody in a conversation is taken from what is already here", async () => {
   const asked = { profile: 0 };
-  const client = fakeClient({ member: memberCalled("Bob de guardia", "mxc://example.org/sala"), asked });
+  const client = fakeClient({ member: memberCalled("Bob de guardia", "mxc://example.org/room"), asked });
 
   const image = await (getMatrixAvatar(client, userId, roomId));
 

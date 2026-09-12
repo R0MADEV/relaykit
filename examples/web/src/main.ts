@@ -163,6 +163,9 @@ class DemoApp {
 
   private async enter(userId: string): Promise<void> {
     this.ownUserId = userId;
+    // Said out loud and put in the tab: two windows of this on one machine are otherwise indistinguishable.
+    this.element("who-am-i").textContent = userId;
+    document.title = `RelayKit · ${userId}`;
     void this.fillInDevices();
     this.select("participant").value = userId === "@alice:localhost" ? "@bob:localhost" : "@alice:localhost";
     // Not waiting: what was here yesterday goes on screen at once, and the list updates as the server answers.

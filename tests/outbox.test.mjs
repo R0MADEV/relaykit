@@ -235,8 +235,8 @@ test("a queued reply keeps what it replies to after a restart", async () => {
   const conversation = await first.conversations.create({ participantIds: ["bob"] });
   const original = await first.messages.send(conversation.id, "original");
   adapter.failuresLeft = 1;
-  await assert.rejects(first.messages.send(conversation.id, "respuesta", { replyTo: original.id }));
-  const failed = (await first.messages.list(conversation.id)).find(message => message.body === "respuesta");
+  await assert.rejects(first.messages.send(conversation.id, "answer", { replyTo: original.id }));
+  const failed = (await first.messages.list(conversation.id)).find(message => message.body === "answer");
   assert.equal(failed.replyToId, original.id);
   await first.stop();
   const operation = await storage.getOutboxOperation(failed.id);
@@ -246,7 +246,7 @@ test("a queued reply keeps what it replies to after a restart", async () => {
   const second = createClient(adapter, storage);
   await second.start();
 
-  const sent = (await second.messages.list(conversation.id)).find(message => message.body === "respuesta");
+  const sent = (await second.messages.list(conversation.id)).find(message => message.body === "answer");
   assert.equal(sent.status, "sent");
   assert.equal(sent.replyToId, original.id);
   await second.stop();

@@ -491,7 +491,7 @@ function runContract(name, setup) {
     it("sends a reply that points at the message it answers", async () => {
       const original = await adapter.sendMessage(conversationId, `original-${Date.now()}`, { transactionId: `txn-original-${Date.now()}` });
 
-      const reply = await adapter.sendMessage(conversationId, "respuesta", { transactionId: `txn-reply-${Date.now()}`, replyToId: original.id });
+      const reply = await adapter.sendMessage(conversationId, "answer", { transactionId: `txn-reply-${Date.now()}`, replyToId: original.id });
 
       assert.equal(reply.replyToId, original.id);
       assert.equal(original.replyToId, undefined);

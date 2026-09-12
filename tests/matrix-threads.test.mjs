@@ -9,7 +9,7 @@ const { listMatrixThreads } = await import("../packages/matrix-js/dist/matrix-de
  */
 function fakeClient(asked, chunk) {
   const room = {
-    roomId: "!sala:localhost",
+    roomId: "!room:localhost",
     findEventById: () => undefined,
     getThread: () => undefined,
     getThreadUnreadNotificationCount: () => 0
@@ -32,14 +32,14 @@ const aThreadRoot = {
 test("the threads of a conversation are asked for through the SDK, in one request", async () => {
   const asked = [];
 
-  const threads = await listMatrixThreads(fakeClient(asked, [aThreadRoot]), "!sala:localhost");
+  const threads = await listMatrixThreads(fakeClient(asked, [aThreadRoot]), "!room:localhost");
 
   assert.equal(asked.length, 1);
-  assert.equal(asked[0].roomId, "!sala:localhost");
+  assert.equal(asked[0].roomId, "!room:localhost");
   assert.equal(asked[0].fromToken, null);
   assert.ok(asked[0].limit >= 1);
   assert.deepEqual(threads, [{
-    conversationId: "!sala:localhost",
+    conversationId: "!room:localhost",
     rootId: "$raiz",
     replyCount: 3,
     unreadCount: 0
@@ -47,13 +47,13 @@ test("the threads of a conversation are asked for through the SDK, in one reques
 });
 
 test("a conversation with nothing hanging off it comes back empty, not broken", async () => {
-  const threads = await listMatrixThreads(fakeClient([], []), "!sala:localhost");
+  const threads = await listMatrixThreads(fakeClient([], []), "!room:localhost");
 
   assert.deepEqual(threads, []);
 });
 
 test("a root the homeserver says nothing about is still listed, with nothing made up", async () => {
-  const threads = await listMatrixThreads(fakeClient([], [{ event_id: "$sola" }]), "!sala:localhost");
+  const threads = await listMatrixThreads(fakeClient([], [{ event_id: "$sola" }]), "!room:localhost");
 
   assert.equal(threads[0].rootId, "$sola");
   assert.equal(threads[0].replyCount, 0);

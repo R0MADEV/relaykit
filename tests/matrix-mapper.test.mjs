@@ -385,11 +385,11 @@ test("a sticker that arrives is told apart from an attachment", () => {
     getWireType: () => "m.sticker"
   };
 
-  const mensaje = mapMessage(evento);
+  const message = mapMessage(evento);
 
-  assert.equal(mensaje.kind, "sticker");
-  assert.equal(mensaje.attachment.mimeType, "image/png");
-  assert.equal(mensaje.attachment.width, 128);
+  assert.equal(message.kind, "sticker");
+  assert.equal(message.attachment.mimeType, "image/png");
+  assert.equal(message.attachment.width, 128);
 });
 
 test("a conversation says whether it really is encrypted, not what was asked for", () => {
@@ -422,7 +422,7 @@ test("a conversation nobody left for later does not claim to be unread", () => {
 test("a conversation that was replaced points at the one that carries on", () => {
   const { mapConversation } = mapper;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
-    "m.room.tombstone": { replacement_room: "!nueva:example.org", body: "esta sala continua en otra" }
+    "m.room.tombstone": { replacement_room: "!nueva:example.org", body: "this room carries on in another" }
   });
 
   assert.equal(mapConversation(room).replacedBy, "!nueva:example.org");

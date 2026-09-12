@@ -7,7 +7,7 @@ const { markMatrixRead, listMatrixPending } = await import("../packages/matrix-j
 function fakeClient({ notifications = [] } = {}) {
   const calls = [];
   const fetched = [];
-  const event = { id: "$mensaje" };
+  const event = { id: "$message" };
   return {
     calls,
     fetched,
@@ -16,7 +16,7 @@ function fakeClient({ notifications = [] } = {}) {
       return { event_id: eventId, room_id: roomId, type: "m.room.message", content: { body: "hola" } };
     },
     getEventMapper: () => raw => ({ id: raw.event_id }),
-    getRoom: () => ({ findEventById: id => (id === "$mensaje" ? event : undefined) }),
+    getRoom: () => ({ findEventById: id => (id === "$message" ? event : undefined) }),
     sendReceipt: (event, receiptType) => {
       calls.push({ sent: event.id, receiptType });
       return Promise.resolve({});
@@ -38,19 +38,19 @@ test("reading out loud tells the others, and quietly does not", async () => {
   const loud = fakeClient();
   const quiet = fakeClient();
 
-  await markMatrixRead(loud, "!sala:localhost", "$mensaje", {});
-  await markMatrixRead(quiet, "!sala:localhost", "$mensaje", { private: true });
+  await markMatrixRead(loud, "!room:localhost", "$message", {});
+  await markMatrixRead(quiet, "!room:localhost", "$message", { private: true });
 
-  assert.equal(loud.calls[0].publicly?.id, "$mensaje", "reading out loud sent no public receipt");
+  assert.equal(loud.calls[0].publicly?.id, "$message", "reading out loud sent no public receipt");
   assert.equal(loud.calls[0].privately, undefined);
-  assert.equal(quiet.calls[0].privately?.id, "$mensaje", "reading quietly sent no private receipt");
+  assert.equal(quiet.calls[0].privately?.id, "$message", "reading quietly sent no private receipt");
   assert.equal(quiet.calls[0].publicly, undefined, "reading quietly told the others anyway");
 });
 
 test("either way the marker moves, even for a message not held here", async () => {
   const client = fakeClient();
 
-  await markMatrixRead(client, "!sala:localhost", "$algo-de-hace-mucho", { private: true });
+  await markMatrixRead(client, "!room:localhost", "$algo-de-hace-mucho", { private: true });
 
   assert.equal(client.calls[0].fullyRead, "$algo-de-hace-mucho");
   assert.equal(client.calls[0].privately, undefined);
@@ -59,16 +59,16 @@ test("either way the marker moves, even for a message not held here", async () =
 test("reading inside a thread says which thread, so the conversation is not cleared with it", async () => {
   const client = fakeClient();
 
-  await markMatrixRead(client, "!sala:localhost", "$mensaje", { threadId: "$raiz" });
+  await markMatrixRead(client, "!room:localhost", "$message", { threadId: "$raiz" });
 
   // A threaded receipt goes on its own, because the marker is for the whole conversation and this is not.
-  assert.deepEqual(client.calls, [{ sent: "$mensaje", receiptType: "m.read" }]);
+  assert.deepEqual(client.calls, [{ sent: "$message", receiptType: "m.read" }]);
 });
 
 test("reading inside a thread works for a message this device never loaded", async () => {
   const client = fakeClient();
 
-  await markMatrixRead(client, "!sala:localhost", "$de-hace-mucho", { threadId: "$raiz" });
+  await markMatrixRead(client, "!room:localhost", "$de-hace-mucho", { threadId: "$raiz" });
 
   // Not held here, so it is fetched and then handed to the SDK like any other. Nothing is sent by hand.
   assert.deepEqual(client.fetched, ["$de-hace-mucho"]);
@@ -79,7 +79,7 @@ test("reading inside a thread works for a message this device never loaded", asy
 test("reading quietly inside a thread is still quiet", async () => {
   const client = fakeClient();
 
-  await markMatrixRead(client, "!sala:localhost", "$mensaje", { threadId: "$raiz", private: true });
+  await markMatrixRead(client, "!room:localhost", "$message", { threadId: "$raiz", private: true });
 
   assert.equal(client.calls[0].receiptType, "m.read.private");
 });
@@ -87,7 +87,7 @@ test("reading quietly inside a thread is still quiet", async () => {
 test("what is waiting is asked of the homeserver, not worked out from what is here", async () => {
   const client = fakeClient({
     notifications: [{
-      room_id: "!sala:localhost",
+      room_id: "!room:localhost",
       actions: ["notify", { set_tweak: "highlight", value: true }],
       event: { event_id: "$aviso", sender: "@bob:localhost", content: { body: "te espera esto" } }
     }]
@@ -98,7 +98,7 @@ test("what is waiting is asked of the homeserver, not worked out from what is he
   assert.equal(client.calls[0].path, "/notifications");
   assert.deepEqual(client.calls[0].params, { limit: "50" });
   assert.deepEqual(waiting, [{
-    conversationId: "!sala:localhost",
+    conversationId: "!room:localhost",
     messageId: "$aviso",
     senderId: "@bob:localhost",
     body: "te espera esto",

@@ -59,14 +59,14 @@ test("messages are listed by conversation and by pending status", async () => {
   const { storage } = createStorage();
   await storage.saveMessage(message());
   await storage.saveMessage(message({ id: "message-2", body: "otra", status: "failed" }));
-  await storage.saveMessage(message({ id: "message-3", conversationId: "conversation-2", body: "otra sala" }));
+  await storage.saveMessage(message({ id: "message-3", conversationId: "conversation-2", body: "another room" }));
 
   const inConversation = await storage.getMessages("conversation-1");
   const pending = await storage.getPendingMessages();
 
   assert.deepEqual(inConversation.map(item => item.id).sort(), ["message-1", "message-2"]);
   assert.deepEqual(pending.map(item => item.body), ["otra"]);
-  assert.deepEqual((await storage.getMessages("conversation-2")).map(item => item.body), ["otra sala"]);
+  assert.deepEqual((await storage.getMessages("conversation-2")).map(item => item.body), ["another room"]);
 });
 
 test("a conversation keeps its last message readable", async () => {
@@ -171,7 +171,7 @@ test("a record nobody can read any more is dropped instead of stopping the chang
   const { storage, name } = createStorage();
   await storage.saveMessage(message());
   const withAnotherSecret = new IndexedDbStorage(name, { encryptionSecret: "somebody-elses-secret" });
-  await withAnotherSecret.saveMessage(message({ id: "message-2", body: "escrito con otra clave" }));
+  await withAnotherSecret.saveMessage(message({ id: "message-2", body: "written with another key" }));
 
   await storage.rekey("another-device-secret");
 

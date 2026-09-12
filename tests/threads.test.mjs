@@ -29,7 +29,7 @@ test("an answer can hang from a message and be read as a thread", async () => {
 test("the main timeline does not repeat what belongs to a thread", async () => {
   const { client, conversation } = await startClient();
   const root = await client.messages.send(conversation.id, "raiz");
-  await client.messages.send(conversation.id, "dentro del hilo", { threadId: root.id });
+  await client.messages.send(conversation.id, "inside the thread", { threadId: root.id });
 
   const timeline = await client.messages.list(conversation.id);
 
