@@ -1,5 +1,6 @@
 import type {
   Call,
+  CallTransfer,
   ConnectionStatus,
   Conversation,
   Message,
@@ -28,6 +29,8 @@ export interface ClientEventMap {
   "call.incoming": Call;
   /** A call moved on: answered, connected, or over. */
   "call.changed": Call;
+  /** Somebody passed their call on: the other side is asked to ring whoever it names. */
+  "call.transferred": CallTransfer;
   /** The homeserver no longer accepts this session: suspended, revoked, or signed out from elsewhere. */
   "session.ended": undefined;
   "verification.requested": VerificationSession;
@@ -71,6 +74,7 @@ export class EventBus {
     "notification": new EventChannel<Notification>(),
     "call.incoming": new EventChannel<Call>(),
     "call.changed": new EventChannel<Call>(),
+    "call.transferred": new EventChannel<CallTransfer>(),
     "session.ended": new EventChannel<undefined>(),
     "verification.requested": new EventChannel<VerificationSession>(),
     "verification.changed": new EventChannel<VerificationSession>(),

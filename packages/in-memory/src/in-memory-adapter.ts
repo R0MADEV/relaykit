@@ -853,8 +853,9 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.changeCall(callId, { isMicrophoneMuted: muted });
   }
 
+  /** Turning the camera on makes it a video call, and turning it off leaves it one that had video. */
   async muteCallCamera(callId: string, muted: boolean): Promise<void> {
-    this.changeCall(callId, { isCameraMuted: muted });
+    this.changeCall(callId, { isCameraMuted: muted, ...(muted ? {} : { isVideo: true }) });
   }
 
   async holdCall(callId: string, onHold: boolean): Promise<void> {
@@ -888,6 +889,15 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async listCalls(): Promise<readonly Call[]> {
     return [...this.calls.values()];
+  }
+
+  /** Test helper: somebody passes their call here on to somebody else. */
+  receiveTransfer(conversationId: ConversationId, toUserId: UserId): void {
+    this.handlers.onCallTransferred?.({
+      conversationId,
+      callId: `memory-call-${this.nextMessageId++}`,
+      toUserId
+    });
   }
 
   /** Test helper: somebody else calls this conversation. */

@@ -1,4 +1,6 @@
 import { CallEvent, type MatrixClient } from "matrix-js-sdk";
+import { SDPStreamMetadataPurpose } from "matrix-js-sdk/lib/webrtc/callEventTypes.js";
+import type { CallFeed } from "matrix-js-sdk/lib/webrtc/callFeed.js";
 import {
   CallDirection,
   CallState as MatrixCallState,
@@ -67,17 +69,47 @@ export class MatrixCalls {
    * is the worst one.
    */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, async call => {
-      if (await call.setMicrophoneMuted(muted) === muted) return;
-      throw new Error(`The call could not be ${muted ? "silenced" : "let speak again"} just now`);
-    });
+    await this.changing(callId, call => this.settling(
+      () => call.setMicrophoneMuted(muted),
+      () => call.isMicrophoneMuted() === muted,
+      `The call could not be ${muted ? "silenced" : "let speak again"} just now`
+    ));
   }
 
+  /**
+   * Putting the camera away is not done when the flag says so: the SDK stops the track and lets go of it a
+   * moment later. Coming back inside that moment asks for the camera again and then has it taken away, which
+   * is why turning it off and straight back on worked most of the time and not always.
+   *
+   * So each way waits for what really has to be true: gone when it is away, there when it is back.
+   */
   async muteCamera(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, async call => {
-      if (await call.setLocalVideoMuted(muted) === muted) return;
-      throw new Error(`The camera could not be ${muted ? "put away" : "brought back"} just now`);
-    });
+    await this.changing(callId, call => this.settling(
+      () => call.setLocalVideoMuted(muted),
+      () => call.isLocalVideoMuted() === muted && call.hasLocalUserMediaVideoTrack === !muted,
+      `The camera could not be ${muted ? "put away" : "brought back"} just now`
+    ));
+  }
+
+  /**
+   * Asked for, and then waited on until the call agrees. The SDK settles these a moment later: it tells the
+   * other side and may go and ask for the media again, and what it answers is how things stood when asked,
+   * not how they ended up.
+   *
+   * Coming back early is how a screen draws the opposite of what is true and the next press asks for the
+   * wrong thing. The rule is the one the rest of this library follows: if an operation comes back, what it
+   * did can already be read.
+   */
+  private async settling(ask: () => Promise<unknown>, isDone: () => boolean, complaint: string): Promise<void> {
+    await ask();
+    // Long enough for the slowest of these, which is bringing a camera back: that one goes and asks for the
+    // device and agrees a new shape with the other side. Bounded all the same, because waiting for ever is
+    // not an answer either.
+    for (let attempt = 0; attempt < 150; attempt += 1) {
+      if (isDone()) return;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(complaint);
   }
 
   /** On hold the other side is told, and stops hearing and seeing, which is not the same as being silenced. */
@@ -168,15 +200,29 @@ export class MatrixCalls {
     // The SDK keeps one feed per side and the audio and video live in them. Handed over as they are: a
     // component gets something it can give to an element, without reaching into `MatrixCall` to find it.
     const feeds = call.getFeeds();
-    const ownMedia = feeds.find(feed => feed.isLocal())?.stream;
-    const remoteMedia = feeds.find(feed => !feed.isLocal())?.stream;
+    // The SDK says what each feed is for, and a shared screen travels alongside the camera rather than
+    // instead of it. Told apart here, because whoever draws them draws them differently.
+    const isAScreen = (feed: CallFeed) => feed.purpose === SDPStreamMetadataPurpose.Screenshare;
+    const find = (mine: boolean, screen: boolean) =>
+      feeds.find(feed => feed.isLocal() === mine && isAScreen(feed) === screen)?.stream;
+    const ownMedia = find(true, false);
+    const remoteMedia = find(false, false);
+    const ownScreen = find(true, true);
+    const remoteScreen = find(false, true);
     return {
       ...(ownMedia ? { ownMedia } : {}),
       ...(remoteMedia ? { remoteMedia } : {}),
+      ...(ownScreen ? { ownScreen } : {}),
+      ...(remoteScreen ? { remoteScreen } : {}),
       id: call.callId,
       conversationId: call.roomId ?? "",
       callerId: placedHere ? this.ownUserId : (call.getOpponentMember()?.userId ?? ""),
-      isVideo: call.type === CallType.Video,
+      // What the call is now, not what it was placed as. A voice call somebody turns the camera on in becomes
+      // a video call without ending, and a screen that keeps drawing it as voice hides the picture that is
+      // arriving. The SDK says whether there is a picture on either side.
+      isVideo: call.type === CallType.Video
+        || call.hasLocalUserMediaVideoTrack
+        || call.hasRemoteUserMediaVideoTrack,
       isMicrophoneMuted: call.isMicrophoneMuted(),
       isCameraMuted: call.isLocalVideoMuted(),
       isOnHold: call.isRemoteOnHold(),

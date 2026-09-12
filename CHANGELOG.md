@@ -163,6 +163,18 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Una llamada de voz se convierte en videollamada sin cortarse: se enciende la camara en mitad, el otro lado
+  empieza a verte, se apaga y se sigue hablando. Es la misma llamada de principio a fin.
+- Varias llamadas a la vez, como un telefono de mesa: una hablando y las demas esperando. El ejemplo las
+  lista, una entrante no le quita la pantalla a la que estas atendiendo, y pasar a otra deja la anterior en
+  espera. Colgar una no se lleva las demas.
+- Transferir funciona entero. El SDK envia `m.call.replaces` y cuelga, pero no hace nada al recibirlo: sin
+  avisar a la aplicacion, transferir era un lado colgando y el otro quedandose cortado. Ahora llega como
+  `call.transferred`. Las viejas no suenan: llegan otra vez cada vez que un cliente se pone al dia, y sonar
+  por una llamada que acabo hace horas no es avisar, es molestar.
+- Corregido: apagar la camara devolvia antes de que el SDK soltara la pista, y encenderla justo despues pedia
+  la camara para que se la quitaran a continuacion. Por eso apagar y encender seguido funcionaba casi siempre
+  y no siempre.
 - Silenciar y apagar la camara comprueban lo que el SDK contesta. Lo que devuelve es como quedo la llamada, no
   si hizo lo que se le pidio, y no son lo mismo: sin microfono en la maquina deja las cosas como estaban y lo
   dice. Ahora se compara con lo que se pidio, porque un boton que dice "hecho" mientras el microfono sigue

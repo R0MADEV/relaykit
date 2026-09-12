@@ -134,13 +134,36 @@ class DemoApp {
     this.client.on("sync.changed", status => {
       if (status === "synced") void this.refreshConversations();
     });
+    // An invitation that turns up while the application is open is accepted as one that was waiting at the
+    // start: otherwise somebody invited and immediately rung is never rung, because they are not in yet.
+    this.client.on("conversation.updated", conversation => {
+      if (conversation.membership !== "invite") return;
+      void this.client.conversations.join(conversation.id).catch(() => undefined);
+    });
     this.client.on("typing.changed", update => this.showTyping(update.conversationId, update.userIds));
     this.client.on("notification", notification => this.setStatus(
       `${this.nameOf(notification.senderId)}${notification.isMention ? " te menciona" : ""}: ${notification.body}`
     ));
     // Somebody calling is not something to be asked for: it arrives, and the screen has to ring.
-    this.client.on("call.incoming", call => this.showCall(call));
-    this.client.on("call.changed", call => this.showCall(call));
+    // A call that arrives while another is being talked on waits its turn: taking the screen away from a
+    // conversation somebody is having is how you end up talking to the wrong person.
+    this.client.on("call.incoming", call => {
+      if (!this.call) this.showCall(call);
+    });
+    // A phone on a desk holds several at once, so whatever happens to any of them redraws all of them.
+    this.client.on("call.incoming", () => void this.showOtherCalls());
+    this.client.on("call.changed", () => void this.showOtherCalls());
+    // Being asked to pass a call on: whoever transferred it has already hung up, so this side rings the
+    // person it names. Ringing them is a decision, which is why the library says it and does not do it.
+    this.client.on("call.transferred", async transfer => {
+      this.setStatus(`Pasando la llamada a ${this.nameOf(transfer.toUserId)}`);
+      const conversation = await this.client.conversations.open(transfer.toUserId);
+      await this.callThem(false, conversation.id);
+    });
+    this.client.on("call.changed", call => {
+      // Only what is being drawn, or nothing is being drawn and something has to be.
+      if (!this.call || this.call.id === call.id) this.showCall(call);
+    });
     this.client.on("error", error => this.setStatus(`Error: ${error.message}`));
   }
 
@@ -167,7 +190,9 @@ class DemoApp {
     this.element("who-am-i").textContent = userId;
     document.title = `RelayKit · ${userId}`;
     void this.fillInDevices();
-    this.select("participant").value = userId === "@alice:localhost" ? "@bob:localhost" : "@alice:localhost";
+    // Somebody other than yourself to talk to, whoever you turned out to be.
+    const others = [...this.select("participant").options].map(option => option.value);
+    this.select("participant").value = others.find(other => other !== userId) ?? others[0] ?? "";
     // Not waiting: what was here yesterday goes on screen at once, and the list updates as the server answers.
     await this.client.start({ waitForSync: false });
     const conversations = createConversationList(this.client);
@@ -979,15 +1004,23 @@ class DemoApp {
    * Ringing somebody. Only the signalling travels over Matrix: the audio and the video go straight between the
    * two devices.
    */
-  private async callThem(video: boolean): Promise<void> {
-    if (!this.conversationId) return;
+  private async callThem(video: boolean, into = this.conversationId): Promise<void> {
+    if (!into) return;
     try {
-      this.showCall(await this.client.calls.place(this.conversationId, { video }));
+      this.showCall(await this.client.calls.place(into, { video }));
     } catch (error) {
       // Refusing the microphone or the camera is the usual reason, and whoever pressed the button is the one
       // who has to hear about it.
       this.setStatus(`No se pudo llamar: ${(error as Error).message}`);
     }
+  }
+
+  /** When the one being talked on ends, whatever else is going on takes the panel. */
+  private async takeOverFromTheOneThatEnded(): Promise<void> {
+    const going = await this.client.calls.list();
+    const next = going[0];
+    if (next) this.showCall(next);
+    await this.showOtherCalls();
   }
 
   private async answerThem(): Promise<void> {
@@ -1052,10 +1085,47 @@ class DemoApp {
     }
   }
 
+  /**
+   * The calls that are not the one being talked on: waiting to be answered, or held while this one goes on.
+   * Each can be taken up, which holds whichever was being talked on — a phone does not talk on two at once.
+   */
+  private async showOtherCalls(): Promise<void> {
+    const going = await this.client.calls.list();
+    const others = going.filter(call => call.id !== this.call?.id);
+    this.element("other-calls").replaceChildren(...others.map(call => {
+      const row = document.createElement("div");
+      row.className = "other-call";
+      row.textContent = `${this.nameOf(call.callerId)} · ${call.state}${call.isOnHold ? " · en espera" : ""}`;
+      row.append(this.button(call.state === "ringing" ? "Descolgar" : "Pasar a esta", () =>
+        void this.takeUp(call)));
+      return row;
+    }));
+  }
+
+  /** Taking up another call: whatever was being talked on waits, and this one carries on. */
+  private async takeUp(call: Call): Promise<void> {
+    const talking = this.call;
+    try {
+      if (talking && talking.id !== call.id) await this.client.calls.hold(talking.id, true);
+      const taken = call.state === "ringing"
+        ? await this.client.calls.answer(call.id, { video: call.isVideo })
+        : call;
+      if (taken.isOnHold) await this.client.calls.hold(taken.id, false);
+      this.showCall(taken);
+      await this.showOtherCalls();
+    } catch (error) {
+      this.setStatus(`No se pudo: ${(error as Error).message}`);
+    }
+  }
+
   /** What there is to see and hear while a call is going on. */
   private showCall(call: Call): void {
     const isOver = call.state === "ended";
+    // Only the one being talked on is drawn here; the rest are listed apart. A call ending hands the panel
+    // over to whatever else is going on rather than leaving nothing.
+    if (isOver && this.call && this.call.id !== call.id) return;
     this.call = isOver ? undefined : call;
+    if (isOver) void this.takeOverFromTheOneThatEnded();
     // Once somebody has been asked for the microphone the devices have names, so this is worth asking again.
     if (isOver) void this.fillInDevices();
     this.element("call-panel").hidden = isOver;

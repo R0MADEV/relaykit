@@ -26,10 +26,12 @@ function fakeCall(asked) {
     on: () => undefined,
     placeVoiceCall: async () => undefined,
     placeVideoCall: async () => undefined,
-    setMicrophoneMuted: muted => { asked.push(`setMicrophoneMuted(${muted})`); state.microphone = muted; return true; },
+    setMicrophoneMuted: muted => { asked.push(`setMicrophoneMuted(${muted})`); state.microphone = muted; return muted; },
     isMicrophoneMuted: () => state.microphone,
-    setLocalVideoMuted: muted => { asked.push(`setLocalVideoMuted(${muted})`); state.camera = muted; return true; },
+    setLocalVideoMuted: muted => { asked.push(`setLocalVideoMuted(${muted})`); state.camera = muted; return muted; },
     isLocalVideoMuted: () => state.camera,
+    // The SDK lets go of the track when the camera is put away, so this follows it.
+    get hasLocalUserMediaVideoTrack() { return !state.camera; },
     setRemoteOnHold: held => { asked.push(`setRemoteOnHold(${held})`); state.held = held; },
     isRemoteOnHold: () => state.held,
     reject: () => asked.push("reject()"),
@@ -211,4 +213,72 @@ test("being refused a silence is said out loud, not reported as done", async () 
   // that is the call doing exactly as it was told.
   await calls.muteMicrophone("call-1", false);
   await calls.muteCamera("call-1", false);
+});
+
+/**
+ * Asking for a silence and coming back before the call agrees to it is how a screen ends up drawing the
+ * opposite of what is true, and how the next press asks for the wrong thing. The rule the rest of this
+ * library follows applies here too: if an operation comes back, what it did can already be read.
+ *
+ * The SDK settles these a moment later — it tells the other side and reads back what stuck — so what is
+ * asked for is waited on rather than assumed.
+ */
+test("silencing comes back only once the call says it is silenced", async () => {
+  const asked = [];
+  const call = fakeCall(asked);
+  let muted = false;
+  call.setMicrophoneMuted = wanted => {
+    // Settles a moment later, as the real one does.
+    setTimeout(() => { muted = wanted; }, 30);
+    return muted;
+  };
+  call.isMicrophoneMuted = () => muted;
+  const client = {
+    createCall: () => call,
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => ({ setAudioInput: () => undefined, setVideoInput: () => undefined }),
+    on: () => undefined
+  };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, () => undefined);
+  await calls.place(client, "!room:localhost", { video: false });
+
+  await calls.muteMicrophone("call-1", true);
+
+  assert.equal(calls.list()[0].isMicrophoneMuted, true, "it came back before the call was silenced");
+});
+
+/**
+ * Putting the camera away is not done when the flag says so: the SDK stops and lets go of the track a moment
+ * afterwards. Coming back inside that moment asks for the camera again and then has it taken away, which is
+ * why turning it off and straight back on worked most of the time and not always.
+ *
+ * So putting it away comes back when the camera is really gone, which is what the SDK's own reading says.
+ */
+test("putting the camera away comes back once the camera is really gone", async () => {
+  const asked = [];
+  const call = fakeCall(asked);
+  let away = false;
+  let stillHasTheTrack = true;
+  call.setLocalVideoMuted = wanted => {
+    away = wanted;
+    // The track goes a moment later, as the real one does.
+    setTimeout(() => { stillHasTheTrack = !wanted; }, 40);
+    return away;
+  };
+  call.isLocalVideoMuted = () => away;
+  Object.defineProperty(call, "hasLocalUserMediaVideoTrack", { get: () => stillHasTheTrack });
+  const client = {
+    createCall: () => call,
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => ({ setAudioInput: () => undefined, setVideoInput: () => undefined }),
+    on: () => undefined
+  };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, () => undefined);
+  await calls.place(client, "!room:localhost", { video: true });
+
+  await calls.muteCamera("call-1", true);
+
+  assert.equal(stillHasTheTrack, false, "it came back while the camera was still being let go of");
 });

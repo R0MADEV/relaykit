@@ -349,6 +349,12 @@ export interface Call {
    */
   readonly ownMedia?: MediaStream;
   readonly remoteMedia?: MediaStream;
+  /**
+   * A shared screen is a second thing to show, not a swap of the camera: both travel at once, so they are
+   * handed over apart and a screen can draw the face small and the screen large, as any client does.
+   */
+  readonly ownScreen?: MediaStream;
+  readonly remoteScreen?: MediaStream;
 }
 
 /**
@@ -356,6 +362,17 @@ export interface Call {
  * way and knowing which side placed it is what `callerId` is for.
  */
 export type CallState = "ringing" | "connecting" | "connected" | "ended";
+
+/**
+ * Being asked to pass a call on. Whoever transferred it has already hung up: what arrives is the name of the
+ * person to ring instead, and ringing them is a decision, not something that should happen by itself.
+ */
+export interface CallTransfer {
+  readonly conversationId: ConversationId;
+  readonly callId: string;
+  readonly toUserId: UserId;
+  readonly toDisplayName?: string;
+}
 export const callStates: readonly CallState[] = ["ringing", "connecting", "connected", "ended"];
 
 export interface PlaceCallOptions {

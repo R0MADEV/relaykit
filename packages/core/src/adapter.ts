@@ -12,6 +12,7 @@ import type {
   FileInput,
   MessagePage,
   Call,
+  CallTransfer,
   LinkPreview,
   PlaceCallOptions,
   LiveLocation,
@@ -70,6 +71,7 @@ export interface AdapterHandlers {
   readonly onSessionEnded?: () => void;
   readonly onCallIncoming?: (call: Call) => void;
   readonly onCallChanged?: (call: Call) => void;
+  readonly onCallTransferred?: (transfer: CallTransfer) => void;
   readonly onVerificationRequested?: (session: VerificationSession) => void;
   readonly onVerificationChanged?: (session: VerificationSession) => void;
   readonly onError?: (error: Error) => void;

@@ -423,6 +423,7 @@ export class MessagingClient {
         onNotification: notification => this.events.emit("notification", notification),
         onCallIncoming: call => this.events.emit("call.incoming", call),
         onCallChanged: call => this.events.emit("call.changed", call),
+        onCallTransferred: transfer => this.events.emit("call.transferred", transfer),
         onSessionEnded: () => {
           // Stopping first, so whatever the application does when told finds a client that is honestly stopped
           // rather than one that still looks alive and fails on the next thing it is asked.

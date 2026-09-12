@@ -115,3 +115,27 @@ test("something new to play is told about, even when the call is already connect
   assert.equal(told.length, 1, "nobody was told there was something to play");
   assert.equal(told[0].remoteMedia, theirs);
 });
+
+/**
+ * A shared screen is a second thing to show, not a swap of the camera: both travel at once, and whoever is
+ * watching needs to be able to draw them apart — the face small, the screen large, as any client does.
+ *
+ * The SDK already says which is which; what was missing was handing the second one over at all.
+ */
+test("a shared screen is handed over apart from the camera", async () => {
+  const face = { id: "face" };
+  const screen = { id: "screen" };
+  const call = callWith([
+    { stream: face, isLocal: () => false, purpose: "m.usermedia" },
+    { stream: screen, isLocal: () => false, purpose: "m.screenshare" },
+    { stream: { id: "mine" }, isLocal: () => true, purpose: "m.usermedia" }
+  ]);
+  const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, () => undefined);
+
+  const placed = await calls.place(client, "!room:localhost", { video: true });
+
+  assert.equal(placed.remoteMedia, face, "the camera was not the one handed over as the person");
+  assert.equal(placed.remoteScreen, screen, "the shared screen was not handed over");
+});
