@@ -9,7 +9,9 @@ import type {
   StartPollInput,
   LiveLocation,
   ShareLocationInput,
-  GeoLocation
+  GeoLocation,
+  Call,
+  PlaceCallOptions
 } from "@relaykit/core";
 import type {
   Attachment,
@@ -569,6 +571,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly mutedUsers = new Set<UserId>();
   private readonly polls = new Map<MessageId, Poll>();
   private readonly liveLocations = new Map<string, LiveLocation>();
+  private readonly calls = new Map<string, Call>();
   private readonly pollVotes = new Map<MessageId, Map<UserId, string>>();
   /** How far each thread was read, kept apart from how far its conversation was. */
   private readonly threadReads = new Map<string, MessageId>();
@@ -792,6 +795,59 @@ export class InMemoryAdapter implements MessagingAdapter {
       })),
       ...(votes.get(this.requireUserId()) ? { ownAnswerId: votes.get(this.requireUserId()) as string } : {})
     };
+  }
+
+  async placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+    // Calling a conversation that is not here is not a call that failed: there was never anybody to call.
+    if (!this.conversations.some(item => item.id === conversationId)) {
+      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
+    }
+    const call: Call = {
+      id: `memory-call-${this.nextMessageId++}`,
+      conversationId,
+      callerId: this.requireUserId(),
+      isVideo: options.video === true,
+      state: "ringing",
+      startedAt: Date.now()
+    };
+    this.calls.set(call.id, call);
+    return call;
+  }
+
+  async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    const answered: Call = { ...call, state: "connected" };
+    this.calls.set(callId, answered);
+    this.handlers.onCallChanged?.(answered);
+    return answered;
+  }
+
+  /** A call that is over stops being one that is going on, so it leaves the list rather than lingering. */
+  async hangUpCall(callId: string): Promise<void> {
+    const call = this.calls.get(callId);
+    if (!call) return;
+    this.calls.delete(callId);
+    this.handlers.onCallChanged?.({ ...call, state: "ended" });
+  }
+
+  async listCalls(): Promise<readonly Call[]> {
+    return [...this.calls.values()];
+  }
+
+  /** Test helper: somebody else calls this conversation. */
+  receiveCall(conversationId: ConversationId, callerId: UserId, options: PlaceCallOptions): Call {
+    const call: Call = {
+      id: `memory-call-${this.nextMessageId++}`,
+      conversationId,
+      callerId,
+      isVideo: options.video === true,
+      state: "ringing",
+      startedAt: Date.now()
+    };
+    this.calls.set(call.id, call);
+    this.handlers.onCallIncoming?.(call);
+    return call;
   }
 
   /** With no homeserver to ask, this double knows about one link and no others. */

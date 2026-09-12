@@ -16,6 +16,7 @@ import { handleClientEvent, handleReceipt, handleRedaction, handleTimeline, hand
 import { mapConversation } from "./matrix-mapper.js";
 import { ReactionTracker } from "./reaction-tracker.js";
 import { openTheWindow, type ConversationWindow } from "./matrix-window.js";
+import { MatrixCalls } from "./matrix-calls.js";
 import { SecretStorageKeyHolder } from "./matrix-security.js";
 import { MatrixVerificationTracker } from "./matrix-verification.js";
 import type { MatrixJsAdapterOptions } from "./types.js";
@@ -27,6 +28,7 @@ export class MatrixRuntime {
   private readonly reactions = new ReactionTracker();
   private readonly lastTypingByRoom = new Map<string, string>();
   private window: ConversationWindow | undefined;
+  readonly calls = new MatrixCalls();
   readonly secretStorageKeys = new SecretStorageKeyHolder();
   readonly verification = new MatrixVerificationTracker();
 
@@ -52,6 +54,12 @@ export class MatrixRuntime {
     // The homeserver refusing this session is not an ordinary error: nobody here asked for it, and there is
     // nothing left to do with this client. The SDK says so once, on its own channel.
     this.client.on(HttpApiEvent.SessionLoggedOut, this.handleSessionEnded);
+    // Las llamadas las crea y las senaliza el SDK; aqui solo se traducen al contrato.
+    this.calls.watch(
+      this.client,
+      call => handlers.onCallIncoming?.(call),
+      call => handlers.onCallChanged?.(call)
+    );
     this.client.on(ClientEvent.Sync, this.handleSync);
     this.client.on(RoomEvent.Timeline, this.handleTimeline);
     this.client.on(RoomEvent.Redaction, this.handleRedaction);
@@ -99,6 +107,7 @@ export class MatrixRuntime {
     this.verification.stop();
     this.lastTypingByRoom.clear();
     this.window = undefined;
+    this.calls.forget();
   }
 
   async logout(): Promise<void> {

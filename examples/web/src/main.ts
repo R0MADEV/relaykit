@@ -22,7 +22,7 @@ const typingTimeoutMs = 4000;
 const rememberedSession = "relaykit-demo-session";
 
 class DemoApp {
-  private readonly client = buildClient();
+  readonly client = buildClient();
   private conversationId: ConversationId | undefined;
   /** What is being shared right now, so the same button can stop it. */
   private sharingId: string | undefined;
@@ -1006,6 +1006,10 @@ function readRememberedSession(): Session | undefined {
 const app = new DemoApp();
 // Opening it again with a session already here goes straight in, without asking anything.
 void app.reopen();
+
+// Put where the browser check can reach it. Calls need WebRTC, which Node does not have, so a browser is the
+// only place their signalling can be exercised at all, and it needs a client to do it with.
+(window as unknown as { relaykitDemo: { client: MessagingClient } }).relaykitDemo = { client: app.client };
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => app.dispose());

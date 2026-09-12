@@ -4,16 +4,6 @@ import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 //
 // On an account of its own: setting recovery up resets the cross-signing identity, so a shared account that
 // has been through this all day stops being able to verify anything, and the failure says nothing about why.
-let owner;
-let aliceUserId;
-
-async function createClient(deviceName) {
-  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("qr", deviceName);
-  owner = owner ?? account;
-  aliceUserId = account.userId;
-  const { client, deviceId } = account;
-  return { client, deviceId };
-}
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
@@ -51,11 +41,15 @@ async function waitForDevice(client, userId, deviceId) {
 async function main() {
   // The device that shows the code has to be the one already trusted, which is what makes the code worth
   // anything: the new device learns it is talking to a device that already holds the cross-signing keys.
-  const trusted = await createClient("RelayKit qr smoke (trusted device)");
+  // The person, made here and passed along: a function that remembers who it registered last time does a
+  // different thing depending on when it is called, which is not something a check should have to know.
+  const owner = await registerAccount("qr", "RelayKit qr smoke (trusted device)");
+  const aliceUserId = owner.userId;
+  const trusted = owner;
   let newcomer;
   try {
     await trusted.client.crypto.setupRecovery({ password: owner.password });
-    newcomer = await createClient("RelayKit qr smoke (new device)");
+    newcomer = await signInAgain(owner, "RelayKit qr smoke (new device)");
     await waitForDevice(newcomer.client, aliceUserId, trusted.deviceId);
 
     const incoming = waitForPhase(trusted.client, "requested", "verification.requested");

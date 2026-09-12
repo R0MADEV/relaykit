@@ -16,12 +16,15 @@ import { UnavailableAdapter } from "./unavailable-adapter.js";
 import { forgivingStorage } from "./forgiving-storage.js";
 import { PollOperations } from "./poll-operations.js";
 import { LocationOperations } from "./location-operations.js";
+import { CallOperations } from "./call-operations.js";
 import type { MessagingClientConfig } from "./client-config.js";
 import type {
   AvatarImage,
   AvatarOptions,
+  Call,
   LinkPreview,
   LiveLocation,
+  PlaceCallOptions,
   MarkReadOptions,
   ShareLocationInput,
   Poll,
@@ -248,6 +251,15 @@ export class MessagingClient {
     list: (conversationId: ConversationId): Promise<readonly LiveLocation[]> =>
       this.locationOperations.list(conversationId)
   };
+  /** Calls between the people of a conversation. The audio and the video never pass through here. */
+  readonly calls = {
+    place: (conversationId: ConversationId, options?: PlaceCallOptions): Promise<Call> =>
+      this.callOperations.place(conversationId, options),
+    answer: (callId: string, options?: PlaceCallOptions): Promise<Call> =>
+      this.callOperations.answer(callId, options),
+    hangUp: (callId: string): Promise<void> => this.callOperations.hangUp(callId),
+    list: (): Promise<readonly Call[]> => this.callOperations.list()
+  };
   /** Asking the conversation something and counting the votes. */
   readonly polls = {
     start: (conversationId: ConversationId, input: StartPollInput): Promise<Poll> =>
@@ -288,6 +300,7 @@ export class MessagingClient {
   private readonly mediaOperations: MediaOperations;
   private readonly pollOperations: PollOperations;
   private readonly locationOperations: LocationOperations;
+  private readonly callOperations: CallOperations;
   private readonly userOperations: UserOperations;
   private readonly spaceOperations: SpaceOperations;
   private readonly lifecycle: ClientLifecycle;
@@ -351,6 +364,7 @@ export class MessagingClient {
     });
     this.pollOperations = new PollOperations(base);
     this.locationOperations = new LocationOperations(base);
+    this.callOperations = new CallOperations(base);
     this.userOperations = new UserOperations({
       ...base,
       ...storageContext,
@@ -395,6 +409,8 @@ export class MessagingClient {
         onReceiptReceived: receipt => this.events.emit("receipt.received", receipt),
         onPresenceChanged: presence => this.events.emit("presence.changed", presence),
         onNotification: notification => this.events.emit("notification", notification),
+        onCallIncoming: call => this.events.emit("call.incoming", call),
+        onCallChanged: call => this.events.emit("call.changed", call),
         onSessionEnded: () => {
           // Stopping first, so whatever the application does when told finds a client that is honestly stopped
           // rather than one that still looks alive and fails on the next thing it is asked.

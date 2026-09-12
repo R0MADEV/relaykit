@@ -45,7 +45,9 @@ import type {
   StartPollInput,
   LiveLocation,
   ShareLocationInput,
-  GeoLocation
+  GeoLocation,
+  Call,
+  PlaceCallOptions
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
@@ -437,6 +439,23 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
     return this.reaching(conversationId, () => listMatrixPolls(this.runtime.getClient(), conversationId));
+  }
+
+  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+    return this.reaching(conversationId, async () =>
+      this.runtime.calls.place(this.runtime.getClient(), conversationId, options));
+  }
+
+  answerCall(callId: string, options: PlaceCallOptions): Promise<Call> {
+    return this.run(() => this.runtime.calls.answer(callId, options));
+  }
+
+  async hangUpCall(callId: string): Promise<void> {
+    await this.run(async () => this.runtime.calls.hangUp(callId));
+  }
+
+  async listCalls(): Promise<readonly Call[]> {
+    return this.runtime.calls.list();
   }
 
   previewLink(url: string): Promise<LinkPreview> {

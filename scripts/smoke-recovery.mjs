@@ -3,14 +3,6 @@ import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 // On accounts of its own: setting recovery up resets the cross-signing identity, so a shared account that has
 // been through this all day is left in a state where nothing else can verify, and the failure says nothing
 // about why.
-let owner;
-let bobUserId;
-
-async function createClient(_credentials, deviceName) {
-  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("recovery", deviceName);
-  owner = owner ?? account;
-  return account.client;
-}
 
 async function waitFor(description, check, { attempts = 60, intervalMs = 500, required = true } = {}) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -23,16 +15,16 @@ async function waitFor(description, check, { attempts = 60, intervalMs = 500, re
 }
 
 /** Somebody turning recovery on already has history, so the first message is sent before setting it up. */
-async function sendBeforeEnablingRecovery(client) {
-  // Esto va de recuperar claves, asi que la conversacion tiene que estar cifrada. Se pide expresamente: sin
-  // decir nada decide el homeserver, y suponerlo es como esta comprobacion empezo a mentir.
+async function sendBeforeEnablingRecovery(client, bobUserId) {
+  // This is about recovering keys, so the conversation has to be encrypted. Asked for expressly: saying
+  // nothing leaves it to the homeserver, and assuming is how this check started lying.
   const conversation = await client.conversations.create({
     participantIds: [bobUserId],
     title: "RelayKit recovery smoke",
     encrypted: true
   });
   if (!conversation.isEncrypted) {
-    throw new Error("La conversacion no quedo cifrada, asi que no hay claves que recuperar");
+    throw new Error("The conversation did not end up encrypted, so there are no keys to recover");
   }
   const body = `recovery-${Date.now()}`;
   await client.messages.send(conversation.id, body);
@@ -40,13 +32,15 @@ async function sendBeforeEnablingRecovery(client) {
 }
 
 async function main() {
-  const firstDevice = await createClient(undefined, "RelayKit recovery smoke (first device)");
+  // The person, made here and passed along, rather than a function that remembers who it registered.
+  const owner = await registerAccount("recovery", "RelayKit recovery smoke (first device)");
+  const firstDevice = owner.client;
   // Somebody to talk to, so there is a conversation with something said in it before recovery is turned on.
   const other = await registerAccount("recovery-other", "RelayKit recovery smoke (other)");
-  bobUserId = other.userId;
+  const bobUserId = other.userId;
   let secondDevice;
   try {
-    const { conversation, body } = await sendBeforeEnablingRecovery(firstDevice);
+    const { conversation, body } = await sendBeforeEnablingRecovery(firstDevice, bobUserId);
     const { recoveryKey } = await firstDevice.crypto.setupRecovery({ password: owner.password });
     const status = await firstDevice.crypto.status();
     if (!status.crossSigningReady || !status.secretStorageReady) {
@@ -66,7 +60,7 @@ async function main() {
     const laterBody = `recovery-later-${Date.now()}`;
     await firstDevice.messages.send(later.id, laterBody);
 
-    secondDevice = await createClient(undefined, "RelayKit recovery smoke (second device)");
+    secondDevice = (await signInAgain(owner, "RelayKit recovery smoke (second device)")).client;
     const beforeRecovery = await secondDevice.messages.list(conversation.id);
     const isReadableWithoutRecovery = beforeRecovery.some(message => message.body === body);
     if (isReadableWithoutRecovery) {

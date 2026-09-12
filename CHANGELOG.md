@@ -149,6 +149,11 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   solo deja de interrumpir. Ignorar ya existia y es otra cosa: ahi los mensajes ni llegan.
 - Cuanto puede interrumpir todo, para la cuenta entera: `push.level()` y `push.setLevel("all" | "mentions" |
   "none")`. Antes solo se podia decidir conversacion por conversacion.
+- Llamadas de voz y video: `calls.place`, `answer`, `hangUp` y `list`, mas los eventos `call.incoming` y
+  `call.changed`. Las hace el SDK entera: crea la llamada, negocia WebRTC y senaliza por Matrix. Aqui solo se
+  traduce su estado a `ringing | connecting | connected | ended`, porque un componente que pinta una llamada
+  no debe importar `MatrixCall`. Solo uno a uno: las de grupo necesitan un servidor de medios y son otra cosa.
+  No se pueden probar desde Node, que no tiene WebRTC, asi que se comprueban en el navegador.
 - Encuestas: `polls.start`, `vote`, `close` y `list`. Preguntar algo a la conversacion y contar los votos, con
   la regla del protocolo de que cambiar de idea sustituye el voto anterior en vez de sumarse, y de que cerrar
   es definitivo. Los nombres de los eventos los pone el SDK, que ademas conoce el nombre inestable que usan los

@@ -85,7 +85,7 @@ async function main() {
   await narrow.start();
   const inTheWindow = await narrow.conversations.list();
   if (inTheWindow.some(item => item.id === farDown.id)) {
-    throw new Error("The conversation being tried is inside the window, so this proves nothing");
+    throw new Error(`The one being reached for is inside the window of ${inTheWindow.length}, so this proves nothing`);
   }
 
   const reachedAnyway = await narrow.messages.list(farDown.id, { atLeast: 1 });
@@ -141,8 +141,9 @@ async function main() {
   });
   await settings.login({ ...alice, homeserver, deviceName: "RelayKit window smoke (settings)" });
   await settings.start();
-  if ((await settings.conversations.list()).some(item => item.id === neverTouched.id)) {
-    throw new Error("The conversation being tried is inside the window, so this proves nothing");
+  const forSettings = await settings.conversations.list();
+  if (forSettings.some(item => item.id === neverTouched.id)) {
+    throw new Error(`The one being changed is inside the window of ${forSettings.length}, so this proves nothing`);
   }
   // Marking a favourite goes first, and on purpose: it is account data, so unlike saying something or
   // describing the conversation it does not move it to the front of the window. This is the harder case.

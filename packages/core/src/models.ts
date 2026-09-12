@@ -320,6 +320,34 @@ export interface LinkPreview {
   readonly image?: MediaRef;
 }
 
+/**
+ * A call happening now between the people of a conversation. What travels over Matrix is the signalling: the
+ * audio and the video go straight between the devices, so nothing of what is said passes through here.
+ */
+export interface Call {
+  readonly id: string;
+  readonly conversationId: ConversationId;
+  /** Who placed it. The account itself when it was placed from here. */
+  readonly callerId: UserId;
+  readonly isVideo: boolean;
+  readonly state: CallState;
+  readonly startedAt: number;
+  /** Present once there is something to show, which is not the same moment as answering. */
+  readonly hasRemoteMedia?: boolean;
+}
+
+/**
+ * `ringing` covers both waiting for an answer and being rung, because a screen draws the same thing either
+ * way and knowing which side placed it is what `callerId` is for.
+ */
+export type CallState = "ringing" | "connecting" | "connected" | "ended";
+export const callStates: readonly CallState[] = ["ringing", "connecting", "connected", "ended"];
+
+export interface PlaceCallOptions {
+  /** A call with video needs room on the screen, so whoever draws it has to be told beforehand. */
+  readonly video?: boolean;
+}
+
 export interface MediaRef {
   readonly mimeType: string;
   /**

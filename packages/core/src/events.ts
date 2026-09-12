@@ -1,4 +1,5 @@
 import type {
+  Call,
   ConnectionStatus,
   Conversation,
   Message,
@@ -23,6 +24,10 @@ export interface ClientEventMap {
   "receipt.received": ReadReceipt;
   "presence.changed": UserPresence;
   "notification": Notification;
+  /** Somebody is calling this conversation. A screen rings on this. */
+  "call.incoming": Call;
+  /** A call moved on: answered, connected, or over. */
+  "call.changed": Call;
   /** The homeserver no longer accepts this session: suspended, revoked, or signed out from elsewhere. */
   "session.ended": undefined;
   "verification.requested": VerificationSession;
@@ -64,6 +69,8 @@ export class EventBus {
     "receipt.received": new EventChannel<ReadReceipt>(),
     "presence.changed": new EventChannel<UserPresence>(),
     "notification": new EventChannel<Notification>(),
+    "call.incoming": new EventChannel<Call>(),
+    "call.changed": new EventChannel<Call>(),
     "session.ended": new EventChannel<undefined>(),
     "verification.requested": new EventChannel<VerificationSession>(),
     "verification.changed": new EventChannel<VerificationSession>(),

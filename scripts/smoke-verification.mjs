@@ -2,15 +2,6 @@ import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
 
 // On an account of its own: verifying leaves cross-signing state behind, and a shared account that has been
 // through this all day stops being able to verify anything, with a failure that says nothing about why.
-let owner;
-let aliceUserId;
-
-async function createClient(deviceName) {
-  const account = owner ? await signInAgain(owner, deviceName) : await registerAccount("sas", deviceName);
-  owner = owner ?? account;
-  aliceUserId = account.userId;
-  return { client: account.client, deviceId: account.deviceId };
-}
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
@@ -42,11 +33,14 @@ function emojiOf(session) {
 async function main() {
   // The device that answers a self-verification must hold the cross-signing keys, so the first device
   // sets them up and the new device asks it for verification, as a real second login would.
-  const first = await createClient("RelayKit verification smoke (first device)");
+  // The person, made here and passed along, rather than a function that remembers who it registered.
+  const owner = await registerAccount("sas", "RelayKit verification smoke (first device)");
+  const aliceUserId = owner.userId;
+  const first = owner;
   let second;
   try {
     await first.client.crypto.setupRecovery({ password: owner.password });
-    second = await createClient("RelayKit verification smoke (second device)");
+    second = await signInAgain(owner, "RelayKit verification smoke (second device)");
     await waitForDevice(second.client, aliceUserId, first.deviceId);
     const trace = message => { if (process.env.RELAYKIT_TRACE) console.error(`[smoke] ${message}`); };
     first.client.on("verification.changed", session => trace(`first: ${session.phase}`));

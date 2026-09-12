@@ -18,10 +18,10 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
  */
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
-let counter = 0;
-
 export async function registerAccount(purpose, deviceName, options = {}) {
-  const username = `${purpose}-${Date.now().toString(36)}-${counter++}`;
+  // Random rather than counted: two accounts made in the same millisecond must not collide, and a counter
+  // would be state this module remembers between calls for no reason.
+  const username = `${purpose}-${crypto.randomUUID().slice(0, 8)}`;
   const client = new MessagingClient({
     adapter: new MatrixJsAdapter(options.matrix ?? {}),
     storage: new InMemoryStorage()

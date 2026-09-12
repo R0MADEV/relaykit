@@ -30,7 +30,8 @@ import type {
   UserId,
   LinkPreview,
   Poll,
-  LiveLocation
+  LiveLocation,
+  Call
 } from "./models.js";
 
 export class UnavailableAdapter implements MessagingAdapter {
@@ -348,6 +349,22 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async listPolls(): Promise<readonly Poll[]> {
     throw new SdkError("NOT_CONFIGURED", "Cannot list polls");
+  }
+
+  async placeCall(): Promise<Call> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot place a call");
+  }
+
+  async answerCall(): Promise<Call> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot answer a call");
+  }
+
+  async hangUpCall(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot hang up a call");
+  }
+
+  async listCalls(): Promise<readonly Call[]> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot list calls");
   }
 
   async previewLink(): Promise<LinkPreview> {

@@ -6,7 +6,7 @@ export type { CacheOptions, MessagingClientConfig } from "./client-config.js";
 export type { StartOptions } from "./client-lifecycle.js";
 export { EventBus, type ClientEventMap, type EventListener, type EventName } from "./events.js";
 export { SdkError, type SdkErrorCode } from "./errors.js";
-export { joinRules, historyVisibilities, notificationLevels, presenceStates, maxStatusMessageLength, verificationMethods } from "./models.js";
+export { joinRules, historyVisibilities, notificationLevels, callStates, presenceStates, maxStatusMessageLength, verificationMethods } from "./models.js";
 export { createConversationList, createMessageTimeline, type LiveCollection } from "./live.js";
 export type {
   Attachment,
@@ -72,7 +72,10 @@ export type {
   VerificationPhase,
   VerificationSas,
   VerificationSession,
+  Call,
+  CallState,
   LinkPreview,
+  PlaceCallOptions,
   LiveLocation,
   ShareLocationInput,
   Poll,

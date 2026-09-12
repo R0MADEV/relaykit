@@ -237,6 +237,41 @@ function runContract(name, setup) {
       assert.equal(stopped.isLive, false);
     });
 
+    // Calls need WebRTC, and Node has no `RTCPeerConnection`: the SDK refuses to make one, and rightly so.
+    // So this cannot be required of an adapter that talks to a homeserver from here. It is required of the
+    // double, and of the real one in the browser check, which is where a call could actually happen.
+    const callsArePossible = typeof globalThis.RTCPeerConnection === "function" || name === "in-memory";
+
+    it("places a call into a conversation and hangs it up", { skip: !callsArePossible }, async () => {
+      // Only the signalling is checked here: audio and video go straight between devices, and there are no
+      // devices on either side of this. What has to be true is that placing it says a call is going on and
+      // hanging up says it is not.
+      const call = await adapter.placeCall(conversationId, { video: false });
+
+      assert.equal(call.conversationId, conversationId);
+      assert.equal(call.isVideo, false);
+      assert.ok(["ringing", "connecting"].includes(call.state), `odd state: ${call.state}`);
+      assert.ok((await adapter.listCalls()).some(item => item.id === call.id), "the call was not going on");
+
+      await adapter.hangUpCall(call.id);
+      await waitFor("the call to be over", async () =>
+        (await adapter.listCalls()).every(item => item.id !== call.id));
+    });
+
+    it("a call with video says so, because a screen has to be made room for", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, { video: true });
+
+      assert.equal(call.isVideo, true);
+      await adapter.hangUpCall(call.id);
+    });
+
+    it("hanging up a call that is already over is not a failure", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, {});
+      await adapter.hangUpCall(call.id);
+
+      await adapter.hangUpCall(call.id);
+    });
+
     it("asks the conversation something, counts the votes and closes it", async () => {
       const poll = await adapter.startPoll(conversationId, {
         question: `What time do we eat? ${Date.now()}`,

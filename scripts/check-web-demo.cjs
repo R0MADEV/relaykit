@@ -184,6 +184,33 @@ async function run() {
   `);
   detail.pollVotedOnScreen = true;
 
+  // Calls, which is the one thing that cannot be checked from Node: there is no WebRTC there, and the SDK
+  // refuses to make a call without it. A browser has it, so this is the only place the signalling can be
+  // exercised at all. Nobody answers, so what is proven is that a call starts and can be hung up.
+  const called = await page.webContents.executeJavaScript(`
+    (async () => {
+      try {
+        const conversations = await window.relaykitDemo.client.conversations.list({ limit: 1 });
+        const call = await window.relaykitDemo.client.calls.place(conversations[0].id, { video: false });
+        const going = await window.relaykitDemo.client.calls.list();
+        await window.relaykitDemo.client.calls.hangUp(call.id);
+        const after = await window.relaykitDemo.client.calls.list();
+        return JSON.stringify({
+          placed: call.state,
+          wasGoingOn: going.some(item => item.id === call.id),
+          overAfterwards: after.every(item => item.id !== call.id)
+        });
+      } catch (error) {
+        return JSON.stringify({ failed: String(error && error.message || error) });
+      }
+    })()
+  `);
+  const callResult = JSON.parse(called);
+  if (callResult.failed) throw new Error(`Placing a call in the browser failed: ${callResult.failed}`);
+  if (!callResult.wasGoingOn) throw new Error("A call was placed and was not going on");
+  if (!callResult.overAfterwards) throw new Error("A call was hung up and was still going on");
+  detail.callPlacedInBrowser = callResult.placed;
+
   // Un enlace escrito en la caja se mira antes de mandarlo.
   await page.webContents.executeJavaScript(`
     const box = document.getElementById("message");

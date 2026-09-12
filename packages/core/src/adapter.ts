@@ -11,7 +11,9 @@ import type {
   SignOutOptions,
   FileInput,
   MessagePage,
+  Call,
   LinkPreview,
+  PlaceCallOptions,
   LiveLocation,
   ShareLocationInput,
   Poll,
@@ -66,6 +68,8 @@ export interface AdapterHandlers {
   readonly onNotification?: (notification: Notification) => void;
   /** Told when the homeserver stops accepting this session, without anybody having asked it to. */
   readonly onSessionEnded?: () => void;
+  readonly onCallIncoming?: (call: Call) => void;
+  readonly onCallChanged?: (call: Call) => void;
   readonly onVerificationRequested?: (session: VerificationSession) => void;
   readonly onVerificationChanged?: (session: VerificationSession) => void;
   readonly onError?: (error: Error) => void;
@@ -128,6 +132,11 @@ export interface MessagingAdapter {
   downloadAttachment(media: MediaRef): Promise<Uint8Array>;
   /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
   previewLink(url: string): Promise<LinkPreview>;
+  /** Calls. The signalling goes over Matrix; the audio and the video do not. */
+  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
+  answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;
+  hangUpCall(callId: string): Promise<void>;
+  listCalls(): Promise<readonly Call[]>;
   /** A poll: the question, its answers and the votes. Closing it is final. */
   startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;
   voteInPoll(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>;
