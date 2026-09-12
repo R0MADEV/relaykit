@@ -61,6 +61,9 @@ jobs:
       - name: Run RelayKit conversation window smoke check
         run: npm run smoke:window
 
+      - name: Run RelayKit conversation participants smoke check
+        run: npm run smoke:participants
+
       - name: Run RelayKit session revocation smoke check
         run: npm run smoke:revocation
 

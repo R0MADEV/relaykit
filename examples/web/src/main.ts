@@ -991,7 +991,12 @@ class DemoApp {
 
 function buildClient(): MessagingClient {
   const kept = readRememberedSession();
-  return new MessagingClient({ ...(kept ? { session: kept } : {}) });
+  return new MessagingClient({
+    ...(kept ? { session: kept } : {}),
+    // A window over the conversations instead of every room: on an account with thousands, opening at once
+    // instead of waiting. Asking for more conversations widens it.
+    matrix: { conversationWindow: 40 }
+  });
 }
 
 function readRememberedSession(): Session | undefined {

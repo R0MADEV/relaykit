@@ -22,7 +22,7 @@ export function openTheWindow(client: MatrixClient, size: number): ConversationW
   const lists = new Map([[listName, listOf(held)]]);
   // What to ask for about one conversation reached for on its own. The homeserver refuses a subscription that
   // does not say which state it wants.
-  const oneConversation = { timeline_limit: 20, required_state: stateWorthHaving };
+  const oneConversation = { timeline_limit: 20, required_state: stateForOneConversation };
   const sliding = new SlidingSync(client.baseUrl, lists, oneConversation, client, 30000);
 
   const reachedFor = new Set<string>();
@@ -74,17 +74,43 @@ function listOf(size: number): { ranges: [number, number][]; timeline_limit: num
     ranges: [[0, size - 1]],
     timeline_limit: 20,
     // Enough state to say what a conversation is and who is in it, which is what a list shows.
-    required_state: stateWorthHaving
+    required_state: stateForAList
   };
 }
 
-/** Enough to say what a conversation is, who is in it and whether it is encrypted. */
-const stateWorthHaving: [string, string][] = [
+/** Enough to say what a conversation is and whether it is encrypted. Who is in it is asked for separately. */
+const whatAConversationIs: [string, string][] = [
+  // Without this a conversation arrives looking unfinished, and anything that waits for it to be usable waits
+  // for ever: being usable means being joined and having been created.
+  [EventType.RoomCreate, ""],
   [EventType.RoomName, ""],
   [EventType.RoomTopic, ""],
   [EventType.RoomAvatar, ""],
   [EventType.RoomCanonicalAlias, ""],
   [EventType.RoomJoinRules, ""],
-  [EventType.RoomEncryption, ""],
-  [EventType.RoomMember, "$ME"]
+  [EventType.RoomEncryption, ""]
+];
+
+/**
+ * A list shows many conversations at once, so asking for every member of every one of them is asking the
+ * homeserver for a great deal that nothing on the screen uses. `$LAZY` is what Matrix has for exactly this:
+ * the people who show up in what is being shown, and no more.
+ */
+const stateForAList: [string, string][] = [
+  ...whatAConversationIs,
+  [EventType.RoomMember, "$ME"],
+  [EventType.RoomMember, "$LAZY"]
+];
+
+/**
+ * A conversation that is being used is a different matter: every member of it, because this is where who is
+ * in it is asked and answered.
+ *
+ * It is also what calls depend on, in a way that gives nothing away when it is missing. The SDK looks up the
+ * person on the other end to hand over their audio; not finding them, it stops, and the caller is left with a
+ * call that says it is connected and cannot be heard.
+ */
+const stateForOneConversation: [string, string][] = [
+  ...whatAConversationIs,
+  [EventType.RoomMember, "*"]
 ];

@@ -294,7 +294,9 @@ test("the adapter never lets a Matrix error reach the caller", async () => {
   adapter.runtime = {
     getClient: () => ({
       joinRoom: async () => { throw matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: "no such room" } }); }
-    })
+    }),
+    reachFor: async () => {},
+    widenTheWindow: async () => {}
   };
 
   await assert.rejects(adapter.joinConversation("!room:example.org"), error => error.name === "SdkError");

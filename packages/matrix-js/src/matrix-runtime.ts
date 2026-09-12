@@ -158,7 +158,24 @@ export class MatrixRuntime {
     handleTyping(event, roomId, this.handlers);
   };
 
-  private readonly handleClientEvent = (event: MatrixEvent): void => handleClientEvent(event, this.handlers);
+  private readonly handleClientEvent = (event: MatrixEvent): void => {
+    this.aggregate(event);
+    handleClientEvent(event, this.handlers);
+  };
+
+  /**
+   * Polls and location beacons are not kept like a message: the sdk gathers each one and the replies hanging
+   * off it into a thing of its own, and that gathering happens as the sync hands the events over. The ordinary
+   * sync does it; the sliding sync the window uses never does, so with a window open a poll would arrive and
+   * never exist. Doing it here, where every event the sync brought in passes, is what makes a poll the same
+   * poll whether or not the conversations came through a window.
+   */
+  private aggregate(event: MatrixEvent): void {
+    if (!this.window) return;
+    const roomId = event.getRoomId();
+    if (roomId === undefined) return;
+    this.getClient().processAggregatedTimelineEvents(this.getClient().getRoom(roomId) ?? undefined, [event]);
+  }
 
   private readonly handleMembership = (room: Room): void => {
     this.handlers.onConversationUpdated?.(mapConversation(room));

@@ -334,6 +334,15 @@ export interface Call {
   readonly startedAt: number;
   /** Present once there is something to show, which is not the same moment as answering. */
   readonly hasRemoteMedia?: boolean;
+  /**
+   * What to play, handed over rather than described: a screen cannot play a boolean. They go straight into an
+   * `<audio>` or a `<video>` through `srcObject`, which is what the browser is waiting for.
+   *
+   * The browser's own `MediaStream`, because a call is a browser thing: they are absent where there is no
+   * WebRTC, and absent until there is something to play.
+   */
+  readonly ownMedia?: MediaStream;
+  readonly remoteMedia?: MediaStream;
 }
 
 /**

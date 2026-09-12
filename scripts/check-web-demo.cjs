@@ -5,6 +5,8 @@ const https = require("node:https");
 const fs = require("node:fs");
 const os = require("node:os");
 const { spawn, execFileSync } = require("node:child_process");
+// Asking this machine for a real microphone never comes back, so the call step is given one made in the page.
+const { fitAMakeBelieveMicrophone } = require("./browser-harness.cjs");
 
 // Drives the example in a real browser, which is the one thing the tests cannot reach: the interface itself.
 //
@@ -113,6 +115,7 @@ async function run() {
       throw new Error(`${error.message}. The screen says: ${status}`);
     });
   detail.signedIn = true;
+  await fitAMakeBelieveMicrophone(page);
 
   // Opening a conversation with Bob, which is what the picker is for.
   await page.webContents.executeJavaScript(`
@@ -135,7 +138,11 @@ async function run() {
     `document.querySelectorAll("#conversations li").length`
   );
 
-  await waitFor(page, "the message box", `document.getElementById("message") !== null && !document.querySelector("footer").hidden`);
+  await waitFor(page, "the message box", `document.getElementById("message") !== null && !document.querySelector("footer").hidden`, 40)
+    .catch(async error => {
+      const says = await page.webContents.executeJavaScript(`document.getElementById("status")?.textContent ?? "nothing"`);
+      throw new Error(`${error.message}. The screen says: ${says}`);
+    });
   const said = `demo-${Date.now()}`;
   await page.webContents.executeJavaScript(`
     document.getElementById("message").value = ${JSON.stringify(said)};

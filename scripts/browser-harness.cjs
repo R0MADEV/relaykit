@@ -64,4 +64,45 @@ async function waitFor(page, description, expression, attempts = 120) {
   throw new Error(`Timed out waiting for ${description}`);
 }
 
-module.exports = { serve, acceptOwnCertificate, waitFor };
+/**
+ * A microphone and a camera made out of a tone and a painted square, put where `getUserMedia` was.
+ *
+ * Asking this machine for the real thing never answers, not even for the devices Chromium makes up itself,
+ * so a call would always end in `no_user_media` before it rang. A stream built in the page has live tracks
+ * and travels the same way, which is what the call needs.
+ */
+function fitAMakeBelieveMicrophone(page) {
+  return page.webContents.executeJavaScript(`
+    (() => {
+      const paintedPicture = () => {
+        const canvas = Object.assign(document.createElement("canvas"), { width: 160, height: 120 });
+        const brush = canvas.getContext("2d");
+        // Something has to keep changing, or a still canvas stops handing over frames after the first one.
+        setInterval(() => {
+          brush.fillStyle = \`hsl(\${Date.now() / 10 % 360}, 80%, 50%)\`;
+          brush.fillRect(0, 0, canvas.width, canvas.height);
+        }, 100);
+        return canvas.captureStream(10).getVideoTracks();
+      };
+      const tone = () => {
+        const sound = new AudioContext();
+        sound.resume();
+        const output = sound.createMediaStreamDestination();
+        const oscillator = sound.createOscillator();
+        oscillator.connect(output);
+        oscillator.start();
+        return output.stream.getAudioTracks();
+      };
+      navigator.mediaDevices.getUserMedia = async (asked = {}) => {
+        const stream = new MediaStream();
+        if (asked.audio) tone().forEach(track => stream.addTrack(track));
+        if (asked.video) paintedPicture().forEach(track => stream.addTrack(track));
+        if (stream.getTracks().length === 0) throw new DOMException("asked for nothing", "TypeError");
+        return stream;
+      };
+      return true;
+    })()
+  `);
+}
+
+module.exports = { serve, acceptOwnCertificate, fitAMakeBelieveMicrophone, waitFor };

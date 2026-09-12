@@ -81,14 +81,21 @@ export class MatrixCalls {
   /** The neutral shape. `ringing` covers waiting for an answer and being rung: a screen draws the same. */
   private describe(call: MatrixCall): Call {
     const placedHere = call.direction === CallDirection.Outbound;
+    // The SDK keeps one feed per side and the audio and video live in them. Handed over as they are: a
+    // component gets something it can give to an element, without reaching into `MatrixCall` to find it.
+    const feeds = call.getFeeds();
+    const ownMedia = feeds.find(feed => feed.isLocal())?.stream;
+    const remoteMedia = feeds.find(feed => !feed.isLocal())?.stream;
     return {
+      ...(ownMedia ? { ownMedia } : {}),
+      ...(remoteMedia ? { remoteMedia } : {}),
       id: call.callId,
       conversationId: call.roomId ?? "",
       callerId: placedHere ? this.ownUserId : (call.getOpponentMember()?.userId ?? ""),
       isVideo: call.type === CallType.Video,
       state: mapState(call.state),
       startedAt: Date.now(),
-      hasRemoteMedia: call.getFeeds().some(feed => !feed.isLocal())
+      hasRemoteMedia: remoteMedia !== undefined
     };
   }
 

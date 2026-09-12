@@ -170,7 +170,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async joinConversation(conversationId: ConversationId, via: readonly string[] = []): Promise<Conversation> {
-    return this.run(() => joinConversation(this.runtime.getClient(), conversationId, via));
+    // Joining one the window never sent has to reach for it, or the wait for it to be usable never ends.
+    return this.reaching(conversationId, () => joinConversation(this.runtime.getClient(), conversationId, via));
   }
 
   async leaveConversation(conversationId: ConversationId): Promise<void> {
@@ -197,7 +198,13 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
-    return this.run(() => createConversation(this.runtime.getClient(), input));
+    return this.run(async () => {
+      const conversation = await createConversation(this.runtime.getClient(), input);
+      // A conversation just made is not in the window until the homeserver says so, and whoever made it is
+      // about to talk in it.
+      await this.runtime.reachFor(conversation.id);
+      return conversation;
+    });
   }
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {

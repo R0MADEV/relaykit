@@ -157,6 +157,12 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   alice llama, bob descuelga y los dos tienen que llegar a `connected`. El homeserver ve pasar la secuencia
   entera, `m.call.invite`, `candidates`, `answer`, `select_answer` y `hangup`, que es la unica prueba de que
   la senalizacion funciona.
+- Corregido: una conversacion no sabia quien estaba dentro. A la ventana deslizante se le pedia solo el
+  miembro propio, asi que la lista de participantes solo te incluia a ti. Eso rompia las llamadas de una
+  forma que nadie relacionaria: el SDK busca a la persona del otro lado para entregar su audio, no la
+  encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
+  oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
+  que se usa los pide todos.
 - Corregido: colocar una llamada devolvia antes de haberla enviado. Pedir el microfono o la camara puede ser
   denegado, y ese fallo se perdia: quedaba una llamada que parecia estar sonando y no habia salido de la
   maquina. Ahora se espera a que salga, y la que no puede colocarse lo dice y deja de estar en curso.

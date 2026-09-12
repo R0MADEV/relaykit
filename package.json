@@ -31,6 +31,7 @@
     "smoke:live": "node scripts/smoke-live.mjs",
     "smoke:qr": "node scripts/smoke-qr.mjs",
     "smoke:window": "node scripts/smoke-window.mjs",
+    "smoke:participants": "node scripts/smoke-participants.mjs",
     "smoke:revocation": "node scripts/smoke-revocation.mjs",
     "smoke:push": "node scripts/smoke-push.mjs",
     "smoke:user-verification": "node scripts/smoke-user-verification.mjs",
