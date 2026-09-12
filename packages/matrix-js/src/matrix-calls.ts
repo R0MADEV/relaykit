@@ -29,15 +29,22 @@ export class MatrixCalls {
     }) as never);
   }
 
-  place(client: MatrixClient, conversationId: ConversationId, options: PlaceCallOptions): Call {
+  async place(client: MatrixClient, conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     const call = client.createCall(conversationId);
     if (!call) {
       throw new Error("This conversation cannot be called");
     }
     this.keep(call);
-    // Placing it is asynchronous by nature: the other side has to be rung. What comes back is the call as it
-    // is now, and every move after this arrives through `call.changed`.
-    void (options.video ? call.placeVideoCall() : call.placeVoiceCall());
+    // Waited for, not let go. Placing a call asks for the microphone or the camera before it can send
+    // anything, and that can be refused: letting it go would answer with a call that looks like it is ringing
+    // and never left this machine. So what comes back has really gone out, and what could not be placed says
+    // so and stops being a call that is going on.
+    try {
+      await (options.video ? call.placeVideoCall() : call.placeVoiceCall());
+    } catch (error) {
+      this.going.delete(call.callId);
+      throw error;
+    }
     return this.describe(call);
   }
 

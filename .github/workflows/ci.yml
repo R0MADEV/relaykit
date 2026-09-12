@@ -49,6 +49,9 @@ jobs:
       - name: Check the web example in a browser
         run: xvfb-run --auto-servernum npm run check:web-demo
 
+      - name: Check a call between two browsers
+        run: xvfb-run --auto-servernum npm run check:calls
+
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
 
