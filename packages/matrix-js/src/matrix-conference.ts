@@ -81,9 +81,9 @@ export class MatrixConference {
     const going = this.joined.get(callId);
     if (!going) return;
     this.joined.delete(callId);
-    await going.room.disconnect();
-    await going.session.leaveRoomSession();
-    this.report?.({ ...this.describe(callId, going), state: "ended" });
+    const ended = { ...this.describe(callId, going), state: "ended" as const };
+    await walkOutOf(going);
+    this.report?.(ended);
   }
 
   /** Silencing is not leaving: this stops publishing, and the rest carry on hearing each other. */
@@ -118,11 +118,11 @@ export class MatrixConference {
     return this.joined.has(callId);
   }
 
-  /** Walking out of everything, for a client that is stopping and must leave nothing connected behind. */
+  /** Walking out of everything, for a client that is stopping and must leave nothing behind it. */
   async forget(): Promise<void> {
     const going = [...this.joined.values()];
     this.joined.clear();
-    await Promise.all(going.map(one => one.room.disconnect()));
+    await Promise.all(going.map(walkOutOf));
   }
 
   /**
@@ -202,6 +202,17 @@ function loadTheMediaEngine() {
 /** What that import gives back, named so the rest of the file can be typed against it without repeating it. */
 
 type MediaEngine = Awaited<ReturnType<typeof loadTheMediaEngine>>;
+
+/**
+ * Leaving, in all the ways a conference has to be left. Dropping the connection is the easy half: what the
+ * room says about this device has to come down too, or somebody who walked out is still drawn on the call
+ * until their membership runs out hours later. Stopping the session is what stops it being kept alive.
+ */
+async function walkOutOf(going: Joined): Promise<void> {
+  await going.room.disconnect();
+  await going.session.leaveRoomSession();
+  await going.session.stop();
+}
 
 /** What is kept about a conference this side is in. The SFU and the SDK keep everything else. */
 interface Joined {
