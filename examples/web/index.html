@@ -137,6 +137,16 @@
           <button id="hang-up" type="button">Colgar</button>
           <!-- One element for both: a call with no picture still has to be heard. -->
           <video id="call-media" autoplay playsinline></video>
+          <form id="transfer-form">
+            <input id="transfer-to" placeholder="@quien:localhost" />
+            <button type="submit">Transferir</button>
+          </form>
+        </div>
+        <!-- Which microphone and camera to use. It belongs to the account, not to one call, so it is here and
+             not inside the panel: it can be chosen before there is anybody to call. -->
+        <div id="devices">
+          <label>Micrófono <select id="microphone"></select></label>
+          <label>Cámara <select id="camera"></select></label>
         </div>
         <p id="empty">Abre una conversación para empezar.</p>
         <div id="timeline" hidden>

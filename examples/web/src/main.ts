@@ -71,6 +71,10 @@ class DemoApp {
       (call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted)));
     this.element("call-hold").addEventListener("click", () => void this.duringTheCall(
       (call, client) => client.calls.hold(call.id, !call.isOnHold)));
+    this.select("microphone").addEventListener("change", () => void this.chooseDevice("microphone"));
+    this.select("camera").addEventListener("change", () => void this.chooseDevice("camera"));
+    this.onSubmit("transfer-form", () => this.duringTheCall(
+      (call, client) => client.calls.transfer(call.id, this.input("transfer-to").value)));
     this.element("call-screen").addEventListener("click", () => void this.duringTheCall(
       (call, client) => client.calls.shareScreen(call.id, !call.isSharingScreen)));
     // A form, not a prompt: it works with a keyboard, it can be translated and it can be tested.
@@ -159,6 +163,7 @@ class DemoApp {
 
   private async enter(userId: string): Promise<void> {
     this.ownUserId = userId;
+    void this.fillInDevices();
     this.select("participant").value = userId === "@alice:localhost" ? "@bob:localhost" : "@alice:localhost";
     // Not waiting: what was here yesterday goes on screen at once, and the list updates as the server answers.
     await this.client.start({ waitForSync: false });
@@ -991,6 +996,39 @@ class DemoApp {
     await this.client.calls.hangUp(this.call.id);
   }
 
+  /**
+   * What there is to speak and be seen with. The browser is what knows this, so it is asked directly: the
+   * library has no business repeating a list the platform already keeps.
+   *
+   * The names are empty until somebody has been asked for the microphone once, so what there is gets filled
+   * in again after every call.
+   */
+  private async fillInDevices(): Promise<void> {
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    const fill = (id: string, kind: MediaDeviceKind, fallback: string) => {
+      const picker = this.select(id);
+      const chosen = picker.value;
+      picker.replaceChildren(...devices
+        .filter(device => device.kind === kind)
+        .map((device, position) => new Option(device.label || `${fallback} ${position + 1}`, device.deviceId)));
+      if (chosen) picker.value = chosen;
+    };
+    fill("microphone", "audioinput", "Micrófono");
+    fill("camera", "videoinput", "Cámara");
+  }
+
+  private async chooseDevice(which: "microphone" | "camera"): Promise<void> {
+    const deviceId = this.select(which).value;
+    if (!deviceId) return;
+    try {
+      await (which === "microphone"
+        ? this.client.calls.useMicrophone(deviceId)
+        : this.client.calls.useCamera(deviceId));
+    } catch (error) {
+      this.setStatus(`No se pudo: ${(error as Error).message}`);
+    }
+  }
+
   /** Anything pressed while a call is going on. Nothing to do when there is no call, which is not an error. */
   private async duringTheCall(what: (call: Call, client: MessagingClient) => Promise<void>): Promise<void> {
     if (!this.call) return;
@@ -1005,6 +1043,8 @@ class DemoApp {
   private showCall(call: Call): void {
     const isOver = call.state === "ended";
     this.call = isOver ? undefined : call;
+    // Once somebody has been asked for the microphone the devices have names, so this is worth asking again.
+    if (isOver) void this.fillInDevices();
     this.element("call-panel").hidden = isOver;
 
     const placedByMe = call.callerId === this.ownUserId;

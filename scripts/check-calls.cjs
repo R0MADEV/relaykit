@@ -192,6 +192,28 @@ async function refuse(alice, bob) {
   detail.refused = true;
 }
 
+/**
+ * Choosing which microphone and camera to use. An application with a device picker asks this on every change,
+ * and what it can offer is whatever the browser says is there, so the picker has to fill itself in.
+ */
+async function chooseDevices(page) {
+  const microphones = await waitFor(page, "the microphone picker to fill in", `
+    document.getElementById("microphone").options.length || false
+  `);
+  await page.webContents.executeJavaScript(`
+    const picker = document.getElementById("microphone");
+    picker.selectedIndex = 0;
+    picker.dispatchEvent(new Event("change"));
+    true;
+  `);
+  // Nothing comes back to look at: what is required is that asking is not a failure and that nothing on the
+  // screen breaks, because this is done while a call may be going on.
+  const complained = await page.webContents.executeJavaScript(
+    `document.getElementById("status").textContent.startsWith("No se pudo")`);
+  if (complained) throw new Error("Choosing a microphone was refused");
+  detail.microphonesOffered = microphones;
+}
+
 async function run() {
   const server = await serve(root);
   const address = `https://127.0.0.1:${server.address().port}/`;
@@ -233,6 +255,7 @@ async function run() {
   await ring(alice, bob, { video: false });
   await ring(alice, bob, { video: true });
   await refuse(alice, bob);
+  await chooseDevices(alice);
 
   server.close();
   report(true, "two browsers rang each other by voice and by video, answered and hung up");

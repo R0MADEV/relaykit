@@ -163,6 +163,9 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- El ejemplo web tiene selector de microfono y camara y un formulario para transferir la llamada. La lista de
+  dispositivos la da el navegador (`enumerateDevices`), no la libreria: repetir una lista que la plataforma ya
+  mantiene no aporta nada.
 - El entorno levanta coturn, que es por donde pasa una llamada cuando los dos lados no pueden verse. Hasta
   ahora el SDK decia `failed to get TURN credentials! Proceeding with call anyway...` en cada llamada y
   funcionaba solo porque las dos ventanas estaban en la misma maquina. Una prueba de humo pregunta al
