@@ -81,3 +81,33 @@ test("a call says who is calling from the first word, even before the SDK writes
   assert.ok(told.length > 0, "nothing was reported while the call was being placed");
   assert.equal(told[0].callerId, "@alice:localhost", "a call was reported with nobody calling");
 });
+
+/**
+ * The audio and the picture do not arrive when the call changes state: they arrive when they arrive, and for
+ * a video call that is usually after the call is already connected. Listening only to the state means the
+ * last word on a call is one with nothing to play, and a screen that is waiting for something to show waits
+ * for ever.
+ */
+test("something new to play is told about, even when the call is already connected", async () => {
+  const told = [];
+  const byEvent = new Map();
+  const theirs = { id: "theirs" };
+  const feeds = [];
+  const call = {
+    ...callWith(feeds),
+    on: (event, handler) => byEvent.set(event, handler),
+    placeVoiceCall: async () => undefined
+  };
+  const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
+  const calls = new MatrixCalls();
+  calls.watch(client, () => undefined, reported => told.push(reported));
+  await calls.place(client, "!room:localhost", { video: true });
+  told.length = 0;
+
+  // The picture turns up with the call already connected, which is the whole point.
+  feeds.push({ stream: theirs, isLocal: () => false });
+  byEvent.get("feeds_changed")?.();
+
+  assert.equal(told.length, 1, "nobody was told there was something to play");
+  assert.equal(told[0].remoteMedia, theirs);
+});

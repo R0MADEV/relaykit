@@ -76,6 +76,10 @@ export class MatrixCalls {
 
   private keep(call: MatrixCall): void {
     this.going.set(call.callId, call);
+    // The audio and the picture do not arrive when the state changes: they arrive when they arrive, and for a
+    // video call that is usually once it is already connected. Without this the last word on a call is one
+    // with nothing to play, and a screen waiting for something to show waits for ever.
+    call.on(CallEvent.FeedsChanged, () => this.report?.(this.describe(call)));
     call.on(CallEvent.State, () => {
       this.report?.(this.describe(call));
       // A call that is over stops being one that is going on, so a screen listing them does not keep it.

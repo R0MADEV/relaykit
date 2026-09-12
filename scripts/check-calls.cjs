@@ -34,6 +34,10 @@ async function open(who, address) {
   });
   page.webContents.on("render-process-gone", (_event, details) =>
     report(false, `the page for ${who} died: ${details.reason}`));
+  // The made up microphone is a tone, and the other side plays what it receives: without this the check comes
+  // out of whoever is running it's speakers. Silenced at the window, so the page is left as it is and what is
+  // checked stays the same: that the tracks arrive live, not that anybody can hear them.
+  page.webContents.setAudioMuted(true);
   acceptOwnCertificate(page.webContents.session);
   // Nobody is here to answer a permission prompt, so every media question is said yes to. This is not what
   // makes the call work — the made up microphone below is — but it keeps the sdk from being told no.
@@ -53,6 +57,71 @@ async function open(who, address) {
   await waitFor(page, `${who} to be signed in`, `document.getElementById("app").hidden === false`, 40);
   await fitAMakeBelieveMicrophone(page);
   return page;
+}
+
+/**
+ * One whole call, from the screen: alice presses, bob's screen rings on its own, bob answers, both have to end
+ * up playing what the other is sending, and hanging up has to reach the other side.
+ *
+ * Voice and video go the same way and differ in one thing that matters: whether there is anything to look at.
+ */
+async function ring(alice, bob, { video }) {
+  const kind = video ? "video" : "voice";
+  const said = {};
+
+  await alice.webContents.executeJavaScript(
+    `document.getElementById(${JSON.stringify(video ? "video-call" : "call")}).click(); true;`);
+  said.aliceCalled = await waitFor(alice, `alice's ${kind} call panel`, `
+    !document.getElementById("call-panel").hidden && document.getElementById("call-state").textContent
+  `);
+  // The very first thing the screen says has to be right. Whose call it is is known before the SDK has
+  // written down which way it goes, and a screen that draws a call from nobody is what that looked like.
+  if (!said.aliceCalled.startsWith("Llamando")) {
+    throw new Error(`Alice placed the call and her screen says: ${said.aliceCalled}`);
+  }
+
+  // Bob's screen has to ring on its own, and the button to answer has to be the one that is showing.
+  said.bobWasRung = await waitFor(bob, `bob's screen to ring for a ${kind} call`, `
+    !document.getElementById("answer").hidden && document.getElementById("call-state").textContent
+  `);
+  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
+
+  // Connected is not the same as heard or seen. What has to be true is that the element on the screen has been
+  // given a stream with live tracks on it, which is the whole point of a call.
+  const playing = `
+    (() => {
+      const media = document.getElementById("call-media").srcObject;
+      if (!media) return false;
+      const live = kinds => kinds.filter(track => track.readyState === "live").length;
+      const heard = live(media.getAudioTracks());
+      const seen = live(media.getVideoTracks());
+      if (heard === 0) return false;
+      if (${video} && seen === 0) return false;
+      return { heard, seen, onScreen: !document.getElementById("call-media").hidden };
+    })()
+  `;
+  said.alice = await waitFor(alice, `alice's screen to be playing bob's ${kind}`, playing);
+  said.bob = await waitFor(bob, `bob's screen to be playing alice's ${kind}`, playing);
+
+  // A video call has a picture to show and a voice call has not: keeping room for one that will never come
+  // leaves a hole on the screen.
+  for (const [who, what] of [["alice", said.alice], ["bob", said.bob]]) {
+    if (what.onScreen !== video) {
+      throw new Error(video
+        ? `A video call is not showing the picture on ${who}'s screen`
+        : `A voice call is keeping a hole on ${who}'s screen for a picture that will never come`);
+    }
+  }
+
+  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
+
+  // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being
+  // touched.
+  await waitFor(alice, `alice's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
+  await waitFor(bob, `bob's ${kind} call panel to go away`, `document.getElementById("call-panel").hidden`);
+  said.hungUpOnBothSides = true;
+
+  detail[kind] = said;
 }
 
 async function run() {
@@ -93,52 +162,11 @@ async function run() {
   `);
   detail.bobJoined = true;
 
-  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
-  detail.aliceCalled = await waitFor(alice, "alice's call panel", `
-    !document.getElementById("call-panel").hidden && document.getElementById("call-state").textContent
-  `);
-  // The very first thing the screen says has to be right. Whose call it is is known before the SDK has
-  // written down which way it goes, and a screen that draws a call from nobody is what that looked like.
-  if (!detail.aliceCalled.startsWith("Llamando")) {
-    throw new Error(`Alice placed the call and her screen says: ${detail.aliceCalled}`);
-  }
-
-  // Bob's screen has to ring on its own, and the button to answer has to be the one that is showing.
-  detail.bobWasRung = await waitFor(bob, "bob's screen to ring", `
-    !document.getElementById("answer").hidden && document.getElementById("call-state").textContent
-  `);
-  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
-
-  // Connected is not the same as audible. What has to be true is that the element on the screen has been given
-  // a stream with a live track on it, which is the whole point of a call.
-  const playing = `
-    (() => {
-      const media = document.getElementById("call-media").srcObject;
-      const tracks = media ? media.getAudioTracks() : [];
-      return tracks.some(track => track.readyState === "live") && { tracks: tracks.length };
-    })()
-  `;
-  detail.aliceHears = await waitFor(alice, "alice's screen to be playing bob", playing);
-  detail.bobHears = await waitFor(bob, "bob's screen to be playing alice", playing);
-
-  // This one is a voice call, so there is no picture: the element must be out of the way and still playing.
-  detail.noEmptyPictureBox = await alice.webContents.executeJavaScript(`
-    document.getElementById("call-media").hidden === true
-  `);
-  if (!detail.noEmptyPictureBox) {
-    throw new Error("A voice call is keeping a hole on the screen for a picture that will never come");
-  }
-
-  await alice.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
-
-  // Hanging up is told to the other side over Matrix, so bob's screen has to put itself away without being
-  // touched.
-  await waitFor(alice, "alice's call panel to go away", `document.getElementById("call-panel").hidden`);
-  await waitFor(bob, "bob's call panel to go away", `document.getElementById("call-panel").hidden`);
-  detail.hungUpOnBothSides = true;
+  await ring(alice, bob, { video: false });
+  await ring(alice, bob, { video: true });
 
   server.close();
-  report(true, "two browsers rang each other, answered and hung up");
+  report(true, "two browsers rang each other by voice and by video, answered and hung up");
 }
 
 app.whenReady().then(() => run().catch(error => report(false, error.message)));

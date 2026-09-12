@@ -29,6 +29,8 @@ class DemoApp {
   private sharingId: string | undefined;
   /** The call going on, so the same panel can answer it or hang it up. */
   private callId: string | undefined;
+  /** Answering a video call with only a voice sends nothing to look at, so which kind it is is remembered. */
+  private callIsVideo = false;
   private recorder: MediaRecorder | undefined;
   private previewedUrl: string | undefined;
   private ownUserId: string | undefined;
@@ -971,7 +973,8 @@ class DemoApp {
 
   private async answerThem(): Promise<void> {
     if (!this.callId) return;
-    this.showCall(await this.client.calls.answer(this.callId, { video: false }));
+    // Answered as it was placed: whoever is calling with a camera is waiting to be seen as well as heard.
+    this.showCall(await this.client.calls.answer(this.callId, { video: this.callIsVideo }));
   }
 
   private async hangUp(): Promise<void> {
@@ -983,6 +986,7 @@ class DemoApp {
   private showCall(call: Call): void {
     const isOver = call.state === "ended";
     this.callId = isOver ? undefined : call.id;
+    this.callIsVideo = call.isVideo;
     this.element("call-panel").hidden = isOver;
 
     const placedByMe = call.callerId === this.ownUserId;

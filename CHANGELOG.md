@@ -163,6 +163,14 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Corregido: en una videollamada, quien llamaba no veia nada. Lo que hay que reproducir no llega cuando la
+  llamada cambia de estado, llega cuando llega, y en video eso es casi siempre despues de estar conectada.
+  Solo escuchabamos los cambios de estado, asi que la ultima palabra sobre la llamada era una sin imagen y la
+  pantalla se quedaba esperando. Ahora tambien se escucha `FeedsChanged`, que es lo que el SDK avisa.
+- Corregido: descolgar contestaba siempre sin camara, asi que a quien llamaba con video no se le veia.
+- La comprobacion entre dos navegadores hace ahora las dos llamadas, de voz y de video, y exige que en video
+  haya imagen viva en los dos lados y que en voz no haya nada que mirar. Ademas silencia la ventana: el
+  microfono de mentira es un tono, y el otro lado reproduce lo que recibe.
 - En una llamada de voz el elemento de video se esconde: guardar sitio para una imagen que no va a llegar deja
   un agujero en la pantalla. Escondido, no quitado, porque sigue reproduciendo lo que se le dio.
 - El ejemplo web tiene botones de llamar y de videollamada, aviso de llamada entrante con descolgar y colgar,
