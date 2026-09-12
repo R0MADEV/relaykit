@@ -620,11 +620,18 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async useMicrophone(deviceId: string): Promise<void> {
-    await this.run(() => this.runtime.calls.useMicrophone(this.runtime.getClient(), deviceId));
+    // The account's choice, not one call's: whatever is going on, either way it is carried, switches.
+    await this.run(async () => {
+      await this.runtime.calls.useMicrophone(this.runtime.getClient(), deviceId);
+      await this.runtime.conference.useMicrophone(deviceId);
+    });
   }
 
   async useCamera(deviceId: string): Promise<void> {
-    await this.run(() => this.runtime.calls.useCamera(this.runtime.getClient(), deviceId));
+    await this.run(async () => {
+      await this.runtime.calls.useCamera(this.runtime.getClient(), deviceId);
+      await this.runtime.conference.useCamera(deviceId);
+    });
   }
 
   async listCalls(): Promise<readonly Call[]> {

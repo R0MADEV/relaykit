@@ -84,4 +84,7 @@ que al entrar la sala lo dice y otra persona lo lee, y que al salir deja de deci
 las suposiciones, y todas fallaron al menos una vez antes de quedar bien.
 
 Lo que **no** prueba es la imagen y el sonido: eso necesita navegador, y va en la comprobación con Electron
-(`scripts/check-calls.cjs`), que sigue pendiente para conferencias.
+(`scripts/check-calls.cjs`), que sigue pendiente para conferencias. Tampoco prueba el **cifrado**: las claves
+las reparte el SDK por Matrix y el motor de LiveKit cifra cada frame con ellas antes de que salga del
+navegador (`conference-keys.ts`), pero que el SFU de verdad no pueda leer lo que lleva solo se ve con dos
+navegadores hablando. Está conectado, no comprobado.

@@ -903,7 +903,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** Walking in, whether the conference was already going on or has just been started by walking in. */
   private enter(call: Call): Call {
     this.left.delete(call.id);
-    const joined = this.withParticipant(call, this.requireUserId());
+    // Ringing was it going on without this side. With this side in it there is nothing left to wait for.
+    const joined: Call = { ...this.withParticipant(call, this.requireUserId()), state: "connected" };
     this.calls.set(joined.id, joined);
     return joined;
   }
@@ -1045,6 +1046,37 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.calls.set(call.id, call);
     this.handlers.onCallIncoming?.(call);
     return call;
+  }
+
+  /**
+   * Test helper: somebody else starts a conference in this conversation. It rings here the way a room
+   * rings: not asking to be answered, but there to be joined.
+   */
+  startConferenceAs(conversationId: ConversationId, userId: UserId): Call {
+    const started: Call = {
+      id: `memory-call-${this.nextMessageId++}`,
+      conversationId,
+      callerId: userId,
+      isVideo: false,
+      state: "ringing",
+      startedAt: Date.now(),
+      kind: "conference",
+      participants: nobodyYet,
+      ...nothingTouchedYet
+    };
+    const going = this.withParticipant(started, userId);
+    this.calls.set(going.id, going);
+    this.handlers.onCallIncoming?.(going);
+    return going;
+  }
+
+  /** Test helper: the last of them leaves, and a conference nobody is in is not going on any more. */
+  endConference(callId: string): void {
+    const call = this.calls.get(callId);
+    if (!call) return;
+    this.calls.delete(callId);
+    this.left.delete(callId);
+    this.handlers.onCallChanged?.({ ...call, participants: nobodyYet, state: "ended" });
   }
 
   /** Test helper: somebody else walks into a conference that is already going on. */

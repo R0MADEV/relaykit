@@ -136,3 +136,51 @@ test("who is talking is told apart, so a grid is not repainted for it", async ()
   assert.deepEqual(userIds, ["bob"]);
   await client.stop();
 });
+
+test("a conference somebody else starts is announced, so a screen can offer to join", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const announced = new Promise(resolve => client.on("call.incoming", resolve));
+
+  adapter.startConferenceAs(conversation.id, "bob");
+
+  const call = await announced;
+  assert.equal(call.kind, "conference");
+  // Going on without this side, which for a room is what ringing means: there is something to join.
+  assert.equal(call.state, "ringing");
+  assert.deepEqual(
+    call.participants.map(participant => participant.userId),
+    ["bob"]
+  );
+  await client.stop();
+});
+
+test("joining what was announced is the same call, now with this side in it", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const announced = new Promise(resolve => client.on("call.incoming", resolve));
+  adapter.startConferenceAs(conversation.id, "bob");
+  const ringing = await announced;
+
+  const joined = await client.calls.join(conversation.id);
+
+  assert.equal(joined.id, ringing.id);
+  assert.equal(joined.state, "connected");
+  assert.deepEqual(
+    joined.participants.map(participant => participant.userId),
+    ["bob", "alice"]
+  );
+  await client.stop();
+});
+
+test("a conference that everybody left is over, even for whoever never joined", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const announced = new Promise(resolve => client.on("call.incoming", resolve));
+  adapter.startConferenceAs(conversation.id, "bob");
+  const ringing = await announced;
+  const changed = new Promise(resolve => client.on("call.changed", resolve));
+
+  adapter.endConference(ringing.id);
+
+  assert.equal((await changed).state, "ended");
+  assert.deepEqual(await client.calls.list(), []);
+  await client.stop();
+});

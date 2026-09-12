@@ -78,8 +78,11 @@ export class MatrixRuntime {
     );
     this.conference.watch(
       call => handlers.onCallChanged?.(call),
-      speaking => handlers.onCallSpeaking?.(speaking)
+      speaking => handlers.onCallSpeaking?.(speaking),
+      call => handlers.onCallIncoming?.(call)
     );
+    // A conference somebody else starts rings here the way a room rings: as something there to join.
+    this.conference.follow(this.client);
     this.client.on(ClientEvent.Sync, this.handleSync);
     this.client.on(RoomEvent.Timeline, this.handleTimeline);
     this.client.on(RoomEvent.Redaction, this.handleRedaction);

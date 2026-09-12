@@ -1,7 +1,7 @@
 import { SdkError } from "@relaykit/core";
 import type { ConversationId } from "@relaykit/core";
 import type { MatrixClient } from "matrix-js-sdk";
-import { MatrixRTCSession, isLivekitTransportConfig } from "matrix-js-sdk/lib/matrixrtc/index.js";
+import { isLivekitTransportConfig, type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc/index.js";
 import type { LivekitTransportConfig } from "matrix-js-sdk/lib/matrixrtc/LivekitTransport.js";
 
 /**
@@ -22,9 +22,6 @@ export interface ConferenceTicket {
 
 /** The homeserver advertises where its conferences are carried under this name, alongside its own address. */
 const rtcFociWellKnownKey = "org.matrix.msc4143.rtc_foci";
-
-/** A conference belongs to the conversation it is in, and there is one per conversation. */
-const conferenceSlot = { application: "m.call", id: "" };
 
 export class MatrixRtc {
   /** Given by the application when there is no `.well-known` to ask, which is every development machine. */
@@ -93,7 +90,9 @@ export class MatrixRtc {
     if (!room) {
       throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to hold a conference in");
     }
-    return MatrixRTCSession.sessionForSlot(client, room, conferenceSlot);
+    // The SDK's own manager keeps one session per room. Asking it, and not making another, is what makes the
+    // conference that rang and the conference that is joined the same object with the same memberships.
+    return client.matrixRTC.getRoomSession(room);
   }
 }
 
