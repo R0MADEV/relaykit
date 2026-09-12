@@ -120,7 +120,7 @@ import {
   renameMatrixConversation,
   setMatrixFavourite
 } from "./matrix-conversations.js";
-import { downloadMatrixAttachment, previewMatrixLink, sendMatrixAttachment, askWhatTheHomeserverTakes} from "./matrix-media.js";
+import { MatrixMedia, downloadMatrixAttachment, previewMatrixLink, askWhatTheHomeserverTakes } from "./matrix-media.js";
 import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
 import {
   listMatrixLiveLocations,
@@ -139,6 +139,9 @@ import {
 import { withTranslatedErrors } from "./matrix-errors.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
+  /** Files on their way up, so one can be stopped while it is going. */
+  private readonly media = new MatrixMedia();
+
   private readonly runtime: MatrixRuntime;
 
   constructor(options: MatrixJsAdapterOptions = {}) {
@@ -354,8 +357,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
     transactionId?: string,
     onProgress?: (fraction: number) => void
   ): Promise<Message> {
-    return this.reaching(conversationId, () =>
-      sendMatrixAttachment(this.runtime.getClient(), conversationId, file, transactionId, onProgress)
+    return this.reaching(conversationId, () => {
+      this.media.remember(this.runtime.getClient());
+      return this.media.send(this.runtime.getClient(), conversationId, file, transactionId, onProgress);
+    }
     );
   }
 
@@ -509,6 +514,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   async listCalls(): Promise<readonly Call[]> {
     return this.runtime.calls.list();
+  }
+
+  async stopSendingFile(transactionId: string): Promise<boolean> {
+    return this.media.stopSending(transactionId);
   }
 
   async mediaLimits(): Promise<MediaLimits> {

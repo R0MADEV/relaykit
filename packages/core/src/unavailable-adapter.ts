@@ -413,6 +413,10 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new SdkError("NOT_CONFIGURED", "Cannot list calls");
   }
 
+  async stopSendingFile(): Promise<boolean> {
+    return false;
+  }
+
   async mediaLimits(): Promise<MediaLimits> {
     throw new SdkError("NOT_CONFIGURED", "Cannot ask what the homeserver takes");
   }

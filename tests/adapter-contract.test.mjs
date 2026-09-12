@@ -508,6 +508,12 @@ function runContract(name, setup) {
       assert.ok(waiting.every(item => typeof item.isMention === "boolean"));
     });
 
+    it("stopping a file that is not being sent says so rather than pretending", async () => {
+      // Nothing is going up, so there is nothing to stop. Saying otherwise would have a screen draw a file as
+      // cancelled while it carries on.
+      assert.equal(await adapter.stopSendingFile("nothing-is-going-up"), false);
+    });
+
     it("says what the homeserver will take, before anybody sends it", async () => {
       const limits = await adapter.mediaLimits();
 

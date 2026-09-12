@@ -163,6 +163,11 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Cancelar un archivo que se esta subiendo ya funciona. Antes estaba **prohibido**: "Only queued or failed
+  messages can be cancelled", justo en el momento en que alguien mas lo quiere — cuarenta megas desde el movil
+  y el archivo equivocado. Lo para el SDK (`cancelUpload`), al que hay que darle la promesa que devolvio su
+  propia subida, asi que es lo que se guarda mientras va. Para un mensaje ya enviado se sigue negando, y con
+  razon: eso ya se dijo.
 - `media.limits()`: lo que el homeserver acepta, preguntado con su propio metodo (`getMediaConfig`). Enviar un
   archivo comprueba el tamano **antes** de gastarlo: un fichero rechazado despues de subirlo son diez minutos
   de la conexion de alguien para nada, y enterarse al final es el peor momento. Synapse dice 50 MB.

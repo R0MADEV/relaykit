@@ -17,12 +17,54 @@ export interface MatrixAttachmentSource {
   readonly file?: IEncryptedFile;
 }
 
+/**
+ * Files on their way up, and stopping them.
+ *
+ * Kept in an instance rather than beside the module, because two accounts open at once are two sets of
+ * uploads and stopping one must not stop the other's.
+ */
+export class MatrixMedia {
+  private readonly onTheirWay = new Map<string, Promise<unknown>>();
+
+  /** The same send, with the upload remembered for as long as it is going. */
+  async send(
+    client: MatrixClient,
+    conversationId: ConversationId,
+    file: FileInput,
+    transactionId: string | undefined,
+    onProgress: ((fraction: number) => void) | undefined
+  ): Promise<Message> {
+    return sendMatrixAttachment(client, conversationId, file, transactionId, onProgress, this.onTheirWay);
+  }
+
+  /**
+   * Stopping a file on its way up. The SDK does the stopping, and it wants the promise its own upload gave
+   * back, so that is what was kept. Says whether there was anything to stop rather than pretending there was.
+   */
+  async stopSending(transactionId: string): Promise<boolean> {
+    const going = this.onTheirWay.get(transactionId);
+    if (!going) return false;
+    this.onTheirWay.delete(transactionId);
+    return (this.client?.cancelUpload(going as Promise<never>)) ?? false;
+  }
+
+  /** The client that is doing the uploading, remembered when one starts. */
+  private client: MatrixClient | undefined;
+
+  /** Told which client is uploading, so stopping does not need to be handed one. */
+  remember(client: MatrixClient): void {
+    this.client = client;
+  }
+}
+
 export async function sendMatrixAttachment(
   client: MatrixClient,
   conversationId: ConversationId,
   file: FileInput,
   transactionId: string | undefined,
-  onProgress: ((fraction: number) => void) | undefined
+  onProgress: ((fraction: number) => void) | undefined,
+  /** Where to leave the upload while it is going, so it can be stopped. */
+  onTheirWay?: Map<string, Promise<unknown>>
 ): Promise<Message> {
   // Uploading before knowing whether the room is encrypted could publish the file in the clear.
   const room = await waitForRoom(client, conversationId);
@@ -31,11 +73,16 @@ export async function sendMatrixAttachment(
   const bytes = encrypted ? encrypted.data : toArrayBuffer(file.data);
   // The SDK only reports intermediate progress in browsers (XHR); always bracket the upload with 0 and 1.
   onProgress?.(0);
-  const upload = await client.uploadContent(new Blob([bytes]), {
+  // Kept while it is going, and let go afterwards: the SDK stops an upload by the promise it gave back.
+  const going = client.uploadContent(new Blob([bytes]), {
     type: isEncrypted ? "application/octet-stream" : file.mimeType,
     includeFilename: !isEncrypted,
     name: file.name,
     progressHandler: progress => onProgress?.(progress.total > 0 ? Math.min(progress.loaded / progress.total, 0.99) : 0)
+  });
+  if (transactionId) onTheirWay?.set(transactionId, going);
+  const upload = await going.finally(() => {
+    if (transactionId) onTheirWay?.delete(transactionId);
   });
   const thumbnail = file.thumbnail ? await uploadThumbnail(client, file.thumbnail, isEncrypted) : undefined;
   onProgress?.(1);

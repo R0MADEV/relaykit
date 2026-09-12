@@ -138,6 +138,8 @@ export interface MessagingAdapter {
   previewLink(url: string): Promise<LinkPreview>;
   /** What the homeserver will take, so nothing is sent that it is going to refuse. */
   mediaLimits(): Promise<MediaLimits>;
+  /** Stops a file on its way up. Says whether there was one to stop. */
+  stopSendingFile(transactionId: string): Promise<boolean>;
   /** Calls. The signalling goes over Matrix; the audio and the video do not. */
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;

@@ -943,6 +943,11 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   /** With no homeserver to ask, this double knows about one link and no others. */
   /** A double takes what fits in a browser's memory; the number is here so a test has one to reason about. */
+  /** A double sends instantly, so there is never one on its way to stop. */
+  async stopSendingFile(): Promise<boolean> {
+    return false;
+  }
+
   async mediaLimits(): Promise<MediaLimits> {
     return { maxUploadBytes: 100 * 1024 * 1024 };
   }

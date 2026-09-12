@@ -169,7 +169,12 @@ export class OutboxOperations {
     if (!message) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
-    const isBeingDelivered = message.status === "sent" || this.inFlight.has(message.id);
+    // A file still going up is the one case worth stopping in the middle: it has not been said to anybody
+    // yet, and what is left of it is the upload, which is the part that costs somebody their connection.
+    const wasStopped = this.inFlight.has(message.id)
+      ? await this.context.adapter.stopSendingFile(message.id).catch(() => false)
+      : false;
+    const isBeingDelivered = message.status === "sent" || (this.inFlight.has(message.id) && !wasStopped);
     if (isBeingDelivered) {
       throw new SdkError("INVALID_INPUT", "Only queued or failed messages can be cancelled");
     }
