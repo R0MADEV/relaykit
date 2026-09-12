@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "matrix:up": "sh infrastructure/matrix/up.sh",
+    "livekit:up": "sh infrastructure/livekit/up.sh",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run build",
     "smoke:matrix": "node scripts/smoke-matrix.mjs",
     "smoke:relaykit": "node scripts/smoke-relaykit.mjs",

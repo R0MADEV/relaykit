@@ -54,7 +54,10 @@ export class UnavailableAdapter implements MessagingAdapter {
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
-    throw new SdkError("NOT_CONFIGURED", `Cannot create conversation for ${input.participantIds.length} participants`);
+    throw new SdkError(
+      "NOT_CONFIGURED",
+      `Cannot create conversation for ${input.participantIds.length} participants`
+    );
   }
 
   async joinConversation(conversationId: ConversationId): Promise<Conversation> {
@@ -355,6 +358,10 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async placeCall(): Promise<Call> {
     throw new SdkError("NOT_CONFIGURED", "Cannot place a call");
+  }
+
+  async joinCall(): Promise<Call> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot join a call");
   }
 
   async answerCall(): Promise<Call> {

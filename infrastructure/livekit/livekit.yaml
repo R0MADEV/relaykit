@@ -1,0 +1,15 @@
+# LiveKit for development only: one key in the file, no TLS, and the relay pointed at localhost.
+port: 7880
+rtc:
+  tcp_port: 7881
+  # A short range on purpose: Docker Desktop publishes UDP ports one by one, and a thousand of them take
+  # minutes to come up. Twenty is enough for the smoke checks.
+  port_range_start: 50000
+  port_range_end: 50019
+  # Without this the server hands out the address it has inside Docker, which means nothing to a browser.
+  use_external_ip: false
+keys:
+  # The secret has to be 32 characters or more, or the server refuses to start.
+  devkey: devsecretdevsecretdevsecretdevse
+logging:
+  level: info

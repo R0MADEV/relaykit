@@ -120,7 +120,12 @@ import {
   renameMatrixConversation,
   setMatrixFavourite
 } from "./matrix-conversations.js";
-import { MatrixMedia, downloadMatrixAttachment, previewMatrixLink, askWhatTheHomeserverTakes } from "./matrix-media.js";
+import {
+  MatrixMedia,
+  downloadMatrixAttachment,
+  previewMatrixLink,
+  askWhatTheHomeserverTakes
+} from "./matrix-media.js";
 import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
 import {
   listMatrixLiveLocations,
@@ -176,30 +181,42 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   async joinConversation(conversationId: ConversationId, via: readonly string[] = []): Promise<Conversation> {
     // Joining one the window never sent has to reach for it, or the wait for it to be usable never ends.
-    return this.reaching(conversationId, () => joinConversation(this.runtime.getClient(), conversationId, via));
+    return this.reaching(conversationId, () =>
+      joinConversation(this.runtime.getClient(), conversationId, via)
+    );
   }
 
   async leaveConversation(conversationId: ConversationId): Promise<void> {
-    await this.reaching(conversationId, () => leaveMatrixConversation(this.runtime.getClient(), conversationId));
+    await this.reaching(conversationId, () =>
+      leaveMatrixConversation(this.runtime.getClient(), conversationId)
+    );
   }
 
   async inviteToConversation(conversationId: ConversationId, userId: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => inviteToMatrixConversation(this.runtime.getClient(), conversationId, userId));
+    return this.reaching(conversationId, () =>
+      inviteToMatrixConversation(this.runtime.getClient(), conversationId, userId)
+    );
   }
 
   async renameConversation(conversationId: ConversationId, title: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => renameMatrixConversation(this.runtime.getClient(), conversationId, title));
+    return this.reaching(conversationId, () =>
+      renameMatrixConversation(this.runtime.getClient(), conversationId, title)
+    );
   }
 
   async setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void> {
-    await this.reaching(conversationId, () => this.runtime.getClient().sendTyping(conversationId, isTyping, timeoutMs));
+    await this.reaching(conversationId, () =>
+      this.runtime.getClient().sendTyping(conversationId, isTyping, timeoutMs)
+    );
   }
 
   async setPresence(update: PresenceUpdate): Promise<void> {
-    await this.run(() => this.runtime.getClient().setPresence({
-      presence: update.presence,
-      ...(update.statusMessage ? { status_msg: update.statusMessage } : {})
-    }));
+    await this.run(() =>
+      this.runtime.getClient().setPresence({
+        presence: update.presence,
+        ...(update.statusMessage ? { status_msg: update.statusMessage } : {})
+      })
+    );
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
@@ -217,11 +234,19 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage> {
-    return this.reaching(conversationId, () => loadMoreMessages(this.runtime.getClient(), conversationId, limit));
+    return this.reaching(conversationId, () =>
+      loadMoreMessages(this.runtime.getClient(), conversationId, limit)
+    );
   }
 
-  async sendMessage(conversationId: ConversationId, body: string, options: SendContent = {}): Promise<Message> {
-    return this.reaching(conversationId, () => sendMessage(this.runtime.getClient(), conversationId, body, options));
+  async sendMessage(
+    conversationId: ConversationId,
+    body: string,
+    options: SendContent = {}
+  ): Promise<Message> {
+    return this.reaching(conversationId, () =>
+      sendMessage(this.runtime.getClient(), conversationId, body, options)
+    );
   }
 
   rotateConversationKeys(conversationId: ConversationId): Promise<void> {
@@ -233,15 +258,21 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   upgradeConversation(conversationId: ConversationId): Promise<Conversation> {
-    return this.reaching(conversationId, () => upgradeMatrixConversation(this.runtime.getClient(), conversationId));
+    return this.reaching(conversationId, () =>
+      upgradeMatrixConversation(this.runtime.getClient(), conversationId)
+    );
   }
 
   setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixAlias(this.runtime.getClient(), conversationId, alias));
+    return this.reaching(conversationId, () =>
+      setMatrixAlias(this.runtime.getClient(), conversationId, alias)
+    );
   }
 
   publishConversation(conversationId: ConversationId, listed: boolean): Promise<void> {
-    return this.reaching(conversationId, () => publishMatrixConversation(this.runtime.getClient(), conversationId, listed));
+    return this.reaching(conversationId, () =>
+      publishMatrixConversation(this.runtime.getClient(), conversationId, listed)
+    );
   }
 
   discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]> {
@@ -256,11 +287,15 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   setJoinRule(conversationId: ConversationId, rule: JoinRule): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixJoinRule(this.runtime.getClient(), conversationId, rule));
+    return this.reaching(conversationId, () =>
+      setMatrixJoinRule(this.runtime.getClient(), conversationId, rule)
+    );
   }
 
   setHistoryVisibility(conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixHistoryVisibility(this.runtime.getClient(), conversationId, visibility));
+    return this.reaching(conversationId, () =>
+      setMatrixHistoryVisibility(this.runtime.getClient(), conversationId, visibility)
+    );
   }
 
   knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void> {
@@ -292,27 +327,42 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixTopic(this.runtime.getClient(), conversationId, topic));
+    return this.reaching(conversationId, () =>
+      setMatrixTopic(this.runtime.getClient(), conversationId, topic)
+    );
   }
 
   setConversationAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixConversationAvatar(this.runtime.getClient(), conversationId, image));
+    return this.reaching(conversationId, () =>
+      setMatrixConversationAvatar(this.runtime.getClient(), conversationId, image)
+    );
   }
 
-  setConversationNotifications(conversationId: ConversationId, level: NotificationLevel): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixNotifications(this.runtime.getClient(), conversationId, level));
+  setConversationNotifications(
+    conversationId: ConversationId,
+    level: NotificationLevel
+  ): Promise<Conversation> {
+    return this.reaching(conversationId, () =>
+      setMatrixNotifications(this.runtime.getClient(), conversationId, level)
+    );
   }
 
   pinMessage(conversationId: ConversationId, messageId: string): Promise<void> {
-    return this.reaching(conversationId, () => pinMatrixMessage(this.runtime.getClient(), conversationId, messageId));
+    return this.reaching(conversationId, () =>
+      pinMatrixMessage(this.runtime.getClient(), conversationId, messageId)
+    );
   }
 
   unpinMessage(conversationId: ConversationId, messageId: string): Promise<void> {
-    return this.reaching(conversationId, () => unpinMatrixMessage(this.runtime.getClient(), conversationId, messageId));
+    return this.reaching(conversationId, () =>
+      unpinMatrixMessage(this.runtime.getClient(), conversationId, messageId)
+    );
   }
 
   listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]> {
-    return this.reaching(conversationId, () => listMatrixPinnedMessages(this.runtime.getClient(), conversationId));
+    return this.reaching(conversationId, () =>
+      listMatrixPinnedMessages(this.runtime.getClient(), conversationId)
+    );
   }
 
   async listSpaces(): Promise<readonly Space[]> {
@@ -340,15 +390,21 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async listThread(conversationId: ConversationId, rootId: string): Promise<readonly Message[]> {
-    return this.reaching(conversationId, () => listMatrixThread(this.runtime.getClient(), conversationId, rootId));
+    return this.reaching(conversationId, () =>
+      listMatrixThread(this.runtime.getClient(), conversationId, rootId)
+    );
   }
 
   getPermissions(conversationId: ConversationId): Promise<ConversationPermissions> {
-    return this.reaching(conversationId, () => readMatrixPermissions(this.runtime.getClient(), conversationId));
+    return this.reaching(conversationId, () =>
+      readMatrixPermissions(this.runtime.getClient(), conversationId)
+    );
   }
 
   setRole(conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> {
-    return this.reaching(conversationId, () => setMatrixRole(this.runtime.getClient(), conversationId, userId, role));
+    return this.reaching(conversationId, () =>
+      setMatrixRole(this.runtime.getClient(), conversationId, userId, role)
+    );
   }
 
   async sendAttachment(
@@ -360,24 +416,39 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.reaching(conversationId, () => {
       this.media.remember(this.runtime.getClient());
       return this.media.send(this.runtime.getClient(), conversationId, file, transactionId, onProgress);
-    }
+    });
+  }
+
+  removeFromConversation(
+    conversationId: ConversationId,
+    userId: string,
+    reason?: string
+  ): Promise<Conversation> {
+    return this.reaching(conversationId, () =>
+      changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "kick", reason)
     );
   }
 
-  removeFromConversation(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "kick", reason));
-  }
-
-  banFromConversation(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "ban", reason));
+  banFromConversation(
+    conversationId: ConversationId,
+    userId: string,
+    reason?: string
+  ): Promise<Conversation> {
+    return this.reaching(conversationId, () =>
+      changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "ban", reason)
+    );
   }
 
   unbanFromConversation(conversationId: ConversationId, userId: string): Promise<Conversation> {
-    return this.reaching(conversationId, () => changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "unban"));
+    return this.reaching(conversationId, () =>
+      changeMatrixMembership(this.runtime.getClient(), conversationId, userId, "unban")
+    );
   }
 
   setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixFavourite(this.runtime.getClient(), conversationId, favourite));
+    return this.reaching(conversationId, () =>
+      setMatrixFavourite(this.runtime.getClient(), conversationId, favourite)
+    );
   }
 
   listIgnoredUsers(): Promise<readonly string[]> {
@@ -385,11 +456,15 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   setIgnoredUsers(userIds: readonly string[]): Promise<void> {
-    return this.run(async () => { await this.runtime.getClient().setIgnoredUsers([...userIds]); });
+    return this.run(async () => {
+      await this.runtime.getClient().setIgnoredUsers([...userIds]);
+    });
   }
 
   setDisplayName(displayName: string): Promise<void> {
-    return this.run(async () => { await this.runtime.getClient().setDisplayName(displayName); });
+    return this.run(async () => {
+      await this.runtime.getClient().setDisplayName(displayName);
+    });
   }
 
   setAvatar(image: AvatarImage): Promise<void> {
@@ -401,7 +476,9 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   renameDevice(deviceId: string, displayName: string): Promise<void> {
-    return this.run(async () => { await this.runtime.getClient().setDeviceDetails(deviceId, { display_name: displayName }); });
+    return this.run(async () => {
+      await this.runtime.getClient().setDeviceDetails(deviceId, { display_name: displayName });
+    });
   }
 
   signOutDevices(deviceIds: readonly string[], options: SignOutOptions): Promise<void> {
@@ -412,7 +489,11 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(() => getMatrixProfile(this.runtime.getClient(), userId, conversationId));
   }
 
-  getAvatar(userId: string, conversationId?: ConversationId, size?: number): Promise<AvatarImage | undefined> {
+  getAvatar(
+    userId: string,
+    conversationId?: ConversationId,
+    size?: number
+  ): Promise<AvatarImage | undefined> {
     return this.run(() => getMatrixAvatar(this.runtime.getClient(), userId, conversationId, size));
   }
 
@@ -422,7 +503,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
     return this.reaching(conversationId, () =>
-      startMatrixLiveLocation(this.runtime.getClient(), conversationId, input));
+      startMatrixLiveLocation(this.runtime.getClient(), conversationId, input)
+    );
   }
 
   updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
@@ -435,20 +517,26 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
     return this.reaching(conversationId, () =>
-      listMatrixLiveLocations(this.runtime.getClient(), conversationId));
+      listMatrixLiveLocations(this.runtime.getClient(), conversationId)
+    );
   }
 
   startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
-    return this.reaching(conversationId, () => startMatrixPoll(this.runtime.getClient(), conversationId, input));
+    return this.reaching(conversationId, () =>
+      startMatrixPoll(this.runtime.getClient(), conversationId, input)
+    );
   }
 
   voteInPoll(conversationId: ConversationId, pollId: string, answerId: string): Promise<void> {
     return this.reaching(conversationId, () =>
-      voteInMatrixPoll(this.runtime.getClient(), conversationId, pollId, answerId));
+      voteInMatrixPoll(this.runtime.getClient(), conversationId, pollId, answerId)
+    );
   }
 
   closePoll(conversationId: ConversationId, pollId: string): Promise<void> {
-    return this.reaching(conversationId, () => closeMatrixPoll(this.runtime.getClient(), conversationId, pollId));
+    return this.reaching(conversationId, () =>
+      closeMatrixPoll(this.runtime.getClient(), conversationId, pollId)
+    );
   }
 
   listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
@@ -457,7 +545,14 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     return this.reaching(conversationId, async () =>
-      this.runtime.calls.place(this.runtime.getClient(), conversationId, options));
+      this.runtime.calls.place(this.runtime.getClient(), conversationId, options)
+    );
+  }
+
+  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+    return this.reaching(conversationId, async () =>
+      this.runtime.conference.join(this.runtime.getClient(), conversationId, options)
+    );
   }
 
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call> {
@@ -465,7 +560,11 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async hangUpCall(callId: string): Promise<void> {
-    await this.run(async () => this.runtime.calls.hangUp(callId));
+    await this.forCall(
+      callId,
+      async () => this.runtime.calls.hangUp(callId),
+      () => this.runtime.conference.leave(callId)
+    );
   }
 
   async rejectCall(callId: string): Promise<void> {
@@ -473,11 +572,19 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.run(() => this.runtime.calls.muteMicrophone(callId, muted));
+    await this.forCall(
+      callId,
+      () => this.runtime.calls.muteMicrophone(callId, muted),
+      () => this.runtime.conference.setMicrophone(callId, !muted)
+    );
   }
 
   async muteCallCamera(callId: string, muted: boolean): Promise<void> {
-    await this.run(() => this.runtime.calls.muteCamera(callId, muted));
+    await this.forCall(
+      callId,
+      () => this.runtime.calls.muteCamera(callId, muted),
+      () => this.runtime.conference.setCamera(callId, !muted)
+    );
   }
 
   async pressDigitInCall(callId: string, digit: string): Promise<void> {
@@ -489,7 +596,11 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
-    await this.run(() => this.runtime.calls.shareScreen(callId, sharing));
+    await this.forCall(
+      callId,
+      () => this.runtime.calls.shareScreen(callId, sharing),
+      () => this.runtime.conference.setScreenShare(callId, sharing)
+    );
   }
 
   async joinCalls(callId: string, otherCallId: string): Promise<void> {
@@ -497,7 +608,11 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async callQuality(callId: string): Promise<CallQuality> {
-    return this.run(() => this.runtime.calls.quality(callId));
+    return this.forCall(
+      callId,
+      () => this.runtime.calls.quality(callId),
+      () => this.runtime.conference.quality(callId)
+    );
   }
 
   async transferCall(callId: string, userId: string): Promise<void> {
@@ -513,7 +628,17 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async listCalls(): Promise<readonly Call[]> {
-    return this.runtime.calls.list();
+    // One list, whichever way each of them is carried: a screen paints what is going on, not how.
+    return [...this.runtime.calls.list(), ...this.runtime.conference.list()];
+  }
+
+  /**
+   * The same thing asked of a direct call and of a conference is done two different ways underneath. Which
+   * one it is, is something the call id already knows, so an application never has to say.
+   */
+  private forCall<T>(callId: string, ofDirect: () => Promise<T>, ofConference: () => Promise<T>): Promise<T> {
+    const isAConference = this.runtime.conference.isGoingOn(callId);
+    return this.run(isAConference ? ofConference : ofDirect);
   }
 
   async stopSendingFile(transactionId: string): Promise<boolean> {
@@ -553,7 +678,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
       const room = this.runtime.getClient().getRoom(conversationId);
       const event = room?.findEventById(messageId);
       if (!room || !event) return [];
-      return room.getReceiptsForEvent(event)
+      return room
+        .getReceiptsForEvent(event)
         .filter(receipt => receipt.type === ReceiptType.Read)
         .map(receipt => ({
           conversationId,
@@ -564,12 +690,20 @@ export class MatrixJsAdapter implements MessagingAdapter {
     });
   }
 
-  async markMessageRead(conversationId: ConversationId, messageId: string, options: MarkReadOptions = {}): Promise<void> {
-    await this.reaching(conversationId, () => markMatrixRead(this.runtime.getClient(), conversationId, messageId, options));
+  async markMessageRead(
+    conversationId: ConversationId,
+    messageId: string,
+    options: MarkReadOptions = {}
+  ): Promise<void> {
+    await this.reaching(conversationId, () =>
+      markMatrixRead(this.runtime.getClient(), conversationId, messageId, options)
+    );
   }
 
   setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation> {
-    return this.reaching(conversationId, () => setMatrixUnread(this.runtime.getClient(), conversationId, unread));
+    return this.reaching(conversationId, () =>
+      setMatrixUnread(this.runtime.getClient(), conversationId, unread)
+    );
   }
 
   listPendingNotifications(limit: number): Promise<readonly Notification[]> {
@@ -597,11 +731,15 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async addReaction(conversationId: ConversationId, messageId: string, key: string): Promise<Reaction> {
-    return this.reaching(conversationId, () => addMatrixReaction(this.runtime.getClient(), conversationId, messageId, key));
+    return this.reaching(conversationId, () =>
+      addMatrixReaction(this.runtime.getClient(), conversationId, messageId, key)
+    );
   }
 
   async removeReaction(conversationId: ConversationId, reactionId: string): Promise<void> {
-    await this.reaching(conversationId, () => removeMatrixReaction(this.runtime.getClient(), conversationId, reactionId));
+    await this.reaching(conversationId, () =>
+      removeMatrixReaction(this.runtime.getClient(), conversationId, reactionId)
+    );
   }
 
   async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined> {
@@ -625,7 +763,9 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
-    return this.run(() => recoverWithKey(this.runtime.getClient(), this.runtime.secretStorageKeys, recoveryKey));
+    return this.run(() =>
+      recoverWithKey(this.runtime.getClient(), this.runtime.secretStorageKeys, recoveryKey)
+    );
   }
 
   requestVerification(
@@ -670,7 +810,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
    * conversations is synced, one that fell outside it is not held locally, and everything that waits for it
    * would wait forever. Reaching for it first is what makes the window invisible to whoever uses this.
    */
-  private reaching<Result>(conversationId: ConversationId, operation: () => Promise<Result>): Promise<Result> {
+  private reaching<Result>(
+    conversationId: ConversationId,
+    operation: () => Promise<Result>
+  ): Promise<Result> {
     return this.run(async () => {
       await this.runtime.reachFor(conversationId);
       return operation();

@@ -7,6 +7,8 @@ export type SdkErrorCode =
   | "MESSAGE_NOT_FOUND"
   | "CONVERSATION_NOT_FOUND"
   | "VERIFICATION_NOT_FOUND"
+  /** Asked for something this kind of call or this homeserver does not do. Not a mistake by the caller. */
+  | "NOT_SUPPORTED"
   | "ADAPTER_ERROR"
   | "RATE_LIMITED"
   | "USERNAME_TAKEN"

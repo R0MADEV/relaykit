@@ -1,10 +1,9 @@
+import type { MatrixEvent, IndexedDBStore } from "matrix-js-sdk";
 import {
   ClientEvent,
   HttpApiEvent,
-  MatrixEvent,
   RoomEvent,
   RoomMemberEvent,
-  IndexedDBStore,
   createClient,
   type MatrixClient,
   type Room,
@@ -12,11 +11,19 @@ import {
 } from "matrix-js-sdk";
 import type { AdapterHandlers, Session } from "@relaykit/core";
 import { createBrowserStore, handleSync, waitForInitialSync } from "./matrix-sync.js";
-import { handleClientEvent, handleReceipt, handleRedaction, handleTimeline, handleTyping } from "./matrix-handlers.js";
+import {
+  handleClientEvent,
+  handleReceipt,
+  handleRedaction,
+  handleTimeline,
+  handleTyping
+} from "./matrix-handlers.js";
 import { mapConversation } from "./matrix-mapper.js";
 import { ReactionTracker } from "./reaction-tracker.js";
 import { openTheWindow, type ConversationWindow } from "./matrix-window.js";
 import { MatrixCalls } from "./matrix-calls.js";
+import { MatrixConference } from "./matrix-conference.js";
+import { MatrixRtc } from "./matrix-rtc.js";
 import { SecretStorageKeyHolder } from "./matrix-security.js";
 import { MatrixVerificationTracker } from "./matrix-verification.js";
 import type { MatrixJsAdapterOptions } from "./types.js";
@@ -29,10 +36,15 @@ export class MatrixRuntime {
   private readonly lastTypingByRoom = new Map<string, string>();
   private window: ConversationWindow | undefined;
   readonly calls = new MatrixCalls();
+  readonly rtc: MatrixRtc;
+  readonly conference: MatrixConference;
   readonly secretStorageKeys = new SecretStorageKeyHolder();
   readonly verification = new MatrixVerificationTracker();
 
-  constructor(private readonly options: MatrixJsAdapterOptions) {}
+  constructor(private readonly options: MatrixJsAdapterOptions) {
+    this.rtc = new MatrixRtc(options.conferenceServiceUrl);
+    this.conference = new MatrixConference(this.rtc);
+  }
 
   async start(session: Session, handlers: AdapterHandlers): Promise<void> {
     this.handlers = handlers;
@@ -46,9 +58,13 @@ export class MatrixRuntime {
       ...(session.deviceId ? { deviceId: session.deviceId } : {})
     });
     if (this.store) await this.store.startup();
-    const cryptoOptions = typeof indexedDB === "undefined"
-      ? { useIndexedDB: false }
-      : { useIndexedDB: true, cryptoDatabasePrefix: `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}` };
+    const cryptoOptions =
+      typeof indexedDB === "undefined"
+        ? { useIndexedDB: false }
+        : {
+            useIndexedDB: true,
+            cryptoDatabasePrefix: `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}`
+          };
     await this.client.initRustCrypto(cryptoOptions);
     this.verification.start(this.client, handlers);
     // The homeserver refusing this session is not an ordinary error: nobody here asked for it, and there is
@@ -60,6 +76,10 @@ export class MatrixRuntime {
       call => handlers.onCallIncoming?.(call),
       call => handlers.onCallChanged?.(call)
     );
+    this.conference.watch(
+      call => handlers.onCallChanged?.(call),
+      speaking => handlers.onCallSpeaking?.(speaking)
+    );
     this.client.on(ClientEvent.Sync, this.handleSync);
     this.client.on(RoomEvent.Timeline, this.handleTimeline);
     this.client.on(RoomEvent.Redaction, this.handleRedaction);
@@ -68,9 +88,10 @@ export class MatrixRuntime {
     this.client.on(RoomMemberEvent.Typing, this.handleTyping);
     this.client.on(ClientEvent.Event, this.handleClientEvent);
     // Asking for a window means the homeserver sends the most recent conversations instead of all of them.
-    this.window = this.options.conversationWindow === undefined
-      ? undefined
-      : openTheWindow(this.client, this.options.conversationWindow);
+    this.window =
+      this.options.conversationWindow === undefined
+        ? undefined
+        : openTheWindow(this.client, this.options.conversationWindow);
     await waitForInitialSync(this.client, this.options.initialSyncLimit ?? 20, this.window?.sliding);
   }
 
@@ -108,6 +129,7 @@ export class MatrixRuntime {
     this.lastTypingByRoom.clear();
     this.window = undefined;
     this.calls.forget();
+    await this.conference.forget();
   }
 
   async logout(): Promise<void> {
@@ -124,12 +146,20 @@ export class MatrixRuntime {
     return this.client;
   }
 
-  private readonly handleTimeline = (event: MatrixEvent, room: Room | undefined, start: boolean | undefined): void => {
+  private readonly handleTimeline = (
+    event: MatrixEvent,
+    room: Room | undefined,
+    start: boolean | undefined
+  ): void => {
     this.reactions.track(event);
     void this.handleTimelineEvent(event, room, start);
   };
 
-  private async handleTimelineEvent(event: MatrixEvent, room: Room | undefined, start: boolean | undefined): Promise<void> {
+  private async handleTimelineEvent(
+    event: MatrixEvent,
+    room: Room | undefined,
+    start: boolean | undefined
+  ): Promise<void> {
     const resolvedRoom = room ?? this.findRoom(event);
     handleTimeline(event, resolvedRoom, start, this.handlers, {
       decryptEvent: current => this.getClient().decryptEventIfNeeded(current),
@@ -190,6 +220,6 @@ export class MatrixRuntime {
 
   private findRoom(event: MatrixEvent): Room | undefined {
     const roomId = event.getRoomId();
-    return roomId ? this.getClient().getRoom(roomId) ?? undefined : undefined;
+    return roomId ? (this.getClient().getRoom(roomId) ?? undefined) : undefined;
   }
 }

@@ -8,6 +8,7 @@ import {
   type MatrixCall
 } from "matrix-js-sdk/lib/webrtc/call.js";
 import type { Call, CallQuality, CallState, ConversationId, PlaceCallOptions } from "@relaykit/core";
+import { qualityFrom } from "./call-quality.js";
 
 /**
  * Calls are the SDK's own: it creates them, signals over Matrix and negotiates the media between devices.
@@ -37,13 +38,20 @@ export class MatrixCalls {
   watch(client: MatrixClient, announce: (call: Call) => void, report: (call: Call) => void): void {
     this.report = report;
     this.ownUserId = client.getSafeUserId();
-    client.on("Call.incoming" as never, ((call: MatrixCall) => {
-      this.keep(call);
-      announce(this.describe(call));
-    }) as never);
+    client.on(
+      "Call.incoming" as never,
+      ((call: MatrixCall) => {
+        this.keep(call);
+        announce(this.describe(call));
+      }) as never
+    );
   }
 
-  async place(client: MatrixClient, conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+  async place(
+    client: MatrixClient,
+    conversationId: ConversationId,
+    options: PlaceCallOptions
+  ): Promise<Call> {
     const call = client.createCall(conversationId);
     if (!call) {
       throw new Error("This conversation cannot be called");
@@ -78,11 +86,13 @@ export class MatrixCalls {
    * is the worst one.
    */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, call => this.settling(
-      () => call.setMicrophoneMuted(muted),
-      () => call.isMicrophoneMuted() === muted,
-      `The call could not be ${muted ? "silenced" : "let speak again"} just now`
-    ));
+    await this.changing(callId, call =>
+      this.settling(
+        () => call.setMicrophoneMuted(muted),
+        () => call.isMicrophoneMuted() === muted,
+        `The call could not be ${muted ? "silenced" : "let speak again"} just now`
+      )
+    );
   }
 
   /**
@@ -93,11 +103,13 @@ export class MatrixCalls {
    * So each way waits for what really has to be true: gone when it is away, there when it is back.
    */
   async muteCamera(callId: string, muted: boolean): Promise<void> {
-    await this.changing(callId, call => this.settling(
-      () => call.setLocalVideoMuted(muted),
-      () => call.isLocalVideoMuted() === muted && call.hasLocalUserMediaVideoTrack === !muted,
-      `The camera could not be ${muted ? "put away" : "brought back"} just now`
-    ));
+    await this.changing(callId, call =>
+      this.settling(
+        () => call.setLocalVideoMuted(muted),
+        () => call.isLocalVideoMuted() === muted && call.hasLocalUserMediaVideoTrack === !muted,
+        `The camera could not be ${muted ? "put away" : "brought back"} just now`
+      )
+    );
   }
 
   /**
@@ -109,7 +121,11 @@ export class MatrixCalls {
    * wrong thing. The rule is the one the rest of this library follows: if an operation comes back, what it
    * did can already be read.
    */
-  private async settling(ask: () => Promise<unknown>, isDone: () => boolean, complaint: string): Promise<void> {
+  private async settling(
+    ask: () => Promise<unknown>,
+    isDone: () => boolean,
+    complaint: string
+  ): Promise<void> {
     await ask();
     // Long enough for the slowest of these, which is bringing a camera back: that one goes and asks for the
     // device and agrees a new shape with the other side. Bounded all the same, because waiting for ever is
@@ -172,9 +188,17 @@ export class MatrixCalls {
   private oneAtATime(callId: string, change: () => unknown): Promise<void> {
     const after = (this.queued.get(callId) ?? Promise.resolve())
       .then(() => change())
-      .then(() => undefined, error => { throw error; });
+      .then(
+        () => undefined,
+        error => {
+          throw error;
+        }
+      );
     // Kept so the next one waits for this, whether it worked or not: a change that failed still finished.
-    this.queued.set(callId, after.catch(() => undefined));
+    this.queued.set(
+      callId,
+      after.catch(() => undefined)
+    );
     return after;
   }
 
@@ -200,16 +224,7 @@ export class MatrixCalls {
    * zero lost packets and no idea are not the same thing.
    */
   async quality(callId: string): Promise<CallQuality> {
-    const reported = (await this.require(callId).getCurrentCallStats()) ?? [];
-    const heard = reported.find(one => one.type === "inbound-rtp" && one.kind === "audio");
-    const path = reported.find(one => one.type === "candidate-pair" && one.nominated);
-    return {
-      ...(typeof heard?.packetsLost === "number" ? { packetsLost: heard.packetsLost } : {}),
-      ...(typeof heard?.jitter === "number" ? { jitterMs: Math.round(heard.jitter * 1000) } : {}),
-      ...(typeof path?.currentRoundTripTime === "number"
-        ? { roundTripMs: Math.round(path.currentRoundTripTime * 1000) }
-        : {})
-    };
+    return qualityFrom((await this.require(callId).getCurrentCallStats()) ?? []);
   }
 
   /**
@@ -297,13 +312,17 @@ export class MatrixCalls {
       ...(remoteScreen ? { remoteScreen } : {}),
       id: call.callId,
       conversationId: call.roomId ?? "",
+      // Rung and answered, with one person on the other end: what can be done to it is not what can be done
+      // to a room, and this is what says so.
+      kind: "direct",
+      // The other side is a side and not a list here, so the two streams above are what a screen draws.
+      participants: [],
       callerId: placedHere ? this.ownUserId : (call.getOpponentMember()?.userId ?? ""),
       // What the call is now, not what it was placed as. A voice call somebody turns the camera on in becomes
       // a video call without ending, and a screen that keeps drawing it as voice hides the picture that is
       // arriving. The SDK says whether there is a picture on either side.
-      isVideo: call.type === CallType.Video
-        || call.hasLocalUserMediaVideoTrack
-        || call.hasRemoteUserMediaVideoTrack,
+      isVideo:
+        call.type === CallType.Video || call.hasLocalUserMediaVideoTrack || call.hasRemoteUserMediaVideoTrack,
       isMicrophoneMuted: call.isMicrophoneMuted(),
       isCameraMuted: call.isLocalVideoMuted(),
       isOnHold: call.isRemoteOnHold(),
@@ -323,8 +342,6 @@ export class MatrixCalls {
     return call;
   }
 }
-
-
 
 const states: Partial<Record<MatrixCallState, CallState>> = {
   [MatrixCallState.Fledgling]: "ringing",

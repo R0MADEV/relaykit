@@ -12,6 +12,7 @@ import type {
   ShareLocationInput,
   GeoLocation,
   Call,
+  CallParticipant,
   CallQuality,
   PlaceCallOptions
 } from "@relaykit/core";
@@ -74,6 +75,9 @@ const nothingTouchedYet = {
   isSharingScreen: false
 } as const;
 
+/** Nobody is in a call that is still ringing: they arrive when it is answered. */
+const nobodyYet: readonly CallParticipant[] = [];
+
 export class InMemoryAdapter implements MessagingAdapter {
   private readonly conversations: Conversation[];
   private readonly messages: Message[];
@@ -95,7 +99,10 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   private readonly receipts: ReadReceipt[] = [];
   private readonly attachments = new Map<string, Uint8Array>();
-  private readonly features = new InMemoryFeatures(() => this.currentUserId, () => this.handlers);
+  private readonly features = new InMemoryFeatures(
+    () => this.currentUserId,
+    () => this.handlers
+  );
   private readonly verification = new InMemoryVerification(() => this.handlers);
 
   constructor(options: InMemoryAdapterOptions = {}) {
@@ -223,7 +230,10 @@ export class InMemoryAdapter implements MessagingAdapter {
     return conversation;
   }
 
-  async joinConversation(conversationId: ConversationId, _via: readonly string[] = []): Promise<Conversation> {
+  async joinConversation(
+    conversationId: ConversationId,
+    _via: readonly string[] = []
+  ): Promise<Conversation> {
     const conversation = this.conversations.find(item => item.id === conversationId);
     if (!conversation) {
       throw new Error("The conversation does not exist");
@@ -245,7 +255,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     const participantIds = conversation.participantIds.includes(userId)
       ? conversation.participantIds
       : [...conversation.participantIds, userId];
-    const invitedIds = [...new Set([...conversation.invitedIds ?? [], userId])];
+    const invitedIds = [...new Set([...(conversation.invitedIds ?? []), userId])];
     // Letting somebody in answers the knock, so they stop waiting at the door.
     const knockingIds = (conversation.knockingIds ?? []).filter(waiting => waiting !== userId);
     return this.replaceConversation({ ...conversation, participantIds, invitedIds, knockingIds });
@@ -287,24 +297,26 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]> {
     const wanted = query?.toLowerCase();
-    return this.conversations
-      .filter(conversation => this.published.has(conversation.id))
-      // Listing a conversation nobody can join says nothing, so it is not shown either.
-      .filter(conversation => conversation.joinRule !== "invite")
-      // The real thing matches the name, what it is about and the name people type, so the double does too.
-      .filter(conversation => {
-        if (!wanted) return true;
-        const searchable = [conversation.title, conversation.topic, conversation.alias, conversation.id];
-        return searchable.some(field => (field ?? "").toLowerCase().includes(wanted));
-      })
-      .map(conversation => ({
-        id: conversation.id,
-        participantCount: conversation.participantIds.length,
-        ...(conversation.title ? { title: conversation.title } : {}),
-        ...(conversation.topic ? { topic: conversation.topic } : {}),
-        ...(conversation.alias ? { alias: conversation.alias } : {}),
-        ...(conversation.joinRule ? { joinRule: conversation.joinRule } : {})
-      }));
+    return (
+      this.conversations
+        .filter(conversation => this.published.has(conversation.id))
+        // Listing a conversation nobody can join says nothing, so it is not shown either.
+        .filter(conversation => conversation.joinRule !== "invite")
+        // The real thing matches the name, what it is about and the name people type, so the double does too.
+        .filter(conversation => {
+          if (!wanted) return true;
+          const searchable = [conversation.title, conversation.topic, conversation.alias, conversation.id];
+          return searchable.some(field => (field ?? "").toLowerCase().includes(wanted));
+        })
+        .map(conversation => ({
+          id: conversation.id,
+          participantCount: conversation.participantIds.length,
+          ...(conversation.title ? { title: conversation.title } : {}),
+          ...(conversation.topic ? { topic: conversation.topic } : {}),
+          ...(conversation.alias ? { alias: conversation.alias } : {}),
+          ...(conversation.joinRule ? { joinRule: conversation.joinRule } : {})
+        }))
+    );
   }
 
   async reportMessage(conversationId: ConversationId, messageId: MessageId, reason: string): Promise<void> {
@@ -320,7 +332,10 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.replaceConversation({ ...this.requireConversation(conversationId), joinRule: rule });
   }
 
-  async setHistoryVisibility(conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation> {
+  async setHistoryVisibility(
+    conversationId: ConversationId,
+    visibility: HistoryVisibility
+  ): Promise<Conversation> {
     return this.replaceConversation({
       ...this.requireConversation(conversationId),
       historyVisibility: visibility
@@ -343,7 +358,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** Test helper: simulates somebody knocking at a conversation this account is in. */
   receiveKnock(conversationId: ConversationId, userId: UserId): Conversation {
     const conversation = this.requireConversation(conversationId);
-    const knockingIds = [...new Set([...conversation.knockingIds ?? [], userId])];
+    const knockingIds = [...new Set([...(conversation.knockingIds ?? []), userId])];
     return this.replaceConversation({ ...conversation, knockingIds });
   }
 
@@ -381,7 +396,9 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {
     // What hangs from a thread lives in the thread, not in the middle of the conversation.
-    return this.messages.filter(message => message.conversationId === conversationId && message.threadId === undefined);
+    return this.messages.filter(
+      message => message.conversationId === conversationId && message.threadId === undefined
+    );
   }
 
   private readonly pinned = new Map<ConversationId, Set<MessageId>>();
@@ -397,9 +414,14 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.replaceConversation({ ...this.requireConversation(conversationId), avatar });
   }
 
-  async setConversationNotifications(conversationId: ConversationId, level: NotificationLevel): Promise<Conversation> {
+  async setConversationNotifications(
+    conversationId: ConversationId,
+    level: NotificationLevel
+  ): Promise<Conversation> {
     const { notifications: _previous, ...conversation } = this.requireConversation(conversationId);
-    return this.replaceConversation(level === "all" ? conversation : { ...conversation, notifications: level });
+    return this.replaceConversation(
+      level === "all" ? conversation : { ...conversation, notifications: level }
+    );
   }
 
   async pinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void> {
@@ -413,7 +435,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   private tellAboutPinned(conversationId: ConversationId): void {
     const conversation = this.conversations.find(item => item.id === conversationId);
     if (!conversation) return;
-    this.replaceConversation({ ...conversation, pinnedIds: [...this.pinned.get(conversationId) ?? []] });
+    this.replaceConversation({ ...conversation, pinnedIds: [...(this.pinned.get(conversationId) ?? [])] });
   }
 
   async unpinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void> {
@@ -460,7 +482,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async listThread(conversationId: ConversationId, rootId: MessageId): Promise<readonly Message[]> {
-    return this.messages.filter(message => message.conversationId === conversationId && message.threadId === rootId);
+    return this.messages.filter(
+      message => message.conversationId === conversationId && message.threadId === rootId
+    );
   }
 
   /** Test helper: sets what somebody is allowed to do in a conversation. */
@@ -493,13 +517,19 @@ export class InMemoryAdapter implements MessagingAdapter {
     return { messages: await this.listMessages(conversationId), hasMore: false };
   }
 
-  async sendMessage(conversationId: ConversationId, body: string, options: SendContent = {}): Promise<Message> {
+  async sendMessage(
+    conversationId: ConversationId,
+    body: string,
+    options: SendContent = {}
+  ): Promise<Message> {
     const { transactionId, replyToId, threadId, formattedBody, mentions, kind, location } = options;
     const senderId = this.currentUserId;
     if (!senderId) {
       throw new Error("The in-memory adapter is not started");
     }
-    const alreadySent = transactionId ? this.messages.find(item => item.transactionId === transactionId) : undefined;
+    const alreadySent = transactionId
+      ? this.messages.find(item => item.transactionId === transactionId)
+      : undefined;
     if (alreadySent) {
       return alreadySent;
     }
@@ -531,7 +561,9 @@ export class InMemoryAdapter implements MessagingAdapter {
     if (!senderId) {
       throw new Error("The in-memory adapter is not started");
     }
-    const alreadySent = transactionId ? this.messages.find(item => item.transactionId === transactionId) : undefined;
+    const alreadySent = transactionId
+      ? this.messages.find(item => item.transactionId === transactionId)
+      : undefined;
     if (alreadySent) {
       return alreadySent;
     }
@@ -583,6 +615,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly polls = new Map<MessageId, Poll>();
   private readonly liveLocations = new Map<string, LiveLocation>();
   private readonly calls = new Map<string, Call>();
+  /** Conferences still going on that this side walked out of, which are not this side's any more. */
+  private readonly left = new Set<string>();
   /** What the next call would be made with. Kept so a test can see that choosing one was taken notice of. */
   /** What has been pressed during calls, so a test can see that pressing arrived somewhere. */
   readonly digitsPressed: string[] = [];
@@ -687,7 +721,9 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async getProfile(userId: UserId, conversationId?: ConversationId): Promise<User> {
     const profile = this.profiles.get(userId);
-    const inConversation = conversationId ? this.conversationNames.get(`${conversationId}/${userId}`) : undefined;
+    const inConversation = conversationId
+      ? this.conversationNames.get(`${conversationId}/${userId}`)
+      : undefined;
     const displayName = inConversation ?? profile?.displayName;
     return {
       id: userId,
@@ -696,7 +732,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
-  async getAvatar(userId: UserId, _conversationId?: ConversationId, _size?: number): Promise<AvatarImage | undefined> {
+  async getAvatar(
+    userId: UserId,
+    _conversationId?: ConversationId,
+    _size?: number
+  ): Promise<AvatarImage | undefined> {
     return this.profiles.get(userId)?.avatar;
   }
 
@@ -825,10 +865,64 @@ export class InMemoryAdapter implements MessagingAdapter {
       isVideo: options.video === true,
       state: "ringing",
       startedAt: Date.now(),
+      kind: "direct",
+      participants: nobodyYet,
       ...nothingTouchedYet
     };
     this.calls.set(call.id, call);
     return call;
+  }
+
+  /**
+   * A conference is entered, not started: if one is already going on in that conversation this joins that
+   * one, because a screen opened twice must not put the same person in twice.
+   */
+  async joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+    if (!this.conversations.some(item => item.id === conversationId)) {
+      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to join");
+    }
+    const going = [...this.calls.values()].find(
+      call => call.conversationId === conversationId && call.kind === "conference"
+    );
+    if (going) return this.enter(going);
+    const started: Call = {
+      id: `memory-call-${this.nextMessageId++}`,
+      conversationId,
+      callerId: this.requireUserId(),
+      isVideo: options.video === true,
+      // Nobody has to answer a room, so there is nothing to wait for.
+      state: "connected",
+      startedAt: Date.now(),
+      kind: "conference",
+      participants: nobodyYet,
+      ...nothingTouchedYet
+    };
+    return this.enter(started);
+  }
+
+  /** Walking in, whether the conference was already going on or has just been started by walking in. */
+  private enter(call: Call): Call {
+    this.left.delete(call.id);
+    const joined = this.withParticipant(call, this.requireUserId());
+    this.calls.set(joined.id, joined);
+    return joined;
+  }
+
+  private withParticipant(call: Call, userId: UserId): Call {
+    if (call.participants.some(participant => participant.userId === userId)) return call;
+    return {
+      ...call,
+      participants: [
+        ...call.participants,
+        {
+          userId,
+          deviceId: this.currentDeviceId ?? "memory-device",
+          isMicrophoneMuted: false,
+          isCameraMuted: false,
+          joinedAt: Date.now()
+        }
+      ]
+    };
   }
 
   async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
@@ -844,6 +938,15 @@ export class InMemoryAdapter implements MessagingAdapter {
   async hangUpCall(callId: string): Promise<void> {
     const call = this.calls.get(callId);
     if (!call) return;
+    const others = call.participants.filter(participant => participant.userId !== this.requireUserId());
+    const carriesOn = call.kind === "conference" && others.length > 0;
+    if (carriesOn) {
+      // Leaving is not ending it: the rest are still talking, and coming back has to find the same call.
+      this.calls.set(callId, { ...call, participants: others });
+      this.left.add(callId);
+      this.handlers.onCallChanged?.({ ...call, participants: others, state: "ended" });
+      return;
+    }
     this.calls.delete(callId);
     this.handlers.onCallChanged?.({ ...call, state: "ended" });
   }
@@ -912,7 +1015,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async listCalls(): Promise<readonly Call[]> {
-    return [...this.calls.values()];
+    // What this side is in, which is what a screen paints. A conference left goes on without it.
+    return [...this.calls.values()].filter(call => !this.left.has(call.id));
   }
 
   /** Test helper: somebody passes their call here on to somebody else. */
@@ -934,11 +1038,32 @@ export class InMemoryAdapter implements MessagingAdapter {
       isVideo: options.video === true,
       state: "ringing",
       startedAt: Date.now(),
+      kind: "direct",
+      participants: nobodyYet,
       ...nothingTouchedYet
     };
     this.calls.set(call.id, call);
     this.handlers.onCallIncoming?.(call);
     return call;
+  }
+
+  /** Test helper: somebody else walks into a conference that is already going on. */
+  joinCallAs(callId: string, userId: UserId): void {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    const joined = this.withParticipant(call, userId);
+    this.calls.set(callId, joined);
+    this.handlers.onCallChanged?.(joined);
+  }
+
+  /** Test helper: whether a call is still going on at all, which is not the same as this side being in it. */
+  callIsGoingOn(callId: string): boolean {
+    return this.calls.has(callId);
+  }
+
+  /** Test helper: somebody starts talking, which is told apart from the call changing. */
+  startSpeaking(callId: string, userIds: readonly UserId[]): void {
+    this.handlers.onCallSpeaking?.({ callId, userIds });
   }
 
   /** With no homeserver to ask, this double knows about one link and no others. */
@@ -984,7 +1109,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message> {
-    const message = this.messages.find(item => item.id === messageId && item.conversationId === conversationId);
+    const message = this.messages.find(
+      item => item.id === messageId && item.conversationId === conversationId
+    );
     if (!message) {
       throw new Error("The message does not exist");
     }
@@ -997,7 +1124,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message> {
-    const message = this.messages.find(item => item.id === messageId && item.conversationId === conversationId);
+    const message = this.messages.find(
+      item => item.id === messageId && item.conversationId === conversationId
+    );
     if (!message) {
       throw new Error("The message does not exist");
     }
@@ -1035,11 +1164,20 @@ export class InMemoryAdapter implements MessagingAdapter {
     return receipt;
   }
 
-  async getReadReceipts(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]> {
-    return this.receipts.filter(receipt => receipt.conversationId === conversationId && receipt.messageId === messageId);
+  async getReadReceipts(
+    conversationId: ConversationId,
+    messageId: MessageId
+  ): Promise<readonly ReadReceipt[]> {
+    return this.receipts.filter(
+      receipt => receipt.conversationId === conversationId && receipt.messageId === messageId
+    );
   }
 
-  async markMessageRead(conversationId: ConversationId, messageId: MessageId, options: MarkReadOptions = {}): Promise<void> {
+  async markMessageRead(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    options: MarkReadOptions = {}
+  ): Promise<void> {
     // Reading inside a thread says nothing about the conversation it hangs from.
     if (options.threadId) {
       this.threadReads.set(`${conversationId}/${options.threadId}`, messageId);
@@ -1049,7 +1187,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     const conversation = this.conversations.find(item => item.id === conversationId);
     // Where the person left off is remembered, not only that the counter went back to zero.
     if (conversation) {
-      const updated = this.replaceConversation({ ...conversation, lastReadMessageId: messageId, unreadCount: 0 });
+      const updated = this.replaceConversation({
+        ...conversation,
+        lastReadMessageId: messageId,
+        unreadCount: 0
+      });
       this.handlers.onConversationUpdated?.(updated);
     }
     return this.features.markMessageRead(conversationId, messageId);
@@ -1099,7 +1241,9 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation> {
     const { isUnread: _was, ...conversation } = this.requireConversation(conversationId);
-    return this.replaceConversation(unread ? { ...conversation, isUnread: true } : { ...conversation, isUnread: false });
+    return this.replaceConversation(
+      unread ? { ...conversation, isUnread: true } : { ...conversation, isUnread: false }
+    );
   }
 
   /** No homeserver holding anything, so what is waiting is what has arrived and has not been read. */

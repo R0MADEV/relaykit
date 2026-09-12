@@ -332,6 +332,13 @@ export interface Call {
   readonly isVideo: boolean;
   readonly state: CallState;
   readonly startedAt: number;
+  /** Which of the two things this is, because what can be done to each of them differs. */
+  readonly kind: CallKind;
+  /**
+   * Everybody on the call, this side included. A call between two people is a conference with two in it, so
+   * there is one list and not a special case: whoever draws a grid draws this, however many there are.
+   */
+  readonly participants: readonly CallParticipant[];
   /** Present once there is something to show, which is not the same moment as answering. */
   readonly hasRemoteMedia?: boolean;
   /** Silenced here: the other side stops hearing, and the call carries on. */
@@ -368,6 +375,38 @@ export interface Call {
  * way and knowing which side placed it is what `callerId` is for.
  */
 export type CallState = "ringing" | "connecting" | "connected" | "ended";
+
+/**
+ * A direct call is rung and answered, and ends when one side hangs up. A conference is entered and left, was
+ * already going on, and carries on without whoever leaves. Holding, transferring and pressing digits belong
+ * to the first: there is nobody on the other end of a room to make wait.
+ */
+export type CallKind = "direct" | "conference";
+
+/**
+ * Somebody on a call. The device and not only the person, because the same account can be in from the laptop
+ * and from the phone, and each one is a box on the screen with its own camera.
+ */
+export interface CallParticipant {
+  readonly userId: UserId;
+  readonly deviceId: string;
+  /** Handed over rather than described, as with the call itself: it goes straight into a `<video>`. */
+  readonly media?: MediaStream;
+  /** A shared screen travels alongside the camera, so it is a second thing to draw and not a swap. */
+  readonly screen?: MediaStream;
+  readonly isMicrophoneMuted: boolean;
+  readonly isCameraMuted: boolean;
+  readonly joinedAt: number;
+}
+
+/**
+ * Who is talking right now. Apart from `call.changed` on purpose: this changes several times a second, and
+ * sending the whole call with it would have a screen repaint every face to light up one border.
+ */
+export interface CallSpeaking {
+  readonly callId: string;
+  readonly userIds: readonly UserId[];
+}
 
 /**
  * Being asked to pass a call on. Whoever transferred it has already hung up: what arrives is the name of the

@@ -23,6 +23,18 @@ export class CallOperations {
   }
 
   /**
+   * Entering the call of a conversation instead of starting one: it is already going on and nobody is rung.
+   * A call between two people is a conference with two in it, so what comes back is the same `Call`.
+   */
+  async join(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
+    this.context.assertStarted();
+    if (!conversationId.trim()) {
+      throw new SdkError("INVALID_INPUT", "A call needs a conversation to join");
+    }
+    return this.context.adapter.joinCall(conversationId, options);
+  }
+
+  /**
    * Answering with video when the call was placed without it is not the same call: the other side was never
    * told to make room on the screen. Whoever answers decides only about their own camera.
    */
@@ -60,7 +72,8 @@ export class CallOperations {
   /** On hold the other side is told, and stops hearing and seeing. Not the same as being silenced. */
   async hold(callId: string, onHold: boolean): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.holdCall(this.require(callId), onHold);
+    const id = await this.directOnly(callId, "A conference is left, not put on hold");
+    await this.context.adapter.holdCall(id, onHold);
   }
 
   /**
@@ -72,7 +85,8 @@ export class CallOperations {
     if (!/^[0-9*#A-D]$/i.test(digit)) {
       throw new SdkError("INVALID_INPUT", "A telephone has digits 0 to 9, star, hash and A to D");
     }
-    await this.context.adapter.pressDigitInCall(this.require(callId), digit);
+    const id = await this.directOnly(callId, "A conference has no menu to press digits at");
+    await this.context.adapter.pressDigitInCall(id, digit);
   }
 
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
@@ -86,7 +100,8 @@ export class CallOperations {
     if (!userId.trim()) {
       throw new SdkError("INVALID_INPUT", "A call can only be transferred to somebody");
     }
-    await this.context.adapter.transferCall(this.require(callId), userId);
+    const id = await this.directOnly(callId, "A conference cannot be handed on: it is a room, not a line");
+    await this.context.adapter.transferCall(id, userId);
   }
 
   /**
@@ -98,6 +113,9 @@ export class CallOperations {
     if (this.require(callId) === this.require(otherCallId)) {
       throw new SdkError("INVALID_INPUT", "A call cannot be handed to itself");
     }
+    const cannot = "A conference cannot be joined to another call";
+    await this.directOnly(callId, cannot);
+    await this.directOnly(otherCallId, cannot);
     await this.context.adapter.joinCalls(callId, otherCallId);
   }
 
@@ -122,6 +140,18 @@ export class CallOperations {
   list(): Promise<readonly Call[]> {
     this.context.assertStarted();
     return this.context.adapter.listCalls();
+  }
+
+  /**
+   * Holding, transferring and pressing digits are things done to a line with somebody on the other end. A
+   * conference has no other end, so they are refused here rather than in every adapter.
+   */
+  private async directOnly(callId: string, whatItIsNot: string): Promise<string> {
+    const id = this.require(callId);
+    const going = await this.context.adapter.listCalls();
+    const isConference = going.find(call => call.id === id)?.kind === "conference";
+    if (isConference) throw new SdkError("NOT_SUPPORTED", whatItIsNot);
+    return id;
   }
 
   private requireDevice(deviceId: string): string {

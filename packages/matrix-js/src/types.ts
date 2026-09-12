@@ -9,6 +9,12 @@ export interface MatrixJsAdapterOptions {
    * conversations widens the window. Left out, everything is asked for, which is how it has always worked.
    */
   readonly conversationWindow?: number;
+  /**
+   * Where conferences are carried, when the homeserver does not say. A homeserver in production advertises
+   * it in its `.well-known`; a development machine has no `.well-known` to advertise anything, and without
+   * this there would be no way to try a conference locally.
+   */
+  readonly conferenceServiceUrl?: string;
 }
 
 export type { AdapterHandlers, ConnectionStatus, SyncStatus };

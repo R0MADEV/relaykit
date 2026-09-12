@@ -1,5 +1,6 @@
 import type {
   Call,
+  CallSpeaking,
   CallTransfer,
   ConnectionStatus,
   Conversation,
@@ -24,18 +25,23 @@ export interface ClientEventMap {
   "typing.changed": TypingUpdate;
   "receipt.received": ReadReceipt;
   "presence.changed": UserPresence;
-  "notification": Notification;
+  notification: Notification;
   /** Somebody is calling this conversation. A screen rings on this. */
   "call.incoming": Call;
   /** A call moved on: answered, connected, or over. */
   "call.changed": Call;
+  /**
+   * Who is talking now, told apart from `call.changed` because it changes several times a second and a
+   * grid should light up a border without repainting every face.
+   */
+  "call.speaking": CallSpeaking;
   /** Somebody passed their call on: the other side is asked to ring whoever it names. */
   "call.transferred": CallTransfer;
   /** The homeserver no longer accepts this session: suspended, revoked, or signed out from elsewhere. */
   "session.ended": undefined;
   "verification.requested": VerificationSession;
   "verification.changed": VerificationSession;
-  "error": Error;
+  error: Error;
 }
 
 export type EventName = keyof ClientEventMap;
@@ -71,14 +77,15 @@ export class EventBus {
     "typing.changed": new EventChannel<TypingUpdate>(),
     "receipt.received": new EventChannel<ReadReceipt>(),
     "presence.changed": new EventChannel<UserPresence>(),
-    "notification": new EventChannel<Notification>(),
+    notification: new EventChannel<Notification>(),
     "call.incoming": new EventChannel<Call>(),
     "call.changed": new EventChannel<Call>(),
+    "call.speaking": new EventChannel<CallSpeaking>(),
     "call.transferred": new EventChannel<CallTransfer>(),
     "session.ended": new EventChannel<undefined>(),
     "verification.requested": new EventChannel<VerificationSession>(),
     "verification.changed": new EventChannel<VerificationSession>(),
-    "error": new EventChannel<Error>()
+    error: new EventChannel<Error>()
   };
 
   on<Name extends EventName>(name: Name, listener: EventListener<Name>): () => void {

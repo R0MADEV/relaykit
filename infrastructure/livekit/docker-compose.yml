@@ -1,0 +1,30 @@
+# The two pieces a Matrix conference needs, and no more: the SFU that carries the media, and the service
+# that turns "this person is in this Matrix room" into a token the SFU will accept.
+services:
+  livekit:
+    image: livekit/livekit-server:v1.8
+    command: --config /etc/livekit.yaml --node-ip 127.0.0.1
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50019:50000-50019/udp"
+
+  # It does not trust the caller: it asks the homeserver who the OpenID token belongs to, over federation.
+  jwt:
+    image: ghcr.io/element-hq/lk-jwt-service:latest
+    environment:
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_KEY: devkey
+      LIVEKIT_SECRET: devsecretdevsecretdevsecretdevse
+      LK_JWT_PORT: "8080"
+      # Whose people it will let in. The development homeserver calls itself this, and the service refuses to
+      # start without being told: a service that admitted anybody's homeserver would admit anybody.
+      LIVEKIT_FULL_ACCESS_HOMESERVERS: localhost
+      # Development only: the homeserver is reached over plain HTTP.
+      LIVEKIT_INSECURE_SKIP_VERIFY_TLS: "YES_I_KNOW_WHAT_I_AM_DOING"
+    ports:
+      - "8091:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

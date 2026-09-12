@@ -13,6 +13,7 @@ import type {
   MessagePage,
   Call,
   CallQuality,
+  CallSpeaking,
   CallTransfer,
   LinkPreview,
   MediaLimits,
@@ -73,6 +74,7 @@ export interface AdapterHandlers {
   readonly onSessionEnded?: () => void;
   readonly onCallIncoming?: (call: Call) => void;
   readonly onCallChanged?: (call: Call) => void;
+  readonly onCallSpeaking?: (speaking: CallSpeaking) => void;
   readonly onCallTransferred?: (transfer: CallTransfer) => void;
   readonly onVerificationRequested?: (session: VerificationSession) => void;
   readonly onVerificationChanged?: (session: VerificationSession) => void;
@@ -92,7 +94,11 @@ export interface MessagingAdapter {
   leaveConversation(conversationId: ConversationId): Promise<void>;
   inviteToConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
   renameConversation(conversationId: ConversationId, title: string): Promise<Conversation>;
-  removeFromConversation(conversationId: ConversationId, userId: UserId, reason?: string): Promise<Conversation>;
+  removeFromConversation(
+    conversationId: ConversationId,
+    userId: UserId,
+    reason?: string
+  ): Promise<Conversation>;
   banFromConversation(conversationId: ConversationId, userId: UserId, reason?: string): Promise<Conversation>;
   unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
   setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation>;
@@ -118,7 +124,10 @@ export interface MessagingAdapter {
   knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void>;
   setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation>;
   setConversationAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation>;
-  setConversationNotifications(conversationId: ConversationId, level: NotificationLevel): Promise<Conversation>;
+  setConversationNotifications(
+    conversationId: ConversationId,
+    level: NotificationLevel
+  ): Promise<Conversation>;
   pinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
   unpinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
   listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]>;
@@ -142,6 +151,11 @@ export interface MessagingAdapter {
   stopSendingFile(transactionId: string): Promise<boolean>;
   /** Calls. The signalling goes over Matrix; the audio and the video do not. */
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
+  /**
+   * Entering the call of a conversation, which is already going on and rings nobody. Joining what is
+   * already joined returns the same call: a screen opened twice must not put somebody in twice.
+   */
+  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;
   hangUpCall(callId: string): Promise<void>;
   /** Refusing is not hanging up: the other side is told a different thing. */
@@ -188,7 +202,11 @@ export interface MessagingAdapter {
   signOutDevices(deviceIds: readonly string[], options: SignOutOptions): Promise<void>;
   editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message>;
   deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message>;
-  markMessageRead(conversationId: ConversationId, messageId: MessageId, options?: MarkReadOptions): Promise<void>;
+  markMessageRead(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    options?: MarkReadOptions
+  ): Promise<void>;
   /** Puts a conversation back to unread, or takes that mark off again. */
   setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation>;
   /** What the homeserver is holding for this account, which is what a cold start has to show. */

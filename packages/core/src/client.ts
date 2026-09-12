@@ -85,11 +85,13 @@ export class MessagingClient {
   readonly conversations = {
     list: (options?: ListConversationsOptions): Promise<readonly Conversation[]> =>
       this.conversationOperations.list(options),
-    create: (input: CreateConversationInput): Promise<Conversation> => this.conversationOperations.create(input),
+    create: (input: CreateConversationInput): Promise<Conversation> =>
+      this.conversationOperations.create(input),
     join: (conversationId: ConversationId, options?: JoinConversationOptions): Promise<Conversation> =>
       this.conversationOperations.join(conversationId, options),
     open: (userId: string): Promise<Conversation> => this.conversationOperations.open(userId),
-    leave: (conversationId: ConversationId): Promise<void> => this.conversationOperations.leave(conversationId),
+    leave: (conversationId: ConversationId): Promise<void> =>
+      this.conversationOperations.leave(conversationId),
     invite: (conversationId: ConversationId, userId: string): Promise<Conversation> =>
       this.conversationOperations.invite(conversationId, userId),
     rename: (conversationId: ConversationId, title: string): Promise<Conversation> =>
@@ -128,8 +130,10 @@ export class MessagingClient {
       this.conversationOperations.discover(query),
     setJoinRule: (conversationId: ConversationId, rule: JoinRule): Promise<Conversation> =>
       this.conversationOperations.setJoinRule(conversationId, rule),
-    setHistoryVisibility: (conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation> =>
-      this.conversationOperations.setHistoryVisibility(conversationId, visibility),
+    setHistoryVisibility: (
+      conversationId: ConversationId,
+      visibility: HistoryVisibility
+    ): Promise<Conversation> => this.conversationOperations.setHistoryVisibility(conversationId, visibility),
     knock: (conversationId: ConversationId, options?: KnockOptions): Promise<void> =>
       this.conversationOperations.knock(conversationId, options),
     saveDraft: async (conversationId: ConversationId, text: string): Promise<void> => {
@@ -145,7 +149,8 @@ export class MessagingClient {
       this.conversationOperations.permissions(conversationId),
     setRole: (conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> =>
       this.conversationOperations.setRole(conversationId, userId, role),
-    findDirect: (userId: string): Promise<Conversation | undefined> => this.conversationOperations.findDirect(userId),
+    findDirect: (userId: string): Promise<Conversation | undefined> =>
+      this.conversationOperations.findDirect(userId),
     search: (query: string): Promise<readonly Conversation[]> => this.conversationOperations.search(query),
     typing: (conversationId: ConversationId, isTyping: boolean, timeoutMs = 5000): Promise<void> =>
       this.conversationOperations.typing(conversationId, isTyping, timeoutMs)
@@ -154,9 +159,12 @@ export class MessagingClient {
   readonly messages = {
     list: (id: ConversationId, options?: ListMessagesOptions): Promise<readonly Message[]> =>
       this.messageOperations.listMessages(id, options),
-    loadMore: (id: ConversationId, limit = 20): Promise<MessagePage> => this.messageOperations.loadMoreMessages(id, limit),
-    search: (query: string, options?: MessageSearchOptions): Promise<readonly Message[]> => this.messageOperations.search(query, options),
-    thread: (id: ConversationId, rootId: MessageId): Promise<readonly Message[]> => this.messageOperations.thread(id, rootId),
+    loadMore: (id: ConversationId, limit = 20): Promise<MessagePage> =>
+      this.messageOperations.loadMoreMessages(id, limit),
+    search: (query: string, options?: MessageSearchOptions): Promise<readonly Message[]> =>
+      this.messageOperations.search(query, options),
+    thread: (id: ConversationId, rootId: MessageId): Promise<readonly Message[]> =>
+      this.messageOperations.thread(id, rootId),
     threads: (id: ConversationId): Promise<readonly ThreadSummary[]> => this.messageOperations.threads(id),
     searchRemote: (query: string): Promise<readonly Message[]> => this.messageOperations.searchRemote(query),
     send: (id: ConversationId, body: string, options?: SendMessageOptions): Promise<Message> =>
@@ -170,36 +178,44 @@ export class MessagingClient {
     sendVoice: (id: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message> =>
       this.messageOperations.sendVoice(id, file, voice),
     report: (id: MessageId, reason: string): Promise<void> => this.messageOperations.report(id, reason),
-    unreadSince: (id: ConversationId): Promise<readonly Message[]> =>
-      this.messageOperations.unreadSince(id),
+    unreadSince: (id: ConversationId): Promise<readonly Message[]> => this.messageOperations.unreadSince(id),
     forward: (id: MessageId, toConversationId: ConversationId): Promise<Message> =>
       this.messageOperations.forward(id, toConversationId),
     retry: (id: MessageId): Promise<Message> => this.messageOperations.retryMessage(id),
     cancel: (id: MessageId): Promise<Message> => this.messageOperations.cancelMessage(id),
-    markRead: (conversationId: ConversationId, messageId: MessageId, options?: MarkReadOptions): Promise<void> =>
-      this.messageOperations.markRead(conversationId, messageId, options),
+    markRead: (
+      conversationId: ConversationId,
+      messageId: MessageId,
+      options?: MarkReadOptions
+    ): Promise<void> => this.messageOperations.markRead(conversationId, messageId, options),
     readBy: (conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]> =>
       this.messageOperations.readBy(conversationId, messageId),
-    edit: (id: ConversationId, messageId: MessageId, body: string): Promise<Message> => this.messageMutations.edit(id, messageId, body),
-    delete: (id: ConversationId, messageId: MessageId): Promise<Message> => this.messageMutations.delete(id, messageId)
+    edit: (id: ConversationId, messageId: MessageId, body: string): Promise<Message> =>
+      this.messageMutations.edit(id, messageId, body),
+    delete: (id: ConversationId, messageId: MessageId): Promise<Message> =>
+      this.messageMutations.delete(id, messageId)
   };
 
   readonly reactions = {
-    add: (id: ConversationId, messageId: MessageId, key: string): Promise<Reaction> => this.reactionOperations.add(id, messageId, key),
-    remove: (id: ConversationId, reactionId: string): Promise<void> => this.reactionOperations.remove(id, reactionId)
+    add: (id: ConversationId, messageId: MessageId, key: string): Promise<Reaction> =>
+      this.reactionOperations.add(id, messageId, key),
+    remove: (id: ConversationId, reactionId: string): Promise<void> =>
+      this.reactionOperations.remove(id, reactionId)
   };
   readonly devices = {
     verification: (userId: string, deviceId: string) => this.deviceOperations.verification(userId, deviceId),
     verify: (userId: string, deviceId: string) => this.deviceOperations.verify(userId, deviceId),
     revoke: (userId: string, deviceId: string) => this.deviceOperations.revoke(userId, deviceId),
     list: (): Promise<readonly Device[]> => this.deviceOperations.list(),
-    rename: (deviceId: string, displayName: string): Promise<void> => this.deviceOperations.rename(deviceId, displayName),
+    rename: (deviceId: string, displayName: string): Promise<void> =>
+      this.deviceOperations.rename(deviceId, displayName),
     signOut: (deviceIds: readonly string[], options?: SignOutOptions): Promise<void> =>
       this.deviceOperations.signOut(deviceIds, options)
   };
   /** Being woken while the application is closed, which the homeserver does through a push gateway. */
   readonly push = {
-    register: (registration: PushRegistration): Promise<void> => this.deviceOperations.registerPush(registration),
+    register: (registration: PushRegistration): Promise<void> =>
+      this.deviceOperations.registerPush(registration),
     registered: (): Promise<readonly PushRegistration[]> => this.deviceOperations.pushRegistrations(),
     unregister: (deviceToken: string): Promise<void> => this.deviceOperations.unregisterPush(deviceToken),
     watchFor: (word: string): Promise<void> => this.deviceOperations.watchFor(word),
@@ -257,6 +273,8 @@ export class MessagingClient {
   readonly calls = {
     place: (conversationId: ConversationId, options?: PlaceCallOptions): Promise<Call> =>
       this.callOperations.place(conversationId, options),
+    join: (conversationId: ConversationId, options?: PlaceCallOptions): Promise<Call> =>
+      this.callOperations.join(conversationId, options),
     answer: (callId: string, options?: PlaceCallOptions): Promise<Call> =>
       this.callOperations.answer(callId, options),
     hangUp: (callId: string): Promise<void> => this.callOperations.hangUp(callId),
@@ -270,8 +288,7 @@ export class MessagingClient {
       this.callOperations.pressDigit(callId, digit),
     shareScreen: (callId: string, sharing: boolean): Promise<void> =>
       this.callOperations.shareScreen(callId, sharing),
-    transfer: (callId: string, userId: string): Promise<void> =>
-      this.callOperations.transfer(callId, userId),
+    transfer: (callId: string, userId: string): Promise<void> => this.callOperations.transfer(callId, userId),
     joinCalls: (callId: string, otherCallId: string): Promise<void> =>
       this.callOperations.joinCalls(callId, otherCallId),
     quality: (callId: string): Promise<CallQuality> => this.callOperations.quality(callId),
@@ -330,7 +347,9 @@ export class MessagingClient {
     const adapter = config.adapter ?? new UnavailableAdapter();
     // The local copy is a convenience, not the truth. A store that cannot write must cost somebody that
     // convenience and nothing else, so its failures are reported rather than thrown at whoever was reading.
-    const storage = config.storage ? forgivingStorage(config.storage, error => this.emitError(error)) : undefined;
+    const storage = config.storage
+      ? forgivingStorage(config.storage, error => this.emitError(error))
+      : undefined;
     const base = {
       adapter,
       assertStarted: () => this.lifecycle.assertStarted(),
@@ -363,7 +382,9 @@ export class MessagingClient {
       emitUpdated: conversation => this.events.emit("conversation.updated", conversation),
       now: config.now ?? (() => Date.now()),
       isCaughtUp: () => this.lifecycle.isCaughtUp(),
-      ...(config.cache?.conversations !== undefined ? { cachedConversations: config.cache.conversations } : {})
+      ...(config.cache?.conversations !== undefined
+        ? { cachedConversations: config.cache.conversations }
+        : {})
     });
     this.reactionOperations = new ReactionOperations({
       ...base,
@@ -397,7 +418,9 @@ export class MessagingClient {
     this.lifecycle = new ClientLifecycle({
       adapter,
       getSession: () => this.session,
-      setSession: session => { this.session = session; },
+      setSession: session => {
+        this.session = session;
+      },
       flushPending: async () => {
         await this.messageOperations.flushPending();
         // What was read while there was nobody to tell is told now, and so is everything else that waited.
@@ -432,6 +455,7 @@ export class MessagingClient {
         onNotification: notification => this.events.emit("notification", notification),
         onCallIncoming: call => this.events.emit("call.incoming", call),
         onCallChanged: call => this.events.emit("call.changed", call),
+        onCallSpeaking: speaking => this.events.emit("call.speaking", speaking),
         onCallTransferred: transfer => this.events.emit("call.transferred", transfer),
         onSessionEnded: () => {
           // Stopping first, so whatever the application does when told finds a client that is honestly stopped
@@ -448,14 +472,32 @@ export class MessagingClient {
     });
   }
 
-  login(credentials: LoginCredentials): Promise<Session> { return this.lifecycle.login(credentials); }
-  register(credentials: RegisterCredentials): Promise<Session> { return this.lifecycle.register(credentials); }
-  start(options?: StartOptions): Promise<void> { return this.lifecycle.start(options); }
-  stop(): Promise<void> { this.messageOperations.clear(); return this.lifecycle.stop(); }
-  logout(): Promise<void> { this.messageOperations.clear(); return this.lifecycle.logout(); }
-  on<Name extends EventName>(name: Name, listener: EventListener<Name>): () => void { return this.events.on(name, listener); }
-  getConnectionStatus(): ConnectionStatus { return this.lifecycle.getConnectionStatus(); }
-  getSyncStatus(): SyncStatus { return this.lifecycle.getSyncStatus(); }
+  login(credentials: LoginCredentials): Promise<Session> {
+    return this.lifecycle.login(credentials);
+  }
+  register(credentials: RegisterCredentials): Promise<Session> {
+    return this.lifecycle.register(credentials);
+  }
+  start(options?: StartOptions): Promise<void> {
+    return this.lifecycle.start(options);
+  }
+  stop(): Promise<void> {
+    this.messageOperations.clear();
+    return this.lifecycle.stop();
+  }
+  logout(): Promise<void> {
+    this.messageOperations.clear();
+    return this.lifecycle.logout();
+  }
+  on<Name extends EventName>(name: Name, listener: EventListener<Name>): () => void {
+    return this.events.on(name, listener);
+  }
+  getConnectionStatus(): ConnectionStatus {
+    return this.lifecycle.getConnectionStatus();
+  }
+  getSyncStatus(): SyncStatus {
+    return this.lifecycle.getSyncStatus();
+  }
 
   /** A live list telling the application something went wrong inside one of its own subscribers. */
   emitListenerError(error: unknown): void {

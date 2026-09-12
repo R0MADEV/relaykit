@@ -42,5 +42,8 @@
     "build": "tsc -b",
     "prepack": "npm run build",
     "typecheck": "tsc -b --pretty false"
+  },
+  "peerDependencies": {
+    "livekit-client": "^2.22.3"
   }
 }
