@@ -1,6 +1,7 @@
-import { SecretStorage, type AuthDict, type MatrixClient } from "matrix-js-sdk";
+import { MatrixError, SecretStorage, type AuthDict, type MatrixClient } from "matrix-js-sdk";
 import type { CryptoCallbacks } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key.js";
+import { SdkError } from "@relaykit/core";
 import type {
   CryptoStatus,
   DeviceVerification,
@@ -98,26 +99,31 @@ export async function setupRecovery(
   const recoveryKey = generated.encodedPrivateKey;
   if (!recoveryKey) throw new Error("Matrix did not return an encoded recovery key");
   await keys.use(generated.privateKey, async () => {
-    // Secret storage first: the new key becomes the default, so cross-signing bootstrap never reads
-    // secrets encrypted with a previous key it cannot decrypt.
-    await crypto.bootstrapSecretStorage({
+    // Three steps, and the order of them is the whole difficulty.
+    //
+    // The store comes first so the new key becomes the default: until it is, everything that asks for a key is
+    // answered with the previous one, which nobody can open any more.
+    const newStore = {
       createSecretStorageKey: async () => generated,
       setupNewSecretStorage: true,
       setupNewKeyBackup: true
-    });
+    };
+    await crypto.bootstrapSecretStorage(newStore);
+    // Then the identity. It is always started afresh: whatever the account had is in the previous store, which
+    // cannot be read, so keeping it would leave an identity nothing can sign with. This leaves its private
+    // keys on this device, which is what makes it able to sign itself.
     await crypto.bootstrapCrossSigning({
-      setupNewCrossSigning: !(await hasLocalCrossSigningKeys(client)),
-      authUploadDeviceSigningKeys: makeRequest => makeRequest(passwordAuth(client, options.password))
+      setupNewCrossSigning: true,
+      authUploadDeviceSigningKeys: makeRequest => proveWhoYouAre(client, makeRequest, options.password)
     });
+    // And now it can be put away, because now there is something to put away. Without this the identity lives
+    // on this device alone, and recovering on another one would find the store empty.
+    await crypto.bootstrapSecretStorage({ setupNewKeyBackup: false });
+    // Uploading the identity and seeing it are not the same moment: until the homeserver is asked for it, the
+    // account does not know it has one, and everything that reads it says recovery is not set up.
+    await crypto.userHasCrossSigningKeys(client.getSafeUserId(), true);
   });
   return { recoveryKey };
-}
-
-async function hasLocalCrossSigningKeys(client: MatrixClient): Promise<boolean> {
-  const { privateKeysCachedLocally } = await requireCrypto(client).getCrossSigningStatus();
-  return privateKeysCachedLocally.masterKey
-    && privateKeysCachedLocally.selfSigningKey
-    && privateKeysCachedLocally.userSigningKey;
 }
 
 async function matchesKeyDescription(
@@ -148,6 +154,33 @@ export function recoverWithKey(
     const result = await crypto.restoreKeyBackup();
     return { total: result.total, imported: result.imported };
   });
+}
+
+/**
+ * Publishing an identity is sensitive, so the homeserver asks the account to prove who it is. The protocol
+ * says how: ask once to learn what is required, and the refusal carries the session to answer within. Sending
+ * the password straight away without one is answered with a 401 that has nowhere to go, and the identity is
+ * never published: cross-signing then looks set up while nothing can sign this device.
+ */
+async function proveWhoYouAre(
+  client: MatrixClient,
+  makeRequest: (auth: AuthDict | null) => Promise<unknown>,
+  password: string | undefined
+): Promise<void> {
+  try {
+    await makeRequest(null);
+    return;
+  } catch (error) {
+    if (!(error instanceof MatrixError) || error.httpStatus !== 401) throw error;
+    if (!password) {
+      throw new SdkError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
+    }
+    const session = (error.data as { session?: string }).session;
+    await makeRequest({
+      ...passwordAuth(client, password),
+      ...(session ? { session } : {})
+    } as AuthDict);
+  }
 }
 
 function passwordAuth(client: MatrixClient, password: string | undefined): AuthDict | null {

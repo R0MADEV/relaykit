@@ -37,6 +37,11 @@ async function homeserverIsUp() {
 }
 
 async function main() {
+  // This check stops the homeserver on purpose. If a previous run was interrupted it may still be down, and
+  // starting from there gives a confusing failure instead of a clear one.
+  if (!(await homeserverIsUp())) {
+    throw new Error("The homeserver is already down. Start it before running this check.");
+  }
   let aliceDevice;
   let bobDevice;
   let stopped = false;

@@ -20,7 +20,7 @@ PY
       chmod 644 /data/tls.key /data/tls.crt
     ' < federation.yaml
     docker compose run --rm -T --user root --entrypoint sh "$server" -c \
-      'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' < ../dev-rate-limits.yaml
+      'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' < ../dev.yaml
   fi
 done
 
@@ -29,6 +29,19 @@ for port in 8018 8019; do
   attempt=0
   while [ $attempt -lt 60 ]; do
     if curl --fail --silent --max-time 2 "http://localhost:$port/_matrix/client/versions" >/dev/null; then break; fi
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+done
+
+# Answering on the client API is not the same as being able to reach the other server: on a cold start the two
+# still have to fetch each other's keys over TLS, and the smoke fails if it starts before that works.
+for pair in "fed1 fed2" "fed2 fed1"; do
+  set -- $pair
+  attempt=0
+  while [ $attempt -lt 60 ]; do
+    if docker compose exec -T "$1" curl --fail --silent --insecure --max-time 3 \
+      "https://$2:8448/_matrix/key/v2/server" >/dev/null 2>&1; then break; fi
     attempt=$((attempt + 1))
     sleep 1
   done

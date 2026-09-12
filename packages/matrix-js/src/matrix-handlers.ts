@@ -1,4 +1,5 @@
-import { MatrixEvent, type Room } from "matrix-js-sdk";
+import {
+  EventType, MatrixEvent, type Room } from "matrix-js-sdk";
 import type { AdapterHandlers, Message } from "@relaykit/core";
 import {
   isMessageEdit,
@@ -100,17 +101,26 @@ export function handleRedaction(
   }
 }
 
-export function handleReceipt(event: MatrixEvent, handlers: AdapterHandlers): void {
-  for (const receipt of mapReadReceipts(event)) {
+export function handleReceipt(event: MatrixEvent, roomId: string | undefined, handlers: AdapterHandlers): void {
+  for (const receipt of mapReadReceipts(event, roomId)) {
     handlers.onReceiptReceived?.(receipt);
   }
 }
 
-export function handleTyping(event: MatrixEvent, handlers: AdapterHandlers): void {
-  const update = mapTyping(event);
+export function handleTyping(event: MatrixEvent, roomId: string | undefined, handlers: AdapterHandlers): void {
+  const update = mapTyping(event, roomId);
   if (update) {
     handlers.onTypingChanged?.(update);
   }
+}
+
+/**
+ * Presence taken from the general stream instead of the stream tied to each person: that one only fires when
+ * the sdk happens to have built that person's object with re-emission set up, so it drops updates at random.
+ */
+export function handleClientEvent(event: MatrixEvent, handlers: AdapterHandlers): void {
+  if (event.getType() !== EventType.Presence) return;
+  handlePresence(event, handlers);
 }
 
 export function handlePresence(event: MatrixEvent | undefined, handlers: AdapterHandlers): void {

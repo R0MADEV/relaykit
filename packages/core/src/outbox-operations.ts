@@ -1,9 +1,12 @@
 import { SdkError } from "./errors.js";
+import type { RecentIds } from "./recent-ids.js";
 import type { MessagingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
   FileInput,
+  GeoLocation,
+  VoiceInfo,
   Message,
   MessageId,
   OutboxOperation,
@@ -25,6 +28,8 @@ const maxBackoffMs = 60000;
 const maxAutomaticAttempts = 8;
 
 export class OutboxOperations {
+  private readonly draftsAlreadyCleared = new Set<ConversationId>();
+
   private readonly inFlight = new Map<MessageId, Promise<Message>>();
   /** File contents for sends started in this process; persisted operations carry them across restarts. */
   private readonly pendingFiles = new Map<MessageId, FileInput>();
@@ -33,7 +38,7 @@ export class OutboxOperations {
 
   constructor(
     private readonly context: OutboxOperationsContext,
-    private readonly receivedMessageIds: Set<string>
+    private readonly receivedMessageIds: RecentIds
   ) {}
 
   async send(conversationId: ConversationId, body: string, options: SendMessageOptions = {}): Promise<Message> {
@@ -44,11 +49,64 @@ export class OutboxOperations {
     if (options.replyTo !== undefined && !options.replyTo.trim()) {
       throw new SdkError("INVALID_INPUT", "The message being replied to must be identified");
     }
+    if (options.threadId !== undefined && !options.threadId.trim()) {
+      throw new SdkError("INVALID_INPUT", "The message the thread hangs from must be identified");
+    }
+    if (options.formattedBody !== undefined && !options.formattedBody.trim()) {
+      throw new SdkError("INVALID_INPUT", "Formatted text cannot be empty");
+    }
+    if ((options.mentions?.userIds ?? []).some(userId => !userId.trim())) {
+      throw new SdkError("INVALID_INPUT", "A mention must name somebody");
+    }
     const base = this.createLocalMessage(conversationId, body);
-    const localMessage: Message = options.replyTo ? { ...base, replyToId: options.replyTo } : base;
+    const localMessage: Message = {
+      ...base,
+      ...(options.replyTo ? { replyToId: options.replyTo } : {}),
+      ...(options.threadId ? { threadId: options.threadId } : {}),
+      ...(options.formattedBody ? { formattedBody: options.formattedBody } : {}),
+      ...(options.mentions ? { mentions: options.mentions } : {}),
+      ...(options.kind ? { kind: options.kind } : {})
+    };
+    await this.saveOperation(localMessage);
+    await this.saveAndEmit(localMessage);
+    await this.clearDraft(conversationId);
+    return this.deliver(localMessage);
+  }
+
+  /** A place on the map, which arrives as a place and not as a line of coordinates. */
+  async sendLocation(conversationId: ConversationId, location: GeoLocation): Promise<Message> {
+    this.context.assertStarted();
+    if (!Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90) {
+      throw new SdkError("INVALID_INPUT", "The latitude must be between -90 and 90");
+    }
+    if (!Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) {
+      throw new SdkError("INVALID_INPUT", "The longitude must be between -180 and 180");
+    }
+    const described = location.description?.trim();
+    const body = described && described.length > 0 ? described : `${location.latitude}, ${location.longitude}`;
+    const localMessage: Message = {
+      ...this.createLocalMessage(conversationId, body),
+      location: { ...location, ...(described ? { description: described } : {}) }
+    };
     await this.saveOperation(localMessage);
     await this.saveAndEmit(localMessage);
     return this.deliver(localMessage);
+  }
+
+  async sendVoice(conversationId: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message> {
+    if (!Number.isFinite(voice.durationMs) || voice.durationMs <= 0) {
+      throw new SdkError("INVALID_INPUT", "A voice note needs the length it lasts");
+    }
+    return this.sendFile(conversationId, { ...file, voice }, {});
+  }
+
+  /**
+   * A sticker is not an attachment: whoever receives it draws it on its own, with no file name and no
+   * download button. It travels through the same queue as any other file, because it also has to be
+   * uploaded and can also fail.
+   */
+  sendSticker(conversationId: ConversationId, sticker: FileInput): Promise<Message> {
+    return this.sendFile(conversationId, { ...sticker, sticker: true }, {});
   }
 
   async sendFile(conversationId: ConversationId, file: FileInput, options: SendFileOptions): Promise<Message> {
@@ -62,9 +120,11 @@ export class OutboxOperations {
       size: file.data.byteLength,
       ...(file.width !== undefined ? { width: file.width } : {}),
       ...(file.height !== undefined ? { height: file.height } : {}),
+      ...(file.voice ? { voice: file.voice } : {}),
+      ...(file.blurhash ? { blurhash: file.blurhash } : {}),
       source: ""
     };
-    const localFileMessage: Message = { ...localMessage, attachment };
+    const localFileMessage: Message = { ...localMessage, attachment, ...(file.sticker ? { kind: "sticker" as const } : {}) };
     this.pendingFiles.set(localMessage.id, file);
     if (options.onProgress) this.progressHandlers.set(localMessage.id, options.onProgress);
     await this.saveOperation(localFileMessage, file);
@@ -78,6 +138,8 @@ export class OutboxOperations {
       throw new SdkError("INVALID_SESSION", "A session is required to send a message");
     }
     const transactionId = crypto.randomUUID();
+    // Whatever comes back carrying this transaction id is our own echo, not somebody else writing.
+    this.receivedMessageIds.add(transactionId);
     return {
       id: `local-${transactionId}`,
       transactionId,
@@ -159,7 +221,9 @@ export class OutboxOperations {
     if (operation) {
       await this.context.storage?.saveOutboxOperation({ ...operation, status: "processing" });
     }
-    await this.saveAndEmit({ ...message, status: "sending" });
+    // In flight is announced but not written down: it is true for as long as the request lasts and no longer.
+    // Writing it would also leave a message stuck in flight after a crash, when what it really is, is waiting.
+    this.context.emitUpdated({ ...message, status: "sending" });
     try {
       const sentMessage = await this.sendContent(message, this.pendingFiles.get(message.id) ?? operation?.attachment);
       await this.context.storage?.deleteMessage(message.id);
@@ -179,7 +243,15 @@ export class OutboxOperations {
   private sendContent(message: Message, file: FileInput | undefined): Promise<Message> {
     const { adapter } = this.context;
     if (!message.attachment) {
-      return adapter.sendMessage(message.conversationId, message.body, message.transactionId, message.replyToId);
+      return adapter.sendMessage(message.conversationId, message.body, {
+        ...(message.transactionId ? { transactionId: message.transactionId } : {}),
+        ...(message.replyToId ? { replyToId: message.replyToId } : {}),
+        ...(message.threadId ? { threadId: message.threadId } : {}),
+        ...(message.formattedBody ? { formattedBody: message.formattedBody } : {}),
+        ...(message.mentions ? { mentions: message.mentions } : {}),
+        ...(message.kind ? { kind: message.kind } : {}),
+        ...(message.location ? { location: message.location } : {})
+      });
     }
     if (!file) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The file content of this message is no longer available");
@@ -206,6 +278,10 @@ export class OutboxOperations {
       createdAt: operation.createdAt,
       status: "queued",
       ...(operation.replyToId ? { replyToId: operation.replyToId } : {}),
+      ...(operation.threadId ? { threadId: operation.threadId } : {}),
+      ...(operation.formattedBody ? { formattedBody: operation.formattedBody } : {}),
+      ...(operation.mentions ? { mentions: operation.mentions } : {}),
+      ...(operation.kind ? { kind: operation.kind } : {}),
       ...(attachment ? { attachment: {
         id: operation.id,
         name: attachment.name,
@@ -227,7 +303,11 @@ export class OutboxOperations {
       nextAttemptAt: Date.now(),
       createdAt: message.createdAt,
       ...(file ? { attachment: file } : {}),
-      ...(message.replyToId ? { replyToId: message.replyToId } : {})
+      ...(message.replyToId ? { replyToId: message.replyToId } : {}),
+      ...(message.threadId ? { threadId: message.threadId } : {}),
+      ...(message.formattedBody ? { formattedBody: message.formattedBody } : {}),
+      ...(message.mentions ? { mentions: message.mentions } : {}),
+      ...(message.kind ? { kind: message.kind } : {})
     });
   }
 
@@ -278,6 +358,30 @@ export class OutboxOperations {
       if (canRetry) this.scheduleRetry(message.id, retryAfterMs);
     }
     this.context.emitError(error);
+  }
+
+  /**
+   * Once a message is on its way what was being written is finished, so it must not come back next time. There
+   * is usually nothing to clear, and clearing nothing is still a write, so each conversation is only cleared
+   * once per session unless something was written since.
+   */
+  private async clearDraft(conversationId: ConversationId): Promise<void> {
+    if (this.draftsAlreadyCleared.has(conversationId)) return;
+    this.draftsAlreadyCleared.add(conversationId);
+    await this.context.storage?.saveDraft(conversationId, undefined);
+  }
+
+  /** Something was written again, so the next message has a draft to clear. */
+  draftWritten(conversationId: ConversationId): void {
+    this.draftsAlreadyCleared.delete(conversationId);
+  }
+
+  /**
+   * Only what this client did while it was running counts. Somebody may have written a draft in another tab
+   * while this one was stopped, and the next message sent has to clear it.
+   */
+  forgetWhatWasCleared(): void {
+    this.draftsAlreadyCleared.clear();
   }
 
   private async saveAndEmit(message: Message): Promise<void> {

@@ -49,11 +49,28 @@
       .message.own { align-self: flex-end; background: var(--own); }
       .message .meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; margin-top: 4px; }
       .message.deleted { font-style: italic; color: var(--muted); }
+      /* Una pegatina se pinta sola: sin caja, sin nombre de fichero, sin boton de descarga. */
+      .message.sticker { background: none; padding: 0; }
+      .message.sticker img { max-width: 128px; display: block; }
+      /* El borron ocupa el sitio exacto que ocupara la imagen, para que la lista no salte al cargarse. */
+      .blurred { display: block; filter: blur(8px); image-rendering: pixelated; border-radius: 6px; }
+      .waveform { display: block; height: 32px; }
+      .poll { border: 1px solid var(--muted); border-radius: 8px; padding: 0.5rem; margin: 0.25rem 0; }
+      .poll .answer { display: flex; align-items: center; gap: 0.5rem; margin: 0.2rem 0; }
+      .poll .bar { height: 6px; background: currentColor; opacity: 0.35; border-radius: 3px; }
+      .poll.closed { opacity: 0.6; }
+      #link-preview { border-left: 3px solid var(--muted); padding-left: 0.5rem; margin: 0.25rem 0; }
+      #extras { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+      .recording { color: #c0392b; font-weight: bold; }
       footer { border-top: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
       footer form { display: flex; gap: 8px; }
       #message { flex: 1; }
       #typing, #load-more, #replying { color: var(--muted); font-size: 13px; }
       .quote { border-left: 3px solid var(--line); padding-left: 8px; margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+      .message.action { font-style: italic; }
+      .message.notice { color: var(--muted); }
+      .unread-line { align-self: stretch; border-top: 1px solid #c0392b; color: #c0392b; font-size: 12px; text-align: center; }
+      #topic-text { padding: 4px 12px; color: var(--muted); font-size: 13px; }
       #empty { margin: auto; color: var(--muted); }
     </style>
   </head>
@@ -68,7 +85,9 @@
         </select>
         <input id="password" type="password" value="alice-password" aria-label="Contraseña" required />
         <button type="submit">Conectar</button>
+        <button id="register" type="button">Crear cuenta</button>
       </form>
+      <button id="rename-me" type="button">Mi nombre</button>
       <p id="status">Desconectado</p>
     </header>
 
@@ -89,9 +108,20 @@
       </aside>
 
       <main>
+        <p id="topic-text" hidden></p>
         <div id="conversation-actions" hidden>
           <button id="invite" type="button">Invitar</button>
           <button id="rename" type="button">Renombrar</button>
+          <button id="favourite" type="button">Favorita</button>
+          <button id="topic" type="button">Descripción</button>
+          <button id="mute" type="button">Silenciar</button>
+          <button id="pinned" type="button">Fijados</button>
+          <button id="place" type="button">Sitio</button>
+          <button id="poll" type="button">Encuesta</button>
+          <button id="live-location" type="button">Compartir ubicación</button>
+          <button id="door" type="button">Puerta</button>
+          <button id="discover" type="button">Buscar publicas</button>
+          <button id="kick" type="button">Expulsar</button>
           <button id="leave" type="button">Salir</button>
         </div>
         <p id="empty">Abre una conversación para empezar.</p>
@@ -105,11 +135,21 @@
             <input id="message" placeholder="Mensaje" autocomplete="off" required />
             <button type="submit">Enviar</button>
           </form>
+          <p id="link-preview" hidden></p>
+          <form id="poll-form" hidden>
+            <input id="poll-question" placeholder="¿Qué quieres preguntar?" required />
+            <input id="poll-answers" placeholder="Respuestas, separadas por comas" value="A las 14, A las 15" required />
+            <button type="submit">Preguntar</button>
+          </form>
           <form id="file-form">
             <input id="file" type="file" required aria-label="Archivo adjunto" />
             <button type="submit">Enviar archivo</button>
             <progress id="upload-progress" value="0" max="1" hidden>0%</progress>
           </form>
+          <div id="extras">
+            <button id="record" type="button">🎤 Grabar nota de voz</button>
+            <button id="sticker" type="button">😀 Pegatina</button>
+          </div>
         </footer>
       </main>
     </div>

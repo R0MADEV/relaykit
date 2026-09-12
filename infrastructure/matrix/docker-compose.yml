@@ -1,4 +1,35 @@
 services:
+  # Synapse dice que SQLite es solo para pruebas. Un entorno de desarrollo que no se parece al de produccion
+  # mide cosas que a nadie le pasan, asi que aqui va la misma base de datos que se usa en serio.
+  postgres:
+    image: postgres:16-alpine
+    container_name: relaykit-postgres
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: synapse
+      POSTGRES_DB: synapse
+      # Synapse exige esta intercalacion. Con cualquier otra se niega a arrancar, y hace bien: ordenar
+      # distinto rompe las busquedas y las claves.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Lo que un telefono tendria detras. Aqui solo apunta lo que le llega, para que una comprobacion pueda
+  # mirar si el homeserver entrega de verdad y si lo dicho se queda entre los dispositivos.
+  push-gateway:
+    image: node:22-alpine
+    container_name: relaykit-push-gateway
+    command: node /app/gateway.mjs
+    volumes:
+      - ./push-gateway:/app:ro
+    ports:
+      - "8090:8080"
+
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: relaykit-synapse
@@ -9,3 +40,13 @@ services:
       - ./data:/data
     ports:
       - "8008:8008"
+    # El gateway de notificaciones corre fuera del contenedor, y el homeserver tiene que poder alcanzarlo por
+    # nombre. En Docker Desktop existe; en Linux, que es donde corre la integracion continua, hay que decirlo.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

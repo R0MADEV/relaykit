@@ -165,8 +165,8 @@ test("in-memory adapter returns the existing message for a repeated transaction 
   await adapter.start(session, {});
   const conversation = await adapter.createConversation({ participantIds: ["bob"] });
 
-  const first = await adapter.sendMessage(conversation.id, "same", "txn-1");
-  const second = await adapter.sendMessage(conversation.id, "same", "txn-1");
+  const first = await adapter.sendMessage(conversation.id, "same", { transactionId: "txn-1" });
+  const second = await adapter.sendMessage(conversation.id, "same", { transactionId: "txn-1" });
 
   assert.equal(second.id, first.id);
   assert.equal((await adapter.listMessages(conversation.id)).length, 1);

@@ -10,12 +10,20 @@ import {
   type Verifier
 } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { SdkError } from "@relaykit/core";
-import type { AdapterHandlers, VerificationSas, VerificationSession } from "@relaykit/core";
+import type {
+  AdapterHandlers,
+  VerificationMethod,
+  VerificationRequestOptions,
+  VerificationSas,
+  VerificationSession
+} from "@relaykit/core";
 
 const sasMethod = "m.sas.v1";
 
 interface TrackedVerification {
   readonly request: VerificationRequest;
+  /** What the caller asked for. An incoming request is answered however the other side wants. */
+  readonly method: VerificationMethod;
   verifier?: Verifier;
   sas?: ShowSasCallbacks;
   lastEmitted?: string;
@@ -43,19 +51,82 @@ export class MatrixVerificationTracker {
     this.handlers = {};
   }
 
-  async request(userId: string, deviceId: string | undefined): Promise<VerificationSession> {
+  async request(
+    userId: string,
+    deviceId: string | undefined,
+    options: VerificationRequestOptions = {}
+  ): Promise<VerificationSession> {
     const client = this.requireClient();
     const crypto = client.getCrypto();
     if (!crypto) throw new Error("Matrix crypto is not initialized");
     const isOwnUser = userId === client.getSafeUserId();
-    if (!deviceId && !isOwnUser) {
-      throw new SdkError("INVALID_INPUT", "Verifying another user requires a device id");
+    if (!deviceId && !isOwnUser && !options.conversationId) {
+      throw new SdkError("INVALID_INPUT", "Verifying another person needs a conversation the two of you share");
     }
+    // Verifying another person happens inside a conversation, which is how their other devices hear about it.
     const request = deviceId
       ? await crypto.requestDeviceVerification(userId, deviceId)
-      : await crypto.requestOwnUserVerification();
-    const id = this.track(request);
+      : isOwnUser
+        ? await crypto.requestOwnUserVerification()
+        : await crypto.requestVerificationDM(userId, options.conversationId ?? "");
+    const id = this.track(request, options.method ?? "emoji");
     return this.toSession(id);
+  }
+
+  /**
+   * What to draw so the other device can scan it. There is nothing to draw unless one side already trusts
+   * something of the other, which is what makes the code mean anything.
+   */
+  async qrCode(sessionId: string): Promise<Uint8Array | undefined> {
+    const code = await this.require(sessionId).request.generateQRCode();
+    // Copying the view, not the buffer behind it: the buffer can be larger than the code itself.
+    return code ? Uint8Array.from(code) : undefined;
+  }
+
+  /** Reading the code the other device showed proves it is the device it claims to be. */
+  async scan(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
+    const tracked = this.require(sessionId);
+    // The sdk checks for its own verifier right after handing the code to the rust side, and that check can run
+    // before the change that creates it. The scan itself went through, so what is left is to wait for it.
+    const scanned = await tracked.request.scanQRCode(new Uint8ClampedArray(code)).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      // The sdk checks for its own verifier right after handing the code to the rust side, and that check can
+      // run before the change that creates it. The scan itself went through, so what is left is to wait.
+      if (!reason.includes("no verifier")) {
+        throw new SdkError("INVALID_INPUT", `That code does not belong to this verification: ${reason}`);
+      }
+      return undefined;
+    });
+    const verifier = scanned ?? await this.waitForVerifier(tracked);
+    tracked.verifier = verifier;
+    // Not waiting for the far side to say it was really scanned: that answer arrives as a change, and waiting
+    // here would leave the caller stuck until somebody on the other device pressed something.
+    void verifier.verify().catch(error => this.reportError(error));
+    return this.toSession(sessionId);
+  }
+
+  /**
+   * The request says when something about it changed, so there is no reason to keep asking. Looking once
+   * first matters: by the time this is called the verifier is often already there, and waiting for a change
+   * that has already happened would wait for ever.
+   */
+  private waitForVerifier(tracked: TrackedVerification): Promise<Verifier> {
+    const alreadyThere = tracked.request.verifier ?? tracked.verifier;
+    if (alreadyThere) return Promise.resolve(alreadyThere);
+    return new Promise((resolve, reject) => {
+      const giveUp = setTimeout(() => {
+        tracked.request.off(VerificationRequestEvent.Change, look);
+        reject(new SdkError("INVALID_INPUT", "That code did not start a verification"));
+      }, 4000);
+      const look = () => {
+        const verifier = tracked.request.verifier ?? tracked.verifier;
+        if (!verifier) return;
+        clearTimeout(giveUp);
+        tracked.request.off(VerificationRequestEvent.Change, look);
+        resolve(verifier);
+      };
+      tracked.request.on(VerificationRequestEvent.Change, look);
+    });
   }
 
   async accept(sessionId: string): Promise<VerificationSession> {
@@ -68,7 +139,16 @@ export class MatrixVerificationTracker {
     return this.toSession(sessionId);
   }
 
+  /** Says yes: the emoji match, or the other device really did scan the code this one showed. */
   async confirm(sessionId: string): Promise<VerificationSession> {
+    const tracked = this.require(sessionId);
+    // The live one, because the change that creates it can arrive after the one that moved the phase.
+    const verifier = tracked.verifier ?? tracked.request.verifier;
+    const reciprocate = verifier?.getReciprocateQrCodeCallbacks?.();
+    if (reciprocate) {
+      reciprocate.confirm();
+      return this.toSession(sessionId);
+    }
     await this.requireSas(sessionId).confirm();
     return this.toSession(sessionId);
   }
@@ -83,9 +163,9 @@ export class MatrixVerificationTracker {
     this.handlers.onVerificationRequested?.(this.toSession(id));
   };
 
-  private track(request: VerificationRequest): string {
+  private track(request: VerificationRequest, method: VerificationMethod = "emoji"): string {
     const id = request.transactionId ?? `verification-${crypto.randomUUID()}`;
-    const tracked: TrackedVerification = { request };
+    const tracked: TrackedVerification = { request, method };
     this.sessions.set(id, tracked);
     request.on(VerificationRequestEvent.Change, () => {
       void this.handleChange(id, tracked).catch(error => this.reportError(error));
@@ -95,7 +175,11 @@ export class MatrixVerificationTracker {
 
   private async handleChange(id: string, tracked: TrackedVerification): Promise<void> {
     const { request } = tracked;
-    const shouldStartSas = request.phase === VerificationPhase.Ready && request.initiatedByMe && !tracked.verifier;
+    // Starting to compare emoji settles the method, and after that there is no code left to show. Somebody who
+    // asked to verify with a code decides when to start, by showing or scanning one.
+    const wantsEmoji = tracked.method !== "code";
+    const shouldStartSas =
+      wantsEmoji && request.phase === VerificationPhase.Ready && request.initiatedByMe && !tracked.verifier;
     if (shouldStartSas) {
       tracked.verifier = await request.startVerification(sasMethod);
       this.attachVerifier(id, tracked, tracked.verifier);

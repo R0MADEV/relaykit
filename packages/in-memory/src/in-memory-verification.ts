@@ -1,5 +1,11 @@
 import { SdkError } from "@relaykit/core";
-import type { AdapterHandlers, UserId, VerificationSas, VerificationSession } from "@relaykit/core";
+import type {
+  AdapterHandlers,
+  UserId,
+  VerificationRequestOptions,
+  VerificationSas,
+  VerificationSession
+} from "@relaykit/core";
 
 const sampleSas: VerificationSas = {
   emoji: [
@@ -18,14 +24,22 @@ const sampleSas: VerificationSas = {
 export class InMemoryVerification {
   private readonly sessions = new Map<string, VerificationSession>();
   private nextSessionId = 1;
+  private qrCodesWork = true;
 
   constructor(private readonly getHandlers: () => AdapterHandlers) {}
 
-  request(otherUserId: UserId, otherDeviceId: string | undefined): VerificationSession {
+  request(
+    otherUserId: UserId,
+    otherDeviceId: string | undefined,
+    options: VerificationRequestOptions = {}
+  ): VerificationSession {
     const session = this.create(otherUserId, otherDeviceId, true);
     this.getHandlers().onVerificationChanged?.(session);
-    // The simulated other device accepts straight away, which brings both sides to the SAS phase.
-    queueMicrotask(() => this.update({ ...session, phase: "sas", sas: sampleSas }));
+    // The simulated other device accepts straight away. Asking to verify with a code leaves it there: starting
+    // to compare emoji would settle on emoji and there would be no code left to show.
+    if (options.method !== "code") {
+      queueMicrotask(() => this.update({ ...session, phase: "sas", sas: sampleSas }));
+    }
     return session;
   }
 
@@ -33,6 +47,28 @@ export class InMemoryVerification {
     const session = this.create(otherUserId, otherDeviceId, false);
     this.getHandlers().onVerificationRequested?.(session);
     return session;
+  }
+
+  /** The code the other device would scan. It is made of this session, so a different one does not match. */
+  qrCode(sessionId: string): Uint8Array | undefined {
+    const session = this.require(sessionId);
+    if (!this.qrCodesWork) return undefined;
+    return new TextEncoder().encode(`memory-qr-${session.id}`);
+  }
+
+  scan(sessionId: string, code: Uint8Array): VerificationSession {
+    const session = this.require(sessionId);
+    const expected = new TextDecoder().decode(this.qrCode(sessionId) ?? new Uint8Array());
+    if (new TextDecoder().decode(code) !== expected) {
+      throw new SdkError("INVALID_INPUT", "That code does not belong to this verification");
+    }
+    const { sas: _sas, ...withoutSas } = session;
+    return this.update({ ...withoutSas, phase: "done" });
+  }
+
+  /** Test helper: some verifications cannot be done with a code, and an application has to cope with that. */
+  disableQrCodes(): void {
+    this.qrCodesWork = false;
   }
 
   accept(sessionId: string): VerificationSession {

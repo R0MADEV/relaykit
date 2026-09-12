@@ -86,6 +86,15 @@ const found = await client.messages.search("presupuesto", { conversationId: dire
 
 await client.messages.send(conversationId, "me viene bien", { replyTo: messageId });
 const readers = await client.messages.readBy(conversationId, messageId);
+await client.messages.forward(messageId, otraConversationId);
+await client.messages.report(messageId, "acoso");
+
+// Donde se quedo esta persona, que es donde va la linea de "mensajes nuevos".
+await client.messages.markRead(conversationId, messageId);
+const nuevos = await client.messages.unreadSince(conversationId);
+
+// Un hilo ya abierto se sigue leyendo sin red, igual que la conversacion.
+const respuestas = await client.messages.thread(conversationId, messageId);
 await client.messages.retry(messageId);
 await client.messages.cancel(messageId);
 
@@ -95,6 +104,26 @@ const sent = await client.messages.sendFile(
   { onProgress: fraction => console.log(fraction) }
 );
 const content = await client.media.download(sent.attachment);
+
+// Texto con formato, menciones y mensajes que no son una frase normal.
+await client.messages.send(conversationId, "esto es importante", {
+  formattedBody: "<strong>esto es importante</strong>",
+  mentions: { userIds: ["@carol:example.com"] }
+});
+await client.messages.send(conversationId, "todos", { mentions: { everyone: true } });
+await client.messages.send(conversationId, "saluda", { kind: "action" });
+await client.messages.send(conversationId, "el servidor se reinicia", { kind: "notice" });
+
+// Una nota de voz y un sitio del mapa, que llegan como lo que son y no como un archivo o una linea de texto.
+await client.messages.sendVoice(
+  conversationId,
+  { name: "nota.ogg", mimeType: "audio/ogg", data: bytes },
+  { durationMs: 3200, waveform: [0, 512, 1024, 256] }
+);
+await client.messages.sendLocation(conversationId, { latitude: 43.263, longitude: -2.935, description: "Bilbao" });
+
+// `formattedBody` es HTML escrito por otra persona. RelayKit lo entrega tal cual y no lo sanea:
+// pasalo por un saneador antes de meterlo en el DOM, o pinta `body`, que siempre es texto plano.
 
 const unsubscribe = client.on("message.received", message => {
   console.log(message);
@@ -287,6 +316,318 @@ await client.verification.cancel(sessionId);
 ```
 
 Para verificar el dispositivo de otro usuario hay que indicar su `deviceId` en `request`.
+
+## Cuenta
+
+```ts
+// Crear una cuenta, donde el homeserver lo permita solo con usuario y contrasena.
+const session = await client.register({ homeserver, username, password });
+
+// El propio perfil.
+await client.users.setDisplayName("Alicia");
+await client.users.setAvatar({ mimeType: "image/png", data });
+
+// Donde esta abierta la sesion, y cerrarla en otro sitio.
+const devices = await client.devices.list();
+await client.devices.rename(deviceId, "Portatil del trabajo");
+await client.devices.signOut([deviceId], { password });
+
+// Dejar de leer a alguien.
+await client.users.ignore("@ruidoso:example.com");
+```
+
+Si el homeserver pide algo mas que una contrasena para crear cuentas, por ejemplo un captcha o aceptar terminos,
+`register` falla con `REGISTRATION_UNSUPPORTED` y el mensaje dice exactamente que pasos exige.
+
+## Hilos
+
+Una respuesta puede colgar de un mensaje en vez de llenar la conversacion:
+
+```ts
+const raiz = await client.messages.send(conversationId, "¿Quien despliega?");
+await client.messages.send(conversationId, "Yo", { threadId: raiz.id });
+const hilo = await client.messages.thread(conversationId, raiz.id);
+```
+
+Lo que cuelga de un hilo no aparece en `messages.list`, que es la conversacion principal.
+
+## Espacios
+
+Agrupan conversaciones por equipo o por proyecto. Un espacio no es una conversacion y nunca se lista como tal:
+
+```ts
+const espacio = await client.spaces.create({ title: "Irontec" });
+await client.spaces.add(espacio.id, conversationId);
+const dentro = await client.spaces.conversations(espacio.id);
+```
+
+## Busqueda
+
+`messages.search` mira lo que este dispositivo ya tiene, y funciona con conversaciones cifradas.
+`messages.searchRemote` pregunta al homeserver, que es mas rapido con mucho historial pero no puede leer lo
+cifrado, asi que ahi no encuentra nada.
+
+## La conversacion por dentro
+
+De que va, que cara tiene, cuanto interrumpe y que hay que tener siempre a mano:
+
+```ts
+await client.conversations.setTopic(conversationId, "Incidencias de produccion");
+await client.conversations.setAvatar(conversationId, { data: bytes, mimeType: "image/png" });
+
+// "all" suena siempre, "mentions" solo cuando te nombran, "none" no suena nunca.
+await client.conversations.setNotifications(conversationId, "mentions");
+
+await client.conversations.pin(conversationId, messageId);
+const fijados = await client.conversations.pinned(conversationId);
+// La conversacion tambien dice cuales son, en `pinnedIds`, y se siguen leyendo sin red.
+await client.conversations.unpin(conversationId, messageId);
+```
+
+El silencio es una decision de cada persona, no de la sala: viaja en las reglas de notificacion de la cuenta,
+asi que se respeta en todos sus dispositivos y tambien en Element o cualquier otro cliente Matrix.
+
+## Quien entra y que se lee
+
+```ts
+// "invite" solo para invitados, "public" para cualquiera, "knock" para quien llame a la puerta.
+await client.conversations.setJoinRule(conversationId, "knock");
+
+// Hasta donde puede leer quien llega tarde: "world", "shared", "invited" o "joined".
+await client.conversations.setHistoryVisibility(conversationId, "joined");
+
+// Desde fuera: pedir entrar, y desde dentro ver quien espera y dejarle pasar.
+await client.conversations.knock(conversationId, { reason: "trabajo aqui", via: ["otro.servidor"] });
+const { knockingIds } = (await client.conversations.list()).find(item => item.id === conversationId);
+await client.conversations.invite(conversationId, knockingIds[0]);
+```
+
+## Abrir la aplicacion
+
+```ts
+// Vuelve en cuanto el cliente esta en marcha: lo de ayer se pinta al momento.
+await client.start({ waitForSync: false });
+const deAyer = await client.conversations.list();
+
+// Y cuando el servidor contesta, se vuelve a pintar con lo que diga.
+client.on("sync.changed", status => { if (status === "synced") repintar(); });
+```
+
+Con 354 conversaciones eso son 0,7 ms en vez de 1829. Arrancar sin decir nada sigue esperando al servidor.
+
+## Cuando la aplicacion sale de pantalla
+
+```ts
+await client.stop();
+// ...y al volver
+await client.start({ waitForSync: false });
+```
+
+Cerrarla suelta la conexion, y abrirla pinta lo que ya habia al momento: verificado contra un homeserver real,
+1 ms hasta pintar, y lo que paso mientras tanto se recupera solo. En un navegador, lo natural es hacerlo cuando
+la pestana deja de verse.
+
+## Nombres
+
+```ts
+// Diciendo en que conversacion, el nombre sale de lo ya sincronizado y no cuesta ninguna peticion.
+const aqui = await client.users.profile(userId, conversationId);
+const imagen = await client.users.avatar(userId, conversationId);
+
+// Sin decirlo, es el nombre que usa en todas partes, y eso si hay que preguntarlo.
+const enTodasPartes = await client.users.profile(userId);
+```
+
+Pintar una lista de conversaciones diciendo cual es cada una cuesta cero peticiones. Sin decirlo, una por
+persona. Cambiar el propio nombre olvida lo recordado al momento, para que no se siga mostrando el anterior. Las fotos
+guardadas tienen tope en bytes, configurable con `cache.avatarBytes`.
+
+## Cuentas con muchas conversaciones
+
+Lo que de verdad cuesta al arrancar no es pintar la lista, que son milisegundos, sino que el homeserver mande
+todas tus salas. Para eso esta la ventana:
+
+```ts
+const client = new MessagingClient({ matrix: { conversationWindow: 40 } });
+await client.start();
+
+const primeras = await client.conversations.list({ limit: 40 });
+const masAbajo = await client.conversations.list({ limit: 80 }); // ensancha la ventana
+```
+
+Medido con 1245 conversaciones: ponerse al dia pasa de 14,8 segundos a 0,2. Va apagada por defecto.
+
+### Si prefieres no usar la ventana
+
+Ponerse al dia al arrancar crece con el numero de conversaciones, y lo que mas pesa es cuantos mensajes se piden
+de cada una. Medido con 1245 conversaciones:
+
+| mensajes por conversacion | ponerse al dia |
+| --- | --- |
+| 20 por defecto | 14,8 s |
+| 5 | 8,1 s |
+| 1 | 3,6 s |
+
+La otra palanca, para cuentas de verdad grandes, es pedirle al homeserver una ventana en vez de todas las
+salas. Con 1245 conversaciones, ponerse al dia pasa de 14,8 s a 216 ms:
+
+```ts
+const client = new MessagingClient({ matrix: { conversationWindow: 40 } });
+// Pedir mas conversaciones ensancha la ventana.
+const masAbajo = await client.conversations.list({ limit: 80 });
+```
+
+```ts
+// Pedir poco al arrancar...
+const client = new MessagingClient({ matrix: { initialSyncLimit: 1 } });
+await client.start({ waitForSync: false });
+
+// ...pintar solo las primeras conversaciones y pedir mas al hacer scroll...
+const primeras = await client.conversations.list({ limit: 40 });
+const masAbajo = await client.conversations.list({ limit: 80 });
+
+// ...y pedir lo que haga falta al abrir una conversacion.
+const mensajes = await client.messages.list(conversationId, { atLeast: 30 });
+```
+
+Con eso la primera pantalla sale al momento desde lo guardado y ninguna conversacion se abre vacia.
+
+## Buscar
+
+```ts
+// Para en cuanto tiene bastante, empezando por lo mas reciente.
+const encontrados = await client.messages.search("despliegue", { limit: 20 });
+const aqui = await client.messages.search("despliegue", { conversationId });
+```
+
+Buscar en local significa descifrar lo que hay guardado, asi que el limite no es cosmetico: es lo que separa
+responder al momento de masticar todo el historial. Por defecto son cincuenta.
+
+## Escribiendo
+
+```ts
+// Se puede llamar en cada tecla: solo sale una peticion, y se renueva antes de que caduque.
+await client.conversations.typing(conversationId, true);
+await client.conversations.typing(conversationId, false);
+```
+
+Lo mismo con `messages.markRead`: repetir el mismo mensaje no vuelve a salir a la red, y sin conexion se
+recuerda hasta donde leiste para contarlo cuando vuelva. Una reaccion, una correccion o un borrado sin conexion
+se comportan igual: se recuerdan y se hacen al volver, mientras la pantalla ya muestra lo que sera.
+
+## Verificar un dispositivo
+
+```ts
+// Comparando emoji, que es lo que hace cualquier dispositivo.
+const sesion = await client.verification.request(userId, deviceId);
+// Sin decir el dispositivo se verifica a la persona, dentro de la conversacion que comparten.
+const aOtraPersona = await client.verification.request(userId);
+// ...cuando llega la fase "sas", comparar sesion.sas.emoji y confirmar.
+await client.verification.confirm(sesion.id);
+
+// O con un codigo: el dispositivo nuevo lo muestra y el de confianza lo lee.
+const nueva = await client.verification.request(userId, undefined, { method: "code" });
+const codigo = await client.verification.qrCode(nueva.id);
+await client.verification.scan(otraSesionId, codigo);
+await client.verification.confirm(nueva.id);
+```
+
+## Cambiar la clave de una conversacion
+
+```ts
+await client.conversations.rotateKeys(conversationId);
+await client.devices.revoke(userId, deviceId);
+```
+
+Lo que se diga a partir de ahi va con una clave nueva. Quien conserve la vieja se queda con lo dicho antes y
+nada mas, que es justo lo que hace falta cuando alguien deja el equipo.
+
+## Cambiar el secreto del almacen local
+
+```ts
+const storage = new IndexedDbStorage("relaykit", { encryptionSecret: viejo });
+await storage.rekey(nuevo);
+```
+
+Reescribe todo con el secreto nuevo en vez de dejarlo ilegible. Hay que tener el anterior: si lo que cambia es
+el token y con el el secreto, no queda nada que reescribir y la cache se rellena desde el servidor.
+
+## Como se llama cada quien
+
+```ts
+const global = await client.users.profile(userId);
+
+// En un grupo alguien puede ir por otro nombre, y ese es el que hay que mostrar ahi.
+const aqui = await client.users.profile(userId, conversationId);
+```
+
+## Cuando una conversacion se sustituye por otra
+
+```ts
+const nueva = await client.conversations.upgrade(conversationId);
+
+// Sigue la cadena hasta la conversacion en la que esta la gente ahora mismo.
+const actual = await client.conversations.current(conversationId);
+```
+
+## Encontrar una conversacion publica
+
+```ts
+await client.conversations.setAlias(conversationId, "#soporte:example.com");
+await client.conversations.publish(conversationId, true);
+
+const publicas = await client.conversations.discover("soporte");
+await client.conversations.join(publicas[0].id, { via: ["example.com"] });
+```
+
+Una conversacion a la que solo se entra por invitacion no aparece en la lista aunque se publique: la lista
+estaria apuntando a una puerta cerrada. Hay que abrirla antes con `setJoinRule`.
+
+## Lo que estabas escribiendo
+
+Un borrador es texto privado de esa persona: se guarda en local, cifrado igual que los mensajes, sobrevive a
+cerrar la aplicacion, desaparece al enviar el mensaje y se borra al cerrar sesion.
+
+```ts
+await client.conversations.saveDraft(conversationId, "estaba escribiendo esto");
+const pendiente = await client.conversations.draft(conversationId);
+```
+
+## Avisar con la aplicacion cerrada
+
+El homeserver no habla con el navegador ni con el movil: le entrega el aviso a una pasarela de push, que es
+quien conoce el dispositivo. Solo viaja el identificador del evento, asi que lo que se dice no pasa por ella.
+
+```ts
+await client.push.register({
+  gatewayUrl: "https://push.example.com/_matrix/push/v1/notify",
+  deviceToken: subscription.endpoint,
+  appId: "com.example.chat.web",
+  appName: "Ejemplo",
+  deviceName: "Portatil",
+  data: { public_key: claveWebPush, auth_secret: secreto }
+});
+const registrados = await client.push.registered();
+
+// Palabras por las que merece la pena interrumpir, igual que cuando te nombran.
+await client.push.watchFor("despliegue");
+const palabras = await client.push.keywords();
+await client.push.stopWatchingFor("despliegue");
+await client.push.unregister(subscription.endpoint);
+```
+
+## Moderacion
+
+```ts
+await client.conversations.remove(conversationId, userId, "motivo");
+await client.conversations.ban(conversationId, userId, "motivo");
+await client.conversations.unban(conversationId, userId);
+await client.conversations.setFavourite(conversationId, true);
+
+// Que puede hacer esta persona aqui, para no ofrecer botones que van a fallar.
+const { canRemove, canRename } = await client.conversations.permissions(conversationId);
+await client.conversations.setRole(conversationId, userId, "moderator");
+```
 
 ## Autenticacion
 

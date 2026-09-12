@@ -5,9 +5,12 @@ export type SdkErrorCode =
   | "INVALID_SESSION"
   | "INVALID_INPUT"
   | "MESSAGE_NOT_FOUND"
+  | "CONVERSATION_NOT_FOUND"
   | "VERIFICATION_NOT_FOUND"
   | "ADAPTER_ERROR"
-  | "RATE_LIMITED";
+  | "RATE_LIMITED"
+  | "USERNAME_TAKEN"
+  | "REGISTRATION_UNSUPPORTED";
 
 export class SdkError extends Error {
   readonly name = "SdkError";

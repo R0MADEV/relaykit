@@ -1,5 +1,15 @@
 # Entorno Matrix local
 
+## Puesta en marcha
+
+```bash
+npm run matrix:up
+```
+
+Levanta Synapse sobre PostgreSQL, aplica los ajustes de `dev.yaml` y crea las tres cuentas de prueba.
+Es idempotente: volver a ejecutarlo no rompe nada. La integracion continua usa esta misma orden, para
+que lo que se prueba ahi y lo que se prueba aqui sean el mismo entorno.
+
 Este entorno levanta un Synapse real para probar RelayKit localmente. Es solo para desarrollo y usa el almacenamiento
 por defecto del contenedor.
 
@@ -23,7 +33,7 @@ El fichero generado pertenece al usuario del contenedor, asi que se escribe desd
 docker compose -f infrastructure/matrix/docker-compose.yml run --rm -T --user root \
   --entrypoint sh synapse -c \
   'grep -q rc_room_creation /data/homeserver.yaml || cat >> /data/homeserver.yaml' \
-  < infrastructure/matrix/dev-rate-limits.yaml
+  < infrastructure/matrix/dev.yaml
 ```
 
 ## Arrancar Synapse
@@ -68,16 +78,12 @@ Para probar dos servidores federados hay un entorno aparte en `federation/`.
 
 ## Crear usuarios
 
-Ejecutar el comando dos veces para crear dos usuarios de prueba:
+No hace falta: `npm run matrix:up` crea `alice`, `bob` y `carol`. Para anadir a otra persona:
 
 ```bash
 docker compose -f infrastructure/matrix/docker-compose.yml exec synapse \
-  register_new_matrix_user \
-  -c /data/homeserver.yaml \
-  http://localhost:8008
+  register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008
 ```
-
-Usar `alice`, `bob` y `carol` con el dominio `localhost`. El tercero hace falta para el smoke de grupo.
 
 ## Ejecutar el ejemplo Web
 
@@ -101,3 +107,37 @@ docker compose -f infrastructure/matrix/docker-compose.yml down
 ```
 
 Para borrar completamente los datos locales, eliminar manualmente `infrastructure/matrix/data/`.
+
+## Detras de un proxy con TLS
+
+El entorno de este repositorio se sirve por `http` en `localhost` para que funcione al clonarlo, sin
+depender de nada externo. El navegador trata `localhost` como origen seguro por excepcion, asi que eso
+basta para desarrollar, pero **no es lo que vera un usuario**: fuera de `localhost` y sin https no existe
+`crypto.subtle`, y sin eso no hay almacen cifrado. Por eso la comprobacion en navegador
+(`npm run check:web-demo`) se sirve por https y falla si el origen no es seguro.
+
+En el entorno de Irontec hay un Traefik con una CA propia (`dev-toolbox/docker/traefik`). Para llegar al
+homeserver por un nombre y con https, se anade un router y un servicio a `traefik.yml`:
+
+```yaml
+  routers:
+    relaykit-matrix:
+      rule: "Host(`matrix.localhost`)"
+      entryPoints:
+        - websec
+      service: relaykit-matrix
+      tls:
+        certResolver: ""
+
+  services:
+    relaykit-matrix:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8008"
+```
+
+Hace falta un certificado para `matrix.localhost` firmado por la CA, en `traefik/certs/relaykit/`, y
+anadirlo a la lista `tls.certificates`. A partir de ahi el homeserver es `https://matrix.localhost`.
+
+Esto no se incluye en el `docker-compose.yml` de este repositorio a proposito: la libreria no debe
+depender del entorno de una organizacion para poder levantarse.

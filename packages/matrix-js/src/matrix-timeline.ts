@@ -17,5 +17,6 @@ export async function listMatrixMessages(
       await client.decryptEventIfNeeded(event);
     }
   }
-  return mapMessages(events);
+  // What hangs from a thread is read with listThread, not mixed into the conversation.
+  return mapMessages(events).filter(message => message.threadId === undefined);
 }

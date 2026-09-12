@@ -260,3 +260,30 @@ test("joining without hints keeps working", async () => {
   assert.deepEqual(adapter.lastJoinHints, []);
   await client.stop();
 });
+
+test("searching on the server returns what the homeserver finds", async () => {
+  const { adapter, client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  adapter.receiveMessage(conversation.id, "bob", "el presupuesto de julio");
+
+  const found = await client.messages.searchRemote("presupuesto");
+
+  assert.deepEqual(found.map(message => message.body), ["el presupuesto de julio"]);
+  await assert.rejects(client.messages.searchRemote("   "), { code: "INVALID_INPUT" });
+  await client.stop();
+});
+
+test("what the conversation reports as changed is kept, not only announced", async () => {
+  const adapter = new InMemoryAdapter();
+  const storage = new InMemoryStorage();
+  const client = new MessagingClient({ adapter, storage, session });
+  await client.start();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
+  await client.conversations.list();
+
+  await adapter.renameConversation(conversation.id, "Equipo de guardia");
+
+  const stored = (await storage.getConversations()).find(item => item.id === conversation.id);
+  assert.equal(stored?.title, "Equipo de guardia");
+  await client.stop();
+});

@@ -47,7 +47,13 @@ async function main() {
     }
     bobDevice = await createClient(bob, "bob");
 
-    const conversation = await laptop.client.conversations.open(bobDevice.userId);
+    // Una conversacion propia, no el chat directo con Bob: ese lo comparten todos los demas smokes y tambien
+    // el ejemplo web, asi que arrastra silencios, recibos y marcadores de otras pruebas y de quien haya estado
+    // pinchando en la demo. Una prueba que comparte estado mutable con todo el mundo no prueba lo que dice.
+    const conversation = await laptop.client.conversations.create({
+      participantIds: [bobDevice.userId],
+      title: `RelayKit dos dispositivos ${Date.now()}`
+    });
     await waitFor("Bob to be invited", async () => {
       const conversations = await bobDevice.client.conversations.list();
       return conversations.find(item => item.id === conversation.id);
@@ -68,11 +74,21 @@ async function main() {
     await waitForReadable(bobDevice, conversation.id, fromLaptop);
 
     // Reading on one device clears the count on the other, because the receipt belongs to the person.
+    // Algo que Alice no haya dicho ella misma: enviar pone tu propio marcador al dia, asi que despues de que
+    // el portatil hablara no queda nada sin leer. Para probar que el recibo es de la persona y no del
+    // dispositivo hace falta que sea Bob quien hable el ultimo.
+    const pending = `bob-otra-vez-${Date.now()}`;
+    await bobDevice.client.messages.send(conversation.id, pending);
+    const unreadOnPhone = await waitForReadable(phone, conversation.id, pending);
+    // Contar lo no leido solo tiene sentido si la conversacion puede interrumpir. Una prueba que da por hecho
+    // el ambiente falla por cosas que no tienen que ver con lo que prueba: esta se lo deja como necesita.
+    await laptop.client.conversations.setNotifications(conversation.id, "all");
     await waitFor("the phone to count the message as unread", async () => {
       const conversations = await phone.client.conversations.list();
       return (conversations.find(item => item.id === conversation.id)?.unreadCount ?? 0) > 0;
     });
-    await laptop.client.messages.markRead(conversation.id, seenOnLaptop.id);
+    // Leer en el portatil tiene que bajar la cuenta en el telefono: el recibo pertenece a la persona.
+    await laptop.client.messages.markRead(conversation.id, unreadOnPhone.id);
     await waitFor("the phone to see it as read", async () => {
       const conversations = await phone.client.conversations.list();
       return conversations.find(item => item.id === conversation.id)?.unreadCount === 0;

@@ -81,7 +81,14 @@ async function main() {
     if (!status?.verified) {
       throw new Error(`The second device is not verified after SAS: ${JSON.stringify(status)}`);
     }
-    console.log(`RelayKit verification smoke check passed (${emojiOf(firstSession)})`);
+    // A device that was trusted can stop being trusted, which is what somebody does when one is lost.
+    await first.client.devices.revoke(aliceUserId, second.deviceId);
+    const revoked = await first.client.devices.verification(aliceUserId, second.deviceId);
+    if (revoked?.verified) {
+      throw new Error(`The device is still trusted after revoking it: ${JSON.stringify(revoked)}`);
+    }
+
+    console.log(`RelayKit verification smoke check passed (${emojiOf(firstSession)}, revoked afterwards)`);
   } finally {
     await second?.client.logout();
     await first.client.logout();

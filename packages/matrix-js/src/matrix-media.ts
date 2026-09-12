@@ -1,7 +1,14 @@
-import { type MatrixClient } from "matrix-js-sdk";
+import {
+  ClientPrefix,
+  EventType,
+  Method,
+  MsgType,
+  type MatrixClient
+} from "matrix-js-sdk";
+import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
-import type { ConversationId, FileInput, MediaRef, Message, ThumbnailInput } from "@relaykit/core";
+import type { ConversationId, FileInput, LinkPreview, MediaRef, Message, ThumbnailInput } from "@relaykit/core";
 import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
 
 /** What `Attachment.source` carries for the Matrix adapter. */
@@ -40,12 +47,31 @@ export async function sendMatrixAttachment(
       size: file.data.byteLength,
       ...(file.width !== undefined ? { w: file.width } : {}),
       ...(file.height !== undefined ? { h: file.height } : {}),
+      ...(file.voice ? { duration: file.voice.durationMs } : {}),
+      // Where every client that paints it puts it, which is what makes it useful.
+      ...(file.blurhash ? { "xyz.amorgan.blurhash": file.blurhash } : {}),
       ...(thumbnail ? thumbnail.info : {})
     },
+    // A voice note says so in three places, which is what other clients look at to draw it instead of listing it.
+    ...(file.voice ? {
+      "org.matrix.msc3245.voice": {},
+      "org.matrix.msc1767.audio": {
+        duration: file.voice.durationMs,
+        ...(file.voice.waveform ? { waveform: [...file.voice.waveform] } : {})
+      }
+    } : {}),
     ...(encrypted ? { file: { ...encrypted.info, url: upload.content_uri } } : { url: upload.content_uri })
   };
   // The SDK's message content union cannot be built from a conditional spread; the shape follows the spec.
-  return sendWithTransaction(client, conversationId, content as unknown as RoomMessageEventContent, transactionId);
+  // A sticker is not a message: it is its own event type, which is how whoever receives it knows to draw it
+  // on its own.
+  return sendWithTransaction(
+    client,
+    conversationId,
+    content as unknown as RoomMessageEventContent,
+    transactionId,
+    file.sticker ? EventType.Sticker : undefined
+  );
 }
 
 /** A thumbnail is uploaded the same way as the file, and encrypted whenever the file is. */
@@ -75,15 +101,70 @@ async function uploadThumbnail(
   };
 }
 
+/**
+ * What the homeserver knows about a link. It looks, not this device: that way whoever publishes the link does
+ * not learn that somebody from this organisation is opening it, or when. The image comes back like any other,
+ * to be fetched with `media.download`.
+ */
+export async function previewMatrixLink(client: MatrixClient, url: string): Promise<LinkPreview> {
+  const preview = await client.getUrlPreview(url, Date.now());
+  const image = typeof preview["og:image"] === "string" ? preview["og:image"] : undefined;
+  const title = typeof preview["og:title"] === "string" ? preview["og:title"] : undefined;
+  const description = typeof preview["og:description"] === "string" ? preview["og:description"] : undefined;
+  const mimeType = typeof preview["og:image:type"] === "string" ? preview["og:image:type"] : "image/*";
+  return {
+    url,
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
+    ...(image ? { image: { mimeType, source: JSON.stringify({ url: image }) } } : {})
+  };
+}
+
 export async function downloadMatrixAttachment(client: MatrixClient, attachment: MediaRef): Promise<Uint8Array> {
   const source = parseSource(attachment.source);
-  const url = client.mxcUrlToHttp(source.url, undefined, undefined, undefined, false, true, true);
-  const accessToken = client.getAccessToken();
-  if (!url || !accessToken) throw new Error("The attachment cannot be resolved");
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!response.ok) throw new Error(`The media server responded with status ${response.status}`);
-  const data = await response.arrayBuffer();
-  return new Uint8Array(source.file ? await decryptAttachment(data, source.file) : data);
+  const { data } = await downloadFromMediaServer(client, source.url);
+  const bytes = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  return new Uint8Array(source.file ? await decryptAttachment(bytes, source.file) : bytes);
+}
+
+/**
+ * Everything this library pulls off the media server comes through here, over the SDK's own authenticated
+ * request: it carries the access token, so nobody writes an Authorization header by hand, and it knows where
+ * the media endpoints live. A size asks for a thumbnail instead of the original.
+ *
+ * Cropping, not scaling: a picture shown in a circle is cropped by whoever draws it anyway, and the server
+ * doing it sends fewer bytes than a scaled rectangle that then gets cut.
+ */
+export async function downloadFromMediaServer(
+  client: MatrixClient,
+  mxcUrl: string,
+  size?: number
+): Promise<{ readonly data: Uint8Array; readonly mimeType: string }> {
+  const { server, mediaId } = splitMxcUrl(mxcUrl);
+  const wholeThing = size === undefined;
+  const blob = await client.http.authedRequest<Blob>(
+    Method.Get,
+    encodeUri(wholeThing ? "/media/download/$server/$mediaId" : "/media/thumbnail/$server/$mediaId", {
+      $server: server,
+      $mediaId: mediaId
+    }),
+    wholeThing ? undefined : { width: String(size), height: String(size), method: "crop" },
+    undefined,
+    { prefix: ClientPrefix.V1, rawResponseBody: true }
+  );
+  return {
+    data: new Uint8Array(await blob.arrayBuffer()),
+    mimeType: blob.type || "application/octet-stream"
+  };
+}
+
+function splitMxcUrl(mxcUrl: string): { readonly server: string; readonly mediaId: string } {
+  const withoutScheme = mxcUrl.startsWith("mxc://") ? mxcUrl.slice("mxc://".length) : "";
+  const divide = withoutScheme.indexOf("/");
+  if (divide < 1 || divide === withoutScheme.length - 1) {
+    throw new Error(`This does not point at anything on a media server: ${mxcUrl}`);
+  }
+  return { server: withoutScheme.slice(0, divide), mediaId: withoutScheme.slice(divide + 1) };
 }
 
 function parseSource(source: string): MatrixAttachmentSource {
@@ -99,10 +180,10 @@ function parseSource(source: string): MatrixAttachmentSource {
 }
 
 function msgTypeFor(mimeType: string): string {
-  if (mimeType.startsWith("image/")) return "m.image";
-  if (mimeType.startsWith("video/")) return "m.video";
-  if (mimeType.startsWith("audio/")) return "m.audio";
-  return "m.file";
+  if (mimeType.startsWith("image/")) return MsgType.Image;
+  if (mimeType.startsWith("video/")) return MsgType.Video;
+  if (mimeType.startsWith("audio/")) return MsgType.Audio;
+  return MsgType.File;
 }
 
 function toArrayBuffer(data: Uint8Array): ArrayBuffer {
