@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import type { MessagingAdapter } from "./adapter.js";
-import type { Call, ConversationId, PlaceCallOptions } from "./models.js";
+import type { Call, CallQuality, ConversationId, PlaceCallOptions } from "./models.js";
 
 export interface CallOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -87,6 +87,24 @@ export class CallOperations {
       throw new SdkError("INVALID_INPUT", "A call can only be transferred to somebody");
     }
     await this.context.adapter.transferCall(this.require(callId), userId);
+  }
+
+  /**
+   * Handing a call to somebody already on the line: the first person waits, the second is rung and told who
+   * is coming, and then the two are joined and this side steps out.
+   */
+  async joinCalls(callId: string, otherCallId: string): Promise<void> {
+    this.context.assertStarted();
+    if (this.require(callId) === this.require(otherCallId)) {
+      throw new SdkError("INVALID_INPUT", "A call cannot be handed to itself");
+    }
+    await this.context.adapter.joinCalls(callId, otherCallId);
+  }
+
+  /** How a call is going, for a screen that wants to say why somebody cannot be heard. */
+  async quality(callId: string): Promise<CallQuality> {
+    this.context.assertStarted();
+    return this.context.adapter.callQuality(this.require(callId));
   }
 
   /** Which microphone and camera to use from now on. It belongs to the account, not to one call. */

@@ -19,6 +19,8 @@ export interface TimelineContext {
   /** The homeserver push rules decide what deserves the user's attention. */
   readonly notificationFor: (event: MatrixEvent) => { readonly notify: boolean; readonly isMention: boolean };
   readonly ownUserId: () => string | undefined;
+  /** Whether what is arriving is happening now, or is being read out of what was missed. */
+  readonly caughtUp: () => boolean;
 }
 
 export function handleTimeline(
@@ -45,8 +47,17 @@ const stillWorthRinging = 60 * 1000;
  * coming back after being away — and acting on one rings somebody out of nowhere about a call that ended long
  * ago. The SDK ignores stale incoming calls for the same reason.
  */
-export function mapTransfer(event: MatrixEvent, room: Pick<Room, "roomId">): CallTransfer | undefined {
+export function mapTransfer(
+  event: MatrixEvent,
+  room: Pick<Room, "roomId">,
+  where: { readonly caughtUp: boolean }
+): CallTransfer | undefined {
   if (event.getType() !== EventType.CallReplaces) return undefined;
+  // Nothing read while catching up rings anybody. Signing in replays what was said while you were away, and
+  // acting on a transfer found there rings somebody about a call that finished before this one started.
+  // Being recent is not enough: a transfer from a minute ago is recent and still over. The SDK holds incoming
+  // calls back until the first sync is done, for exactly this reason.
+  if (!where.caughtUp) return undefined;
   if (event.getLocalAge() > stillWorthRinging) return undefined;
   const said = event.getContent() as MCallReplacesEvent;
   const target = said.target_user;
@@ -55,6 +66,10 @@ export function mapTransfer(event: MatrixEvent, room: Pick<Room, "roomId">): Cal
     conversationId: room.roomId,
     callId: said.call_id,
     toUserId: target.id,
+    // Handing a call to somebody already on the line reaches both of them and says different things: one is
+    // told to ring, the other to expect a ring. Reading both the same way has one ringing somebody who is
+    // about to ring them, and neither being answered.
+    waitForThem: said.await_call !== undefined,
     ...(target.display_name ? { toDisplayName: target.display_name } : {})
   };
 }
@@ -84,7 +99,7 @@ function handleTimelineEvent(
   handlers.onConversationUpdated?.(mapConversation(room));
   // Being asked to pass a call on. The SDK sends this and hangs up, and does nothing with it when it
   // arrives: without telling somebody, a transfer is one side hanging up and the other simply cut off.
-  const passedOn = mapTransfer(event, room);
+  const passedOn = mapTransfer(event, room, { caughtUp: context.caughtUp() });
   if (passedOn) {
     handlers.onCallTransferred?.(passedOn);
     return;

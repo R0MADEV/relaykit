@@ -22,6 +22,7 @@ import type {
   AvatarImage,
   AvatarOptions,
   Call,
+  CallQuality,
   LinkPreview,
   LiveLocation,
   PlaceCallOptions,
@@ -270,6 +271,9 @@ export class MessagingClient {
       this.callOperations.shareScreen(callId, sharing),
     transfer: (callId: string, userId: string): Promise<void> =>
       this.callOperations.transfer(callId, userId),
+    joinCalls: (callId: string, otherCallId: string): Promise<void> =>
+      this.callOperations.joinCalls(callId, otherCallId),
+    quality: (callId: string): Promise<CallQuality> => this.callOperations.quality(callId),
     useMicrophone: (deviceId: string): Promise<void> => this.callOperations.useMicrophone(deviceId),
     useCamera: (deviceId: string): Promise<void> => this.callOperations.useCamera(deviceId),
     list: (): Promise<readonly Call[]> => this.callOperations.list()

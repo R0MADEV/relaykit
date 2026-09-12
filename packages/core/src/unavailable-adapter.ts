@@ -31,7 +31,8 @@ import type {
   LinkPreview,
   Poll,
   LiveLocation,
-  Call
+  Call,
+  CallQuality
 } from "./models.js";
 
 export class UnavailableAdapter implements MessagingAdapter {
@@ -385,6 +386,14 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async shareScreenInCall(): Promise<void> {
     throw new SdkError("NOT_CONFIGURED", "Cannot show the screen");
+  }
+
+  async joinCalls(): Promise<void> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot join two calls");
+  }
+
+  async callQuality(): Promise<CallQuality> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot say how a call is going");
   }
 
   async transferCall(): Promise<void> {

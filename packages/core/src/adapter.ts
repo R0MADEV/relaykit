@@ -12,6 +12,7 @@ import type {
   FileInput,
   MessagePage,
   Call,
+  CallQuality,
   CallTransfer,
   LinkPreview,
   PlaceCallOptions,
@@ -147,6 +148,9 @@ export interface MessagingAdapter {
   pressDigitInCall(callId: string, digit: string): Promise<void>;
   shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
   transferCall(callId: string, userId: UserId): Promise<void>;
+  /** Joining two calls, which is handing one to somebody already on the line. */
+  joinCalls(callId: string, otherCallId: string): Promise<void>;
+  callQuality(callId: string): Promise<CallQuality>;
   /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */
   useMicrophone(deviceId: string): Promise<void>;
   useCamera(deviceId: string): Promise<void>;

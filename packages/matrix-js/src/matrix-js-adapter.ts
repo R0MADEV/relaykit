@@ -47,6 +47,7 @@ import type {
   ShareLocationInput,
   GeoLocation,
   Call,
+  CallQuality,
   PlaceCallOptions
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
@@ -483,6 +484,14 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
     await this.run(() => this.runtime.calls.shareScreen(callId, sharing));
+  }
+
+  async joinCalls(callId: string, otherCallId: string): Promise<void> {
+    await this.run(() => this.runtime.calls.joinCalls(callId, otherCallId));
+  }
+
+  async callQuality(callId: string): Promise<CallQuality> {
+    return this.run(() => this.runtime.calls.quality(callId));
   }
 
   async transferCall(callId: string, userId: string): Promise<void> {

@@ -485,6 +485,87 @@ async function twoAtOnce(alice, bob, address) {
   carol.destroy();
 }
 
+/**
+ * Handing a call to somebody already on the line, which is what transferring a call at work means: bob is
+ * talking to alice, alice rings carol to say who is coming, and then the two of them are joined and alice
+ * steps out.
+ *
+ * Different from passing on a name: nobody is rung out of nowhere, because both of them are already talking.
+ */
+async function handOverProperly(alice, bob, address) {
+  const carol = await open("carol", address);
+
+  const answer = async (who, why) => {
+    await waitFor(who, `${why}`, `!document.getElementById("answer").hidden`);
+    await who.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
+  };
+
+  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
+  await answer(bob, "bob to be rung before being handed over");
+
+  // A second call, to the person the first one is going to.
+  await alice.webContents.executeJavaScript(`
+    document.getElementById("participant").value = "@carol:localhost";
+    document.getElementById("open-form").requestSubmit();
+    true;
+  `);
+  await waitFor(alice, "the conversation with carol", `
+    window.relaykitDemo.client.conversations.list()
+      .then(list => list.some(item => item.isDirect && item.participantIds.includes("@carol:localhost")))
+  `);
+  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
+  await answer(carol, "carol to be rung to be told who is coming");
+
+  const both = await waitFor(alice, "alice to be on both calls", `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.length === 2 && calls.every(call => call.state === "connected") && calls.map(call => call.id))
+  `);
+
+  // And the two are joined.
+  await alice.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.joinCalls(${JSON.stringify(both[0])}, ${JSON.stringify(both[1])})
+      .then(() => true)
+  `);
+
+  // Alice steps out of both, and bob and carol are left with each other.
+  detail.aliceSteppedOut = await waitFor(alice, "alice to be out of both calls", `
+    window.relaykitDemo.client.calls.list().then(calls => calls.length === 0)
+  `);
+  // Who bob ends up talking to, asked of the conversation the call is in rather than of who rang: a call
+  // left over from before would answer the weaker question just as well.
+  detail.bobAndCarolLeftTalking = await waitFor(bob, "bob to end up in a call with carol", `
+    window.relaykitDemo.client.calls.list().then(async calls => {
+      const conversations = await window.relaykitDemo.client.conversations.list();
+      const withCarol = calls.find(call => {
+        const room = conversations.find(item => item.id === call.conversationId);
+        return room?.participantIds.includes("@carol:localhost");
+      });
+      return withCarol ? { state: withCarol.state } : false;
+    })
+  `);
+
+  // Carol answers, because being handed a call still means somebody picking it up, and then the two of them
+  // are talking with alice nowhere in it.
+  await answer(carol, "carol to be rung by bob after the hand over");
+  detail.bobAndCarolConnected = await waitFor(bob, "bob and carol to be talking", `
+    window.relaykitDemo.client.calls.list().then(async calls => {
+      const conversations = await window.relaykitDemo.client.conversations.list();
+      const withCarol = calls.find(call => {
+        const room = conversations.find(item => item.id === call.conversationId);
+        return room?.participantIds.includes("@carol:localhost");
+      });
+      if (withCarol?.state !== "connected") return false;
+      const heard = withCarol.remoteMedia
+        ? withCarol.remoteMedia.getAudioTracks().filter(one => one.readyState === "live").length
+        : 0;
+      return heard > 0 && { heard };
+    })
+  `);
+
+  await leaveNothingGoingOn([alice, bob, carol]);
+  carol.destroy();
+}
+
 async function run() {
   const server = await serve(root);
   const address = `https://127.0.0.1:${server.address().port}/`;
@@ -521,7 +602,12 @@ async function run() {
   await bob.webContents.executeJavaScript(`
     window.relaykitDemo.client.conversations.join(${JSON.stringify(conversationId)}).then(() => true)
   `);
-  detail.bobJoined = true;
+  // Asking to join and being in are not the same moment, and ringing somebody who is still on their way in
+  // is a call that arrives before there is anybody there to hear it.
+  detail.bobJoined = await waitFor(bob, "bob to really be in the conversation", `
+    window.relaykitDemo.client.conversations.list().then(list =>
+      list.find(item => item.id === ${JSON.stringify(conversationId)})?.membership === "join")
+  `);
 
   await ring(alice, bob, { video: false });
   await ring(alice, bob, { video: true });
@@ -531,6 +617,7 @@ async function run() {
   await passItOn(alice, bob, address);
   await turnTheCameraOnMidCall(alice, bob);
   await twoAtOnce(alice, bob, address);
+  await handOverProperly(alice, bob, address);
 
   server.close();
   report(true, "two browsers rang each other by voice and by video, answered and hung up");

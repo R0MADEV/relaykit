@@ -7,7 +7,7 @@ import {
   CallType,
   type MatrixCall
 } from "matrix-js-sdk/lib/webrtc/call.js";
-import type { Call, CallState, ConversationId, PlaceCallOptions } from "@relaykit/core";
+import type { Call, CallQuality, CallState, ConversationId, PlaceCallOptions } from "@relaykit/core";
 
 /**
  * Calls are the SDK's own: it creates them, signals over Matrix and negotiates the media between devices.
@@ -181,6 +181,35 @@ export class MatrixCalls {
   /** Handing the call to somebody else, who then talks to whoever was on the other end. */
   async transfer(callId: string, userId: string): Promise<void> {
     await this.require(callId).transfer(userId);
+  }
+
+  /**
+   * Handing a call to somebody already on the line, which is what transferring a call at work means: the
+   * first person waits, the second is rung and told who is coming, and then the two are joined.
+   *
+   * The SDK joins them. What it wants is the other call, not a name, which is the whole difference between
+   * this and passing somebody a number.
+   */
+  async joinCalls(callId: string, otherCallId: string): Promise<void> {
+    await this.require(callId).transferToCall(this.require(otherCallId));
+  }
+
+  /**
+   * How a call is going: the browser's own numbers, read rather than worked out here. Nothing is invented
+   * when there is nothing to report — a call with no answer about itself says nothing, not zeroes, because
+   * zero lost packets and no idea are not the same thing.
+   */
+  async quality(callId: string): Promise<CallQuality> {
+    const reported = (await this.require(callId).getCurrentCallStats()) ?? [];
+    const heard = reported.find(one => one.type === "inbound-rtp" && one.kind === "audio");
+    const path = reported.find(one => one.type === "candidate-pair" && one.nominated);
+    return {
+      ...(typeof heard?.packetsLost === "number" ? { packetsLost: heard.packetsLost } : {}),
+      ...(typeof heard?.jitter === "number" ? { jitterMs: Math.round(heard.jitter * 1000) } : {}),
+      ...(typeof path?.currentRoundTripTime === "number"
+        ? { roundTripMs: Math.round(path.currentRoundTripTime * 1000) }
+        : {})
+    };
   }
 
   /**

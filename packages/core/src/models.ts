@@ -373,11 +373,20 @@ export type CallState = "ringing" | "connecting" | "connected" | "ended";
  * Being asked to pass a call on. Whoever transferred it has already hung up: what arrives is the name of the
  * person to ring instead, and ringing them is a decision, not something that should happen by itself.
  */
+/** How a call is going, as the browser reports it. Absent where there is nothing to say. */
+export interface CallQuality {
+  readonly packetsLost?: number;
+  readonly jitterMs?: number;
+  readonly roundTripMs?: number;
+}
+
 export interface CallTransfer {
   readonly conversationId: ConversationId;
   readonly callId: string;
   readonly toUserId: UserId;
   readonly toDisplayName?: string;
+  /** They are about to ring: waiting is the whole job. Otherwise it is this side that rings them. */
+  readonly waitForThem: boolean;
 }
 export const callStates: readonly CallState[] = ["ringing", "connecting", "connected", "ended"];
 

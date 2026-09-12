@@ -11,6 +11,7 @@ import type {
   ShareLocationInput,
   GeoLocation,
   Call,
+  CallQuality,
   PlaceCallOptions
 } from "@relaykit/core";
 import type {
@@ -881,6 +882,18 @@ export class InMemoryAdapter implements MessagingAdapter {
     await this.hangUpCall(callId);
   }
 
+  /** Joining two ends both here: the two people carry on together and this side steps out. */
+  async joinCalls(callId: string, otherCallId: string): Promise<void> {
+    await this.hangUpCall(callId);
+    await this.hangUpCall(otherCallId);
+  }
+
+  /** A double has no line to measure, so it says nothing rather than making numbers up. */
+  async callQuality(callId: string): Promise<CallQuality> {
+    if (!this.calls.has(callId)) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    return {};
+  }
+
   async useMicrophone(deviceId: string): Promise<void> {
     this.chosenMicrophone = deviceId;
   }
@@ -906,7 +919,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.handlers.onCallTransferred?.({
       conversationId,
       callId: `memory-call-${this.nextMessageId++}`,
-      toUserId
+      toUserId,
+      waitForThem: false
     });
   }
 

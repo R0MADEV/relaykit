@@ -309,6 +309,19 @@ function runContract(name, setup) {
       await adapter.hangUpCall(call.id);
     });
 
+    it("says how a call is going, or says nothing rather than zeroes", { skip: !callsArePossible }, async () => {
+      const call = await adapter.placeCall(conversationId, {});
+
+      const going = await adapter.callQuality(call.id);
+
+      // Numbers only where there are numbers. Zero lost packets and no idea are not the same thing, and a
+      // screen that cannot tell them apart says the line is perfect when nothing is connected at all.
+      for (const [name, value] of Object.entries(going)) {
+        assert.equal(typeof value, "number", `${name} came back as something other than a number`);
+      }
+      await adapter.hangUpCall(call.id);
+    });
+
     it("refusing a call leaves it no longer going on", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, {});
 

@@ -131,3 +131,57 @@ test("two changes to the same call happen one after the other, not at once", asy
   assert.equal(muted, true);
   assert.equal(held, true);
 });
+
+/**
+ * Handing a call to somebody you are already talking to, which is what anybody means by transferring a call
+ * at work: you put the first person on hold, ring the second, tell them who is coming, and then join the two.
+ *
+ * The SDK does the joining. What it needs is the other call, not a name.
+ */
+test("two calls can be joined, which is what transferring properly means", async () => {
+  const joined = [];
+  const first = callThat({ transferToCall: async other => joined.push(other.callId) });
+  const second = callThat({ callId: "call-2" });
+  const made = [first, second];
+  const client = {
+    createCall: () => made.shift(),
+    getSafeUserId: () => "@alice:localhost",
+    getMediaHandler: () => ({ setAudioInput: () => undefined, setVideoInput: () => undefined }),
+    on: () => undefined
+  };
+  const { MatrixCalls: Calls } = await import("../packages/matrix-js/dist/matrix-calls.js");
+  const calls = new Calls();
+  calls.watch(client, () => undefined, () => undefined);
+  await calls.place(client, "!one:localhost", {});
+  await calls.place(client, "!two:localhost", {});
+
+  await calls.joinCalls("call-1", "call-2");
+
+  assert.deepEqual(joined, ["call-2"]);
+});
+
+/**
+ * How a call is going, which is the difference between "they cannot hear me" and "something is wrong with the
+ * line". These are the browser's own numbers, read rather than worked out here.
+ */
+test("how a call is going is the browser's own numbers", async () => {
+  const call = callThat({
+    getCurrentCallStats: async () => [
+      { type: "inbound-rtp", kind: "audio", packetsLost: 7, jitter: 0.012 },
+      { type: "candidate-pair", nominated: true, currentRoundTripTime: 0.043 }
+    ]
+  });
+  const { calls } = await placed(call);
+
+  const going = await calls.quality("call-1");
+
+  assert.equal(going.packetsLost, 7);
+  assert.equal(going.jitterMs, 12);
+  assert.equal(going.roundTripMs, 43);
+});
+
+test("a call with nothing to say about itself says nothing, rather than zeroes", async () => {
+  const { calls } = await placed(callThat({ getCurrentCallStats: async () => undefined }));
+
+  assert.deepEqual(await calls.quality("call-1"), {});
+});

@@ -163,6 +163,16 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
   encuentra, se para sin decir nada, y quien llama se queda con una llamada que dice estar conectada y no se
   oye. Ahora la lista pide los miembros con `$LAZY`, que es lo que Matrix tiene para eso, y la conversacion
   que se usa los pide todos.
+- Transferencia atendida (`calls.joinCalls`): pasar una llamada a alguien con quien ya estas hablando. El
+  primero espera, al segundo se le cuenta quien viene, y se unen las dos. La hace el SDK (`transferToCall`).
+- `calls.quality`: como va la llamada, con los numeros del propio navegador. Donde no hay numero no se inventa
+  uno: cero paquetes perdidos y no tener ni idea no son lo mismo.
+- Corregido: una transferencia atendida manda dos mensajes distintos, a uno "llama" y al otro "te van a
+  llamar", y los leiamos igual. Los dos se llamaban entre si y no contestaba nadie.
+- Corregido, y este era grave: al entrar, un cliente se pone al dia con lo que se dijo mientras no estaba, y
+  actuaba sobre las transferencias que encontraba ahi. O sea que abrir la aplicacion podia ponerse a llamar a
+  alguien por una llamada que termino hace rato. Ser reciente no basta. El SDK retiene las llamadas entrantes
+  hasta que la primera sincronizacion acaba, por esto mismo, y ahora nosotros tambien.
 - Auditoria de las llamadas contra el SDK. Emite trece eventos y escuchabamos dos, y de ahi salio:
   - Corregido: la llamada decia que habia empezado **ahora** cada vez que se leia (`startedAt` se tomaba del
     reloj al describirla), asi que nada podia cronometrarla.

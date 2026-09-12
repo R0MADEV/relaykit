@@ -73,6 +73,7 @@ export type {
   VerificationSas,
   VerificationSession,
   Call,
+  CallQuality,
   CallTransfer,
   CallState,
   LinkPreview,
