@@ -10,7 +10,9 @@ let received = [];
 
 createServer((request, response) => {
   let body = "";
-  request.on("data", chunk => { body += chunk; });
+  request.on("data", chunk => {
+    body += chunk;
+  });
   request.on("end", () => {
     if (request.method === "POST" && request.url === "/_matrix/push/v1/notify") {
       try {

@@ -4,7 +4,10 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 // How many times the homeserver is asked while painting a screen. Round trips are what a chat feels.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
+const alice = {
+  username: process.env.MATRIX_USER_A ?? "alice",
+  password: process.env.MATRIX_PASSWORD_A ?? "alice-password"
+};
 
 const asked = new Map();
 const realFetch = globalThis.fetch;
@@ -70,7 +73,9 @@ async function main() {
   }
 }
 
-main().then(() => process.exit(0)).catch(error => {
-  console.error(`round trip measurement failed: ${error.message}`);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(`round trip measurement failed: ${error.message}`);
+    process.exit(1);
+  });

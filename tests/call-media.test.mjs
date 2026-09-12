@@ -41,7 +41,11 @@ async function placed(feeds) {
   const call = callWith(feeds);
   const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   return calls.place(client, "!room:localhost", { video: false });
 }
 
@@ -77,14 +81,20 @@ test("a call says who is calling from the first word, even before the SDK writes
     direction: undefined,
     // Only the state changing, which is what this is about: firing every handler there is would also be
     // firing the one for a call going wrong, which is a different thing entirely.
-    on: (event, handler) => { if (event === "state") listeners.push(handler); },
+    on: (event, handler) => {
+      if (event === "state") listeners.push(handler);
+    },
     placeVoiceCall: async () => {
       for (const handler of listeners) handler();
     }
   };
   const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, reported => told.push(reported));
+  calls.watch(
+    client,
+    () => undefined,
+    reported => told.push(reported)
+  );
 
   await calls.place(client, "!room:localhost", { video: false });
 
@@ -110,7 +120,11 @@ test("something new to play is told about, even when the call is already connect
   };
   const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, reported => told.push(reported));
+  calls.watch(
+    client,
+    () => undefined,
+    reported => told.push(reported)
+  );
   await calls.place(client, "!room:localhost", { video: true });
   told.length = 0;
 
@@ -138,7 +152,11 @@ test("a shared screen is handed over apart from the camera", async () => {
   ]);
   const client = { createCall: () => call, getSafeUserId: () => "@alice:localhost", on: () => undefined };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
 
   const placed = await calls.place(client, "!room:localhost", { video: true });
 

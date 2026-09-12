@@ -68,8 +68,14 @@ test("conversations.search matches title and participants case-insensitively", a
   const withCarol = await client.conversations.create({ participantIds: ["Carol"] });
   await client.conversations.create({ participantIds: ["dave"], title: "Ventas" });
 
-  assert.deepEqual((await client.conversations.search("sop")).map(item => item.id), [support.id]);
-  assert.deepEqual((await client.conversations.search("carol")).map(item => item.id), [withCarol.id]);
+  assert.deepEqual(
+    (await client.conversations.search("sop")).map(item => item.id),
+    [support.id]
+  );
+  assert.deepEqual(
+    (await client.conversations.search("carol")).map(item => item.id),
+    [withCarol.id]
+  );
   assert.deepEqual(await client.conversations.search("nothing"), []);
   await assert.rejects(client.conversations.search("  "), { code: "INVALID_INPUT" });
   await client.stop();
@@ -87,9 +93,15 @@ test("messages.search finds local messages across or within conversations, newes
   await client.messages.send(two.id, "unrelated");
 
   const everywhere = await client.messages.search("BUDGET");
-  assert.deepEqual(everywhere.map(item => item.body), ["budget approved", "Budget for Q3"]);
+  assert.deepEqual(
+    everywhere.map(item => item.body),
+    ["budget approved", "Budget for Q3"]
+  );
   const inTwo = await client.messages.search("budget", { conversationId: two.id });
-  assert.deepEqual(inTwo.map(item => item.body), ["budget approved"]);
+  assert.deepEqual(
+    inTwo.map(item => item.body),
+    ["budget approved"]
+  );
   await assert.rejects(client.messages.search(""), { code: "INVALID_INPUT" });
   await client.stop();
 });
@@ -126,7 +138,10 @@ test("conversations are listed with the most recent activity first", async () =>
 
   const listed = await client.conversations.list();
 
-  assert.deepEqual(listed.map(item => item.id), [busy.id, quiet.id]);
+  assert.deepEqual(
+    listed.map(item => item.id),
+    [busy.id, quiet.id]
+  );
   await client.stop();
 });
 
@@ -230,7 +245,10 @@ test("a new conversation reports the people who have not accepted yet", async ()
   const conversation = await client.conversations.create({ participantIds: ["bob"] });
 
   assert.deepEqual(conversation.invitedIds, ["bob"]);
-  assert.ok(conversation.participantIds.includes("bob"), "an invited person is still part of the conversation");
+  assert.ok(
+    conversation.participantIds.includes("bob"),
+    "an invited person is still part of the conversation"
+  );
 
   adapter.acceptInvitation(conversation.id, "bob");
   const listed = await client.conversations.list();
@@ -242,7 +260,11 @@ test("a new conversation reports the people who have not accepted yet", async ()
 test("a conversation can be created open to anyone and joined with server hints", async () => {
   const { adapter, client } = await startClient();
 
-  const conversation = await client.conversations.create({ participantIds: [], title: "Comunidad", public: true });
+  const conversation = await client.conversations.create({
+    participantIds: [],
+    title: "Comunidad",
+    public: true
+  });
   assert.equal(adapter.lastCreateInput.public, true);
 
   await client.conversations.join(conversation.id, { via: ["fed1", "  "] });
@@ -268,7 +290,10 @@ test("searching on the server returns what the homeserver finds", async () => {
 
   const found = await client.messages.searchRemote("presupuesto");
 
-  assert.deepEqual(found.map(message => message.body), ["el presupuesto de julio"]);
+  assert.deepEqual(
+    found.map(message => message.body),
+    ["el presupuesto de julio"]
+  );
   await assert.rejects(client.messages.searchRemote("   "), { code: "INVALID_INPUT" });
   await client.stop();
 });

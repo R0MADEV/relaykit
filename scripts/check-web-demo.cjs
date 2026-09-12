@@ -21,17 +21,37 @@ app.commandLine.appendSwitch("use-fake-ui-for-media-stream");
 const root = path.join(__dirname, "..", "examples", "web", "dist");
 const detail = {};
 
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm" };
+const types = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".wasm": "application/wasm"
+};
 
 /** Un certificado para esta comprobacion y nada mas. Se hace al vuelo y se tira al acabar. */
 function makeCertificate() {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "relaykit-tls-"));
   const key = path.join(folder, "tls.key");
   const certificate = path.join(folder, "tls.crt");
-  execFileSync("openssl", [
-    "req", "-x509", "-newkey", "rsa:2048", "-keyout", key, "-out", certificate,
-    "-days", "1", "-nodes", "-subj", "/CN=localhost"
-  ], { stdio: "ignore" });
+  execFileSync(
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-keyout",
+      key,
+      "-out",
+      certificate,
+      "-days",
+      "1",
+      "-nodes",
+      "-subj",
+      "/CN=localhost"
+    ],
+    { stdio: "ignore" }
+  );
   return { key: fs.readFileSync(key), cert: fs.readFileSync(certificate), folder };
 }
 
@@ -118,11 +138,17 @@ async function run() {
     true;
   `);
 
-  await waitFor(page, "the application to appear", `document.getElementById("app").hidden === false`, 20)
-    .catch(async error => {
-      const status = await page.webContents.executeJavaScript(`document.getElementById("status")?.textContent ?? "no status"`);
-      throw new Error(`${error.message}. The screen says: ${status}`);
-    });
+  await waitFor(
+    page,
+    "the application to appear",
+    `document.getElementById("app").hidden === false`,
+    20
+  ).catch(async error => {
+    const status = await page.webContents.executeJavaScript(
+      `document.getElementById("status")?.textContent ?? "no status"`
+    );
+    throw new Error(`${error.message}. The screen says: ${status}`);
+  });
   detail.signedIn = true;
 
   // Opening a conversation with Bob, which is what the picker is for.
@@ -141,33 +167,51 @@ async function run() {
     throw new Error("La pagina no esta en un origen seguro, asi que no hay almacen cifrado que probar");
   }
 
-  await waitFor(page, "a conversation to be listed", `document.querySelectorAll("#conversations li").length > 0`);
+  await waitFor(
+    page,
+    "a conversation to be listed",
+    `document.querySelectorAll("#conversations li").length > 0`
+  );
   detail.conversationsListed = await page.webContents.executeJavaScript(
     `document.querySelectorAll("#conversations li").length`
   );
 
-  await waitFor(page, "the message box", `document.getElementById("message") !== null && !document.querySelector("footer").hidden`, 40)
-    .catch(async error => {
-      const says = await page.webContents.executeJavaScript(`document.getElementById("status")?.textContent ?? "nothing"`);
-      throw new Error(`${error.message}. The screen says: ${says}`);
-    });
+  await waitFor(
+    page,
+    "the message box",
+    `document.getElementById("message") !== null && !document.querySelector("footer").hidden`,
+    40
+  ).catch(async error => {
+    const says = await page.webContents.executeJavaScript(
+      `document.getElementById("status")?.textContent ?? "nothing"`
+    );
+    throw new Error(`${error.message}. The screen says: ${says}`);
+  });
   const said = `demo-${Date.now()}`;
   await page.webContents.executeJavaScript(`
     document.getElementById("message").value = ${JSON.stringify(said)};
     document.getElementById("message-form").requestSubmit();
     true;
   `);
-  await waitFor(page, "the message to appear in the conversation", `
+  await waitFor(
+    page,
+    "the message to appear in the conversation",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item => item.textContent.includes(${JSON.stringify(said)}))
-  `);
+  `
+  );
   detail.messageOnScreen = true;
 
   // Lo que la librería sabe hacer tiene que verse. Una funcionalidad que solo se puede comprobar leyendo un
   // log no esta demostrada para quien la va a usar.
   await page.webContents.executeJavaScript(`document.getElementById("sticker").click(); true;`);
-  await waitFor(page, "la pegatina pintada sola, sin caja ni boton", `
+  await waitFor(
+    page,
+    "la pegatina pintada sola, sin caja ni boton",
+    `
     [...document.querySelectorAll("#timeline .message.sticker img")].length > 0
-  `);
+  `
+  );
   detail.stickerPainted = true;
 
   // Una encuesta: preguntarla, verla con sus respuestas, votar y que el recuento suba.
@@ -177,9 +221,13 @@ async function run() {
     document.getElementById("poll-form").requestSubmit();
     true;
   `);
-  await waitFor(page, "la encuesta en pantalla", `
+  await waitFor(
+    page,
+    "la encuesta en pantalla",
+    `
     [...document.querySelectorAll("#polls .poll")].some(item => item.textContent.includes("A las 14"))
-  `).catch(async error => {
+  `
+  ).catch(async error => {
     const why = await page.webContents.executeJavaScript(`
       JSON.stringify({
         estado: document.getElementById("status").textContent,
@@ -194,9 +242,13 @@ async function run() {
       .find(item => item.textContent.includes("A las 15")).click();
     true;
   `);
-  await waitFor(page, "el voto contado en pantalla", `
+  await waitFor(
+    page,
+    "el voto contado en pantalla",
+    `
     [...document.querySelectorAll("#polls .poll .answer")].some(item => /A las 15 · 1/.test(item.textContent))
-  `);
+  `
+  );
   detail.pollVotedOnScreen = true;
 
   // A poll has to survive whatever happens in the conversation around it. It used to be drawn inside the
@@ -207,11 +259,16 @@ async function run() {
       .then(([conversation]) => window.relaykitDemo.client.messages.send(conversation.id, "algo despues"))
       .then(() => true)
   `);
-  await waitFor(page, "el mensaje de despues en pantalla", `
+  await waitFor(
+    page,
+    "el mensaje de despues en pantalla",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item => item.textContent.includes("algo despues"))
-  `);
+  `
+  );
   const stillThere = await page.webContents.executeJavaScript(
-    `document.querySelectorAll(".poll").length > 0`);
+    `document.querySelectorAll(".poll").length > 0`
+  );
   if (!stillThere) throw new Error("Llego un mensaje y la encuesta desaparecio de la pantalla");
   detail.pollSurvivedAMessage = true;
 
@@ -249,18 +306,32 @@ async function run() {
     box.dispatchEvent(new Event("input"));
     true;
   `);
-  detail.linkWasLookedAt = await waitFor(page, "la vista previa del enlace", `
+  detail.linkWasLookedAt = await waitFor(
+    page,
+    "la vista previa del enlace",
+    `
     document.getElementById("link-preview") !== null
-  `).then(() => true);
+  `
+  ).then(() => true);
 
   // Opening it again should not ask who you are, and should not leave you looking at nothing while it asks
   // the homeserver. That is the whole point of remembering the session and painting what is already here.
   const reloadedAt = Date.now();
   await page.reload();
-  await waitFor(page, "the application to come back without signing in again", `
+  await waitFor(
+    page,
+    "the application to come back without signing in again",
+    `
     document.getElementById("app") !== null && document.getElementById("app").hidden === false
-  `, 40);
-  await waitFor(page, "the conversations to be there again", `document.querySelectorAll("#conversations li").length > 0`, 40);
+  `,
+    40
+  );
+  await waitFor(
+    page,
+    "the conversations to be there again",
+    `document.querySelectorAll("#conversations li").length > 0`,
+    40
+  );
   detail.millisecondsToOpenAgain = Date.now() - reloadedAt;
   detail.cameBackWithoutSigningIn = true;
 
@@ -272,13 +343,23 @@ async function run() {
       document.dispatchEvent(new Event("visibilitychange"));
       true;
     `);
-    await waitFor(page, "the connection to be let go", `document.getElementById("status").textContent === "disconnected"`, 40);
+    await waitFor(
+      page,
+      "the connection to be let go",
+      `document.getElementById("status").textContent === "disconnected"`,
+      40
+    );
     await page.webContents.executeJavaScript(`
       Object.defineProperty(document, "hidden", { value: false, configurable: true });
       document.dispatchEvent(new Event("visibilitychange"));
       true;
     `);
-    await waitFor(page, "the conversations after coming back", `document.querySelectorAll("#conversations li").length > 0`, 40);
+    await waitFor(
+      page,
+      "the conversations after coming back",
+      `document.querySelectorAll("#conversations li").length > 0`,
+      40
+    );
     detail.letGoAndCameBack = true;
   }
 
@@ -289,32 +370,54 @@ async function run() {
     document.getElementById("open-form").requestSubmit();
     true;
   `);
-  await waitFor(page, "the conversation with Bob to open", `document.querySelector("footer") !== null && !document.querySelector("footer").hidden`);
+  await waitFor(
+    page,
+    "the conversation with Bob to open",
+    `document.querySelector("footer") !== null && !document.querySelector("footer").hidden`
+  );
   // Reopening paints from what was kept before the homeserver has answered, which is the point. Saying anything
   // in a conversation whose state has not arrived yet is refused and queued, so the check waits for it.
-  await waitFor(page, "the client to have caught up", `document.getElementById("status").textContent === "connected"`, 120);
+  await waitFor(
+    page,
+    "the client to have caught up",
+    `document.getElementById("status").textContent === "connected"`,
+    120
+  );
 
   // A real network cut, which is the one thing the smokes cannot do: the browser is put offline for real.
   // Every request to the homeserver is refused. Electron's offline emulation leaves loopback traffic alone, so
   // it would not cut anything here; refusing the requests is a real cut as far as the application can tell.
   state.networkIsCut = true;
   state.expectComplaints = true;
-  page.webContents.session.webRequest.onBeforeRequest({ urls: ["http://localhost/*"] }, (details, callback) => {
-    callback({ cancel: state.networkIsCut && details.url.includes(":8008/") });
-  });
-  await waitFor(page, "requests to start failing", `
+  page.webContents.session.webRequest.onBeforeRequest(
+    { urls: ["http://localhost/*"] },
+    (details, callback) => {
+      callback({ cancel: state.networkIsCut && details.url.includes(":8008/") });
+    }
+  );
+  await waitFor(
+    page,
+    "requests to start failing",
+    `
     fetch("http://localhost:8008/_matrix/client/versions", { cache: "no-store" }).then(() => false, () => true)
-  `, 40);
+  `,
+    40
+  );
   const whileOffline = `sin-red-${Date.now()}`;
   await page.webContents.executeJavaScript(`
     document.getElementById("message").value = ${JSON.stringify(whileOffline)};
     document.getElementById("message-form").requestSubmit();
     true;
   `);
-  await waitFor(page, "the message to be waiting on screen", `
+  await waitFor(
+    page,
+    "the message to be waiting on screen",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item =>
       item.textContent.includes(${JSON.stringify(whileOffline)}) && !item.textContent.includes("· sent"))
-  `, 30).catch(async error => {
+  `,
+    30
+  ).catch(async error => {
     const shown = await page.webContents.executeJavaScript(`
       [...document.querySelectorAll("#timeline .message")].slice(-3).map(item => item.textContent).join(" | ")
     `);
@@ -323,19 +426,34 @@ async function run() {
   detail.waitedWhileOffline = true;
 
   state.networkIsCut = false;
-  await waitFor(page, "requests to work again", `
+  await waitFor(
+    page,
+    "requests to work again",
+    `
     fetch("http://localhost:8008/_matrix/client/versions", { cache: "no-store" }).then(() => true, () => false)
-  `, 40);
-  await waitFor(page, "the message to go out once the network is back", `
+  `,
+    40
+  );
+  await waitFor(
+    page,
+    "the message to go out once the network is back",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item =>
       item.textContent.includes(${JSON.stringify(whileOffline)}) && item.textContent.includes("· sent"))
-  `, 120);
+  `,
+    120
+  );
   detail.wentOutWhenTheNetworkCameBack = true;
   // Complaints stop being expected when the client is demonstrably back, not after a guessed number of
   // seconds: the sync waits longer and longer between attempts, so a clock is the wrong thing to trust.
-  await waitFor(page, "the client to be connected again", `
+  await waitFor(
+    page,
+    "the client to be connected again",
+    `
     document.getElementById("status").textContent === "connected"
-  `, 120);
+  `,
+    120
+  );
   await new Promise(resolve => setTimeout(resolve, 1000));
   state.expectComplaints = false;
 
@@ -349,16 +467,26 @@ async function run() {
   await new Promise((resolve, reject) => {
     const sender = spawn("node", [path.join(__dirname, "send-as.mjs"), "bob", watching, fromBob]);
     let why = "";
-    sender.stderr.on("data", chunk => { why += String(chunk); });
+    sender.stderr.on("data", chunk => {
+      why += String(chunk);
+    });
     sender.on("exit", code => {
       if (code === 0) return resolve();
-      const said = why.split("\n").filter(line => line.startsWith("could not say it")).join(" ");
+      const said = why
+        .split("\n")
+        .filter(line => line.startsWith("could not say it"))
+        .join(" ");
       reject(new Error(`Bob could not say it in ${watching}: ${said || `exit ${code}`}`));
     });
   });
-  await waitFor(page, "what Bob said to reach the screen", `
+  await waitFor(
+    page,
+    "what Bob said to reach the screen",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item => item.textContent.includes(${JSON.stringify(fromBob)}))
-  `, 120);
+  `,
+    120
+  );
   detail.arrivedWhileWatching = true;
 
   // Sending a file through the form, which is the heaviest thing a chat does: it is encrypted, uploaded,
@@ -373,16 +501,26 @@ async function run() {
   await page.webContents.debugger.sendCommand("DOM.setFileInputFiles", { nodeId, files: [attachment] });
   page.webContents.debugger.detach();
   await page.webContents.executeJavaScript(`document.getElementById("file-form").requestSubmit(); true;`);
-  await waitFor(page, "the file to be in the conversation", `
+  await waitFor(
+    page,
+    "the file to be in the conversation",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item => item.textContent.includes("package.json"))
-  `, 120);
+  `,
+    120
+  );
   detail.fileWentOut = true;
 
   // And fetched back: the button is there because the file can be downloaded again.
-  await waitFor(page, "the file to be offered for download", `
+  await waitFor(
+    page,
+    "the file to be offered for download",
+    `
     [...document.querySelectorAll("#timeline .message")].some(item =>
       item.textContent.includes("package.json") && item.textContent.includes("Descargar"))
-  `, 60);
+  `,
+    60
+  );
   detail.fileCanBeFetchedBack = true;
 
   // Looking further back, which is what somebody does when they scroll up through a conversation.
@@ -391,9 +529,14 @@ async function run() {
   );
   const lookedBackAt = Date.now();
   await page.webContents.executeJavaScript(`document.getElementById("load-more").click(); true;`);
-  await waitFor(page, "older messages to appear", `
+  await waitFor(
+    page,
+    "older messages to appear",
+    `
     document.querySelectorAll("#timeline .message").length >= ${shownBefore}
-  `, 60);
+  `,
+    60
+  );
   detail.millisecondsToLookFurtherBack = Date.now() - lookedBackAt;
   detail.lookedFurtherBack = true;
 
@@ -424,12 +567,13 @@ async function run() {
   detail.problemsInTheConsole = problems.slice(0, 5);
   detail.complaintsWhileTheNetworkWasCut = complaintsWhileCut.length;
   detail.sendsRetriedWhileCatchingUp = recoveredFrom.length;
-  const ok = problems.length === 0
-    && detail.wentOutWhenTheNetworkCameBack === true
-    && detail.arrivedWhileWatching === true
-    && detail.didNotRunAway === true
-    && detail.fileCanBeFetchedBack === true
-    && detail.lookedFurtherBack === true;
+  const ok =
+    problems.length === 0 &&
+    detail.wentOutWhenTheNetworkCameBack === true &&
+    detail.arrivedWhileWatching === true &&
+    detail.didNotRunAway === true &&
+    detail.fileCanBeFetchedBack === true &&
+    detail.lookedFurtherBack === true;
   report(ok, ok ? "the example works in a real browser" : "the example ran but complained in the console");
 }
 

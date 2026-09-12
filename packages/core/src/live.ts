@@ -102,24 +102,29 @@ export function createConversationList(client: MessagingClient): LiveCollection<
     () => client.conversations.list(),
     error => client.emitListenerError(error)
   );
-  collection.follow(client.on("conversation.updated", conversation => {
-    if (collection.isStopped()) return;
-    const current = collection.get();
-    // Reading every conversation again because one of them had a message is what makes a busy account crawl.
-    // The one that changed arrives whole, so it is put in place and the rest are left alone.
-    const known = current.some(item => item.id === conversation.id);
-    if (!known) {
-      void collection.refresh();
-      return;
-    }
-    const replaced = current.map(item => (item.id === conversation.id ? conversation : item));
-    collection.replace(byRecentActivity(replaced));
-  }));
+  collection.follow(
+    client.on("conversation.updated", conversation => {
+      if (collection.isStopped()) return;
+      const current = collection.get();
+      // Reading every conversation again because one of them had a message is what makes a busy account crawl.
+      // The one that changed arrives whole, so it is put in place and the rest are left alone.
+      const known = current.some(item => item.id === conversation.id);
+      if (!known) {
+        void collection.refresh();
+        return;
+      }
+      const replaced = current.map(item => (item.id === conversation.id ? conversation : item));
+      collection.replace(byRecentActivity(replaced));
+    })
+  );
   return collection;
 }
 
 /** The timeline of one conversation, oldest first, with the local echo of each message resolved. */
-export function createMessageTimeline(client: MessagingClient, conversationId: ConversationId): LiveCollection<Message> {
+export function createMessageTimeline(
+  client: MessagingClient,
+  conversationId: ConversationId
+): LiveCollection<Message> {
   const collection = new Collection<Message>(
     () => client.messages.list(conversationId),
     error => client.emitListenerError(error)

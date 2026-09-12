@@ -5,8 +5,12 @@ import { IndexedDbStorage } from "@relaykit/browser-storage";
 
 const conversation = { id: "!room:localhost", title: "a room", participantIds: ["@alice:localhost"] };
 const message = {
-  id: "$uno", conversationId: "!room:localhost", senderId: "@alice:localhost",
-  body: "lo que dije ayer", sentAt: 1, status: "sent"
+  id: "$uno",
+  conversationId: "!room:localhost",
+  senderId: "@alice:localhost",
+  body: "lo que dije ayer",
+  sentAt: 1,
+  status: "sent"
 };
 
 /**

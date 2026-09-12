@@ -16,7 +16,12 @@ class CountingAdapter extends InMemoryAdapter {
 
 async function startClient(cache) {
   const adapter = new CountingAdapter();
-  const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session, ...cache && { cache } });
+  const client = new MessagingClient({
+    adapter,
+    storage: new InMemoryStorage(),
+    session,
+    ...(cache && { cache })
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   return { adapter, client, conversation };

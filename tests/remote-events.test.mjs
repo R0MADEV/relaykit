@@ -29,7 +29,8 @@ function waitFor(received, howMany = 1) {
     const deadline = Date.now() + 1000;
     const look = () => {
       if (received.length >= howMany) return resolve(received);
-      if (Date.now() > deadline) return reject(new Error(`nunca llegaron ${howMany}, hay ${received.length}`));
+      if (Date.now() > deadline)
+        return reject(new Error(`nunca llegaron ${howMany}, hay ${received.length}`));
       setTimeout(look, 1);
     };
     look();
@@ -138,7 +139,10 @@ test("a message reports who has read it", async () => {
   adapter.receiveReadReceipt(conversation.id, sent.id, "bob");
 
   const readers = await client.messages.readBy(conversation.id, sent.id);
-  assert.deepEqual(readers.map(receipt => receipt.userId), ["bob"]);
+  assert.deepEqual(
+    readers.map(receipt => receipt.userId),
+    ["bob"]
+  );
   assert.equal(readers[0].messageId, sent.id);
   assert.equal(typeof readers[0].readAt, "number");
   await client.stop();
@@ -159,8 +163,15 @@ test("a message from someone else arrives as a new message, not as an update", a
   adapter.receiveMessage(conversation.id, "bob", "hola");
   await new Promise(resolve => setTimeout(resolve, 5));
 
-  assert.deepEqual(received.map(message => message.body), ["hola"]);
-  assert.deepEqual(updated.map(message => message.body), [], "an arrival is not a change to something known");
+  assert.deepEqual(
+    received.map(message => message.body),
+    ["hola"]
+  );
+  assert.deepEqual(
+    updated.map(message => message.body),
+    [],
+    "an arrival is not a change to something known"
+  );
   await client.stop();
 });
 
@@ -173,6 +184,9 @@ test("the states of a message being sent arrive as updates", async () => {
   await new Promise(resolve => setTimeout(resolve, 5));
 
   assert.deepEqual(received, [], "your own message is not an arrival");
-  assert.deepEqual(updated.map(message => message.status), ["queued", "sending", "sent"]);
+  assert.deepEqual(
+    updated.map(message => message.status),
+    ["queued", "sending", "sent"]
+  );
   await client.stop();
 });

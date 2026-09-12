@@ -7,7 +7,12 @@ const session = { homeserver: "memory://test", userId: "alice", accessToken: "to
 
 async function startClient(cache) {
   const adapter = new InMemoryAdapter();
-  const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session, ...cache && { cache } });
+  const client = new MessagingClient({
+    adapter,
+    storage: new InMemoryStorage(),
+    session,
+    ...(cache && { cache })
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   return { adapter, client, conversation };

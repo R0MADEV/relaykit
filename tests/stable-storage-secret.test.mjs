@@ -14,7 +14,9 @@ function withLocalStorage(work) {
     setItem: (key, value) => kept.set(key, String(value)),
     removeItem: key => kept.delete(key)
   };
-  return work(kept).finally(() => { delete globalThis.localStorage; });
+  return work(kept).finally(() => {
+    delete globalThis.localStorage;
+  });
 }
 
 test("the same device gets the same secret every time", async () => {

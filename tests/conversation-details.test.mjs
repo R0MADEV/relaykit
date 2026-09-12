@@ -66,7 +66,10 @@ test("messages can be pinned and unpinned", async () => {
   const message = await client.messages.send(conversation.id, "acuerdo importante");
 
   await client.conversations.pin(conversation.id, message.id);
-  assert.deepEqual((await client.conversations.pinned(conversation.id)).map(item => item.id), [message.id]);
+  assert.deepEqual(
+    (await client.conversations.pinned(conversation.id)).map(item => item.id),
+    [message.id]
+  );
 
   await client.conversations.unpin(conversation.id, message.id);
 

@@ -1,7 +1,17 @@
 import { SdkError } from "./errors.js";
-import { validateLoginCredentials, validateRegisterCredentials, validateSession } from "./session-validation.js";
+import {
+  validateLoginCredentials,
+  validateRegisterCredentials,
+  validateSession
+} from "./session-validation.js";
 import type { MessagingAdapter, AdapterHandlers } from "./adapter.js";
-import type { ConnectionStatus, LoginCredentials, RegisterCredentials, Session, SyncStatus } from "./models.js";
+import type {
+  ConnectionStatus,
+  LoginCredentials,
+  RegisterCredentials,
+  Session,
+  SyncStatus
+} from "./models.js";
 
 export interface ClientLifecycleContext {
   readonly adapter: MessagingAdapter;
@@ -155,13 +165,20 @@ export class ClientLifecycle {
     throw new SdkError("NOT_STARTED", "Start the client before using it");
   }
 
-  isStarted(): boolean { return this.started; }
-  getConnectionStatus(): ConnectionStatus { return this.connection; }
-  getSyncStatus(): SyncStatus { return this.sync; }
+  isStarted(): boolean {
+    return this.started;
+  }
+  getConnectionStatus(): ConnectionStatus {
+    return this.connection;
+  }
+  getSyncStatus(): SyncStatus {
+    return this.sync;
+  }
 
   private handleConnection(status: ConnectionStatus): void {
     this.setConnection(status);
-    if (status === "connected") void this.context.flushPending().catch(error => this.context.emitError(error));
+    if (status === "connected")
+      void this.context.flushPending().catch(error => this.context.emitError(error));
   }
 
   private setConnection(status: ConnectionStatus): void {

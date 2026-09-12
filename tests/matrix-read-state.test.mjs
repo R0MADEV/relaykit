@@ -86,22 +86,26 @@ test("reading quietly inside a thread is still quiet", async () => {
 
 test("what is waiting is asked of the homeserver, not worked out from what is here", async () => {
   const client = fakeClient({
-    notifications: [{
-      room_id: "!room:localhost",
-      actions: ["notify", { set_tweak: "highlight", value: true }],
-      event: { event_id: "$aviso", sender: "@bob:localhost", content: { body: "te espera esto" } }
-    }]
+    notifications: [
+      {
+        room_id: "!room:localhost",
+        actions: ["notify", { set_tweak: "highlight", value: true }],
+        event: { event_id: "$aviso", sender: "@bob:localhost", content: { body: "te espera esto" } }
+      }
+    ]
   });
 
   const waiting = await listMatrixPending(client, 50);
 
   assert.equal(client.calls[0].path, "/notifications");
   assert.deepEqual(client.calls[0].params, { limit: "50" });
-  assert.deepEqual(waiting, [{
-    conversationId: "!room:localhost",
-    messageId: "$aviso",
-    senderId: "@bob:localhost",
-    body: "te espera esto",
-    isMention: true
-  }]);
+  assert.deepEqual(waiting, [
+    {
+      conversationId: "!room:localhost",
+      messageId: "$aviso",
+      senderId: "@bob:localhost",
+      body: "te espera esto",
+      isMention: true
+    }
+  ]);
 });

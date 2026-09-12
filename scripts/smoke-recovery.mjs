@@ -70,20 +70,28 @@ async function main() {
     // Turning recovery on and the keys reaching the copy are not the same moment: the first device uploads
     // them in the background. What has to be true is that recovering brings them across, not that it does so
     // on the first try a fraction of a second later.
-    const summary = await waitFor("the keys to reach the copy and come back", async () => {
-      const brought = await secondDevice.crypto.recover(recoveryKey);
-      return brought.imported >= 1 ? brought : undefined;
-    }, { attempts: 30, intervalMs: 2000 });
+    const summary = await waitFor(
+      "the keys to reach the copy and come back",
+      async () => {
+        const brought = await secondDevice.crypto.recover(recoveryKey);
+        return brought.imported >= 1 ? brought : undefined;
+      },
+      { attempts: 30, intervalMs: 2000 }
+    );
     await waitFor("the recovered device to decrypt the message", async () => {
       const messages = await secondDevice.messages.list(conversation.id);
       return messages.some(message => message.body === body);
     });
     // What matters is not a counter but whether the new device can read it, so that is what is waited for.
-    await waitFor("the recovered device to decrypt what was said after recovery was on", async () => {
-      await secondDevice.crypto.recover(recoveryKey).catch(() => undefined);
-      const messages = await secondDevice.messages.list(later.id);
-      return messages.some(message => message.body === laterBody);
-    }, { attempts: 30, intervalMs: 2000 });
+    await waitFor(
+      "the recovered device to decrypt what was said after recovery was on",
+      async () => {
+        await secondDevice.crypto.recover(recoveryKey).catch(() => undefined);
+        const messages = await secondDevice.messages.list(later.id);
+        return messages.some(message => message.body === laterBody);
+      },
+      { attempts: 30, intervalMs: 2000 }
+    );
     console.log(`RelayKit recovery smoke check passed (${summary.imported}/${summary.total} keys imported)`);
   } finally {
     await other.client.logout().catch(() => undefined);

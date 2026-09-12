@@ -68,7 +68,7 @@ test("the picture of somebody in a conversation is taken from what is already he
   const asked = { profile: 0 };
   const client = fakeClient({ member: memberCalled("Bob de guardia", "mxc://example.org/room"), asked });
 
-  const image = await (getMatrixAvatar(client, userId, roomId));
+  const image = await getMatrixAvatar(client, userId, roomId);
 
   assert.equal(image?.mimeType, "image/png");
   assert.equal(asked.profile, 0);

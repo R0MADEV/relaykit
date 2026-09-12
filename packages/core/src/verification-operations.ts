@@ -27,10 +27,13 @@ export class VerificationOperations {
       throw new SdkError("INVALID_INPUT", `Unknown verification method: ${options.method}`);
     }
     // Verifying another person happens inside a conversation the two of them share, so there has to be one.
-    const needsConversation = deviceId === undefined
-      && userId !== this.context.getSession()?.userId
-      && options.conversationId === undefined;
-    const conversationId = needsConversation ? (await this.context.openDirect(userId)).id : options.conversationId;
+    const needsConversation =
+      deviceId === undefined &&
+      userId !== this.context.getSession()?.userId &&
+      options.conversationId === undefined;
+    const conversationId = needsConversation
+      ? (await this.context.openDirect(userId)).id
+      : options.conversationId;
     return this.context.adapter.requestVerification(userId, deviceId, {
       ...options,
       ...(conversationId ? { conversationId } : {})

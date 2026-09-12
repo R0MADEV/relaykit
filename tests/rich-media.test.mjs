@@ -18,13 +18,13 @@ test("a place can be sent, and it arrives as a place and not as text", async () 
   const { client, conversation } = await startClient();
 
   const sent = await client.messages.sendLocation(conversation.id, {
-    latitude: 43.2630,
-    longitude: -2.9350,
+    latitude: 43.263,
+    longitude: -2.935,
     description: "Bilbao"
   });
 
-  assert.equal(sent.location?.latitude, 43.2630);
-  assert.equal(sent.location?.longitude, -2.9350);
+  assert.equal(sent.location?.latitude, 43.263);
+  assert.equal(sent.location?.longitude, -2.935);
   assert.equal(sent.location?.description, "Bilbao");
   const listed = await client.messages.list(conversation.id);
   assert.equal(listed.at(-1)?.location?.description, "Bilbao");
@@ -34,8 +34,14 @@ test("a place can be sent, and it arrives as a place and not as text", async () 
 test("a place outside the world is refused before reaching the server", async () => {
   const { client, conversation } = await startClient();
 
-  await assert.rejects(client.messages.sendLocation(conversation.id, { latitude: 91, longitude: 0 }), /latitude/i);
-  await assert.rejects(client.messages.sendLocation(conversation.id, { latitude: 0, longitude: 181 }), /longitude/i);
+  await assert.rejects(
+    client.messages.sendLocation(conversation.id, { latitude: 91, longitude: 0 }),
+    /latitude/i
+  );
+  await assert.rejects(
+    client.messages.sendLocation(conversation.id, { latitude: 0, longitude: 181 }),
+    /longitude/i
+  );
   await client.stop();
 });
 

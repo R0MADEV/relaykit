@@ -17,11 +17,13 @@ export async function createMatrixConversation(
     // the legal and support context and who already sets `encryption_enabled_by_default_for_room_type`.
     ...(input.encrypted === true
       ? {
-          initial_state: [{
-            type: EventType.RoomEncryption,
-            state_key: "",
-            content: { algorithm: "m.megolm.v1.aes-sha2" }
-          }]
+          initial_state: [
+            {
+              type: EventType.RoomEncryption,
+              state_key: "",
+              content: { algorithm: "m.megolm.v1.aes-sha2" }
+            }
+          ]
         }
       : {}),
     ...(input.title ? { name: input.title } : {})
@@ -40,12 +42,18 @@ export async function createMatrixConversation(
 }
 
 async function isEncryptedOnTheServer(client: MatrixClient, conversationId: string): Promise<boolean> {
-  const state = await client.getStateEvent(conversationId, EventType.RoomEncryption, "").catch(() => undefined);
+  const state = await client
+    .getStateEvent(conversationId, EventType.RoomEncryption, "")
+    .catch(() => undefined);
   return typeof state?.algorithm === "string";
 }
 
 /** Records the room in the `m.direct` account data, which is how Matrix clients recognise direct chats. */
-async function markAsDirect(client: MatrixClient, roomId: string, participantIds: readonly string[]): Promise<void> {
+async function markAsDirect(
+  client: MatrixClient,
+  roomId: string,
+  participantIds: readonly string[]
+): Promise<void> {
   const current = client.getAccountData(EventType.Direct)?.getContent<Record<string, string[]>>() ?? {};
   const updated: Record<string, string[]> = { ...current };
   for (const participantId of participantIds) {
@@ -57,7 +65,8 @@ async function markAsDirect(client: MatrixClient, roomId: string, participantIds
 
 export function isDirectRoom(room: Room): boolean {
   if (room.getDMInviter() !== undefined) return true;
-  const directMap = room.client.getAccountData(EventType.Direct)?.getContent<Record<string, string[]>>() ?? {};
+  const directMap =
+    room.client.getAccountData(EventType.Direct)?.getContent<Record<string, string[]>>() ?? {};
   return Object.values(directMap).some(rooms => rooms.includes(room.roomId));
 }
 
@@ -120,7 +129,10 @@ export async function changeMatrixMembership(
   const isStillListed = action !== "unban" && conversation.participantIds.includes(userId);
   // The membership change reaches the room through sync, so the answer reflects it right away.
   return isStillListed
-    ? { ...conversation, participantIds: conversation.participantIds.filter(participant => participant !== userId) }
+    ? {
+        ...conversation,
+        participantIds: conversation.participantIds.filter(participant => participant !== userId)
+      }
     : conversation;
 }
 

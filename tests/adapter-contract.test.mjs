@@ -15,7 +15,10 @@ const matrixPassword = process.env.MATRIX_PASSWORD_A ?? "alice-password";
 async function inMemorySetup() {
   const adapter = new InMemoryAdapter();
   // A real session always carries a device, so the double is given one too.
-  await adapter.start({ homeserver: "memory://test", userId: "alice", accessToken: "token", deviceId: "ALICE-1" }, {});
+  await adapter.start(
+    { homeserver: "memory://test", userId: "alice", accessToken: "token", deviceId: "ALICE-1" },
+    {}
+  );
   return { adapter, participant: "bob", cleanup: () => adapter.stop() };
 }
 
@@ -28,7 +31,11 @@ async function matrixSetup() {
     deviceName: "RelayKit contract"
   });
   await adapter.start(session, {});
-  return { adapter, participant: `@${process.env.MATRIX_USER_B ?? "bob"}:localhost`, cleanup: () => adapter.logout() };
+  return {
+    adapter,
+    participant: `@${process.env.MATRIX_USER_B ?? "bob"}:localhost`,
+    cleanup: () => adapter.logout()
+  };
 }
 
 async function waitFor(description, check, attempts = 40) {
@@ -124,7 +131,7 @@ function runContract(name, setup) {
     });
 
     it("uploads an attachment and downloads back the same bytes", async () => {
-      const data = new Uint8Array(64).map((_, index) => index * 3 % 256);
+      const data = new Uint8Array(64).map((_, index) => (index * 3) % 256);
       const progress = [];
 
       const sent = await adapter.sendAttachment(
@@ -146,7 +153,14 @@ function runContract(name, setup) {
 
       const sent = await adapter.sendAttachment(
         conversationId,
-        { name: "foto.jpg", mimeType: "image/jpeg", data, width: 800, height: 600, thumbnail: { mimeType: "image/jpeg", data: thumbnailData, width: 80, height: 60 } },
+        {
+          name: "foto.jpg",
+          mimeType: "image/jpeg",
+          data,
+          width: 800,
+          height: 600,
+          thumbnail: { mimeType: "image/jpeg", data: thumbnailData, width: 80, height: 60 }
+        },
         `txn-thumb-${Date.now()}`
       );
 
@@ -162,7 +176,12 @@ function runContract(name, setup) {
 
       const sent = await adapter.sendAttachment(
         conversationId,
-        { name: "nota.ogg", mimeType: "audio/ogg", data, voice: { durationMs: 3200, waveform: [0, 512, 1024] } },
+        {
+          name: "nota.ogg",
+          mimeType: "audio/ogg",
+          data,
+          voice: { durationMs: 3200, waveform: [0, 512, 1024] }
+        },
         `txn-voice-${Date.now()}`
       );
 
@@ -190,7 +209,9 @@ function runContract(name, setup) {
     });
 
     it("edits and deletes a message", async () => {
-      const sent = await adapter.sendMessage(conversationId, `editable-${Date.now()}`, { transactionId: `txn-edit-${Date.now()}` });
+      const sent = await adapter.sendMessage(conversationId, `editable-${Date.now()}`, {
+        transactionId: `txn-edit-${Date.now()}`
+      });
 
       const edited = await adapter.editMessage(conversationId, sent.id, "editado");
       assert.equal(edited.body, "editado");
@@ -251,19 +272,27 @@ function runContract(name, setup) {
       assert.equal(call.conversationId, conversationId);
       assert.equal(call.isVideo, false);
       assert.ok(["ringing", "connecting"].includes(call.state), `odd state: ${call.state}`);
-      assert.ok((await adapter.listCalls()).some(item => item.id === call.id), "the call was not going on");
+      assert.ok(
+        (await adapter.listCalls()).some(item => item.id === call.id),
+        "the call was not going on"
+      );
 
       await adapter.hangUpCall(call.id);
       await waitFor("the call to be over", async () =>
-        (await adapter.listCalls()).every(item => item.id !== call.id));
+        (await adapter.listCalls()).every(item => item.id !== call.id)
+      );
     });
 
-    it("a call with video says so, because a screen has to be made room for", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, { video: true });
+    it(
+      "a call with video says so, because a screen has to be made room for",
+      { skip: !callsArePossible },
+      async () => {
+        const call = await adapter.placeCall(conversationId, { video: true });
 
-      assert.equal(call.isVideo, true);
-      await adapter.hangUpCall(call.id);
-    });
+        assert.equal(call.isVideo, true);
+        await adapter.hangUpCall(call.id);
+      }
+    );
 
     it("what somebody does during a call: silence, camera, hold", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, { video: true });
@@ -299,28 +328,36 @@ function runContract(name, setup) {
       await adapter.hangUpCall(call.id);
     });
 
-    it("takes a digit pressed during the call, and refuses what is not one", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, {});
+    it(
+      "takes a digit pressed during the call, and refuses what is not one",
+      { skip: !callsArePossible },
+      async () => {
+        const call = await adapter.placeCall(conversationId, {});
 
-      // Nothing comes back: a digit is heard by whatever is on the other end, not by this side. What is
-      // required is that pressing one is not a failure, and that nonsense is refused.
-      await adapter.pressDigitInCall(call.id, "7");
+        // Nothing comes back: a digit is heard by whatever is on the other end, not by this side. What is
+        // required is that pressing one is not a failure, and that nonsense is refused.
+        await adapter.pressDigitInCall(call.id, "7");
 
-      await adapter.hangUpCall(call.id);
-    });
-
-    it("says how a call is going, or says nothing rather than zeroes", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, {});
-
-      const going = await adapter.callQuality(call.id);
-
-      // Numbers only where there are numbers. Zero lost packets and no idea are not the same thing, and a
-      // screen that cannot tell them apart says the line is perfect when nothing is connected at all.
-      for (const [name, value] of Object.entries(going)) {
-        assert.equal(typeof value, "number", `${name} came back as something other than a number`);
+        await adapter.hangUpCall(call.id);
       }
-      await adapter.hangUpCall(call.id);
-    });
+    );
+
+    it(
+      "says how a call is going, or says nothing rather than zeroes",
+      { skip: !callsArePossible },
+      async () => {
+        const call = await adapter.placeCall(conversationId, {});
+
+        const going = await adapter.callQuality(call.id);
+
+        // Numbers only where there are numbers. Zero lost packets and no idea are not the same thing, and a
+        // screen that cannot tell them apart says the line is perfect when nothing is connected at all.
+        for (const [name, value] of Object.entries(going)) {
+          assert.equal(typeof value, "number", `${name} came back as something other than a number`);
+        }
+        await adapter.hangUpCall(call.id);
+      }
+    );
 
     it("refusing a call leaves it no longer going on", { skip: !callsArePossible }, async () => {
       const call = await adapter.placeCall(conversationId, {});
@@ -328,7 +365,8 @@ function runContract(name, setup) {
       await adapter.rejectCall(call.id);
 
       await waitFor("the refused call to be over", async () =>
-        (await adapter.listCalls()).every(item => item.id !== call.id));
+        (await adapter.listCalls()).every(item => item.id !== call.id)
+      );
     });
 
     it("choosing a microphone and a camera is taken notice of", { skip: !callsArePossible }, async () => {
@@ -367,7 +405,8 @@ function runContract(name, setup) {
       await adapter.voteInPoll(conversationId, poll.id, poll.answers[1].id);
       const voted = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
       assert.equal(
-        voted.answers.find(answer => answer.id === poll.answers[1].id).votes, 1,
+        voted.answers.find(answer => answer.id === poll.answers[1].id).votes,
+        1,
         "the vote did not count when listing right after voting"
       );
       assert.equal(voted.answers.find(answer => answer.id === poll.answers[0].id).votes, 0);
@@ -380,9 +419,8 @@ function runContract(name, setup) {
     it("previews a link by asking the homeserver", async () => {
       // An address the homeserver can really reach without going out to the internet: the environment's own
       // gateway. What it answers depends on the page; what is required is that it answers something coherent.
-      const url = name === "in-memory"
-        ? "https://ejemplo.test/articulo"
-        : "http://push-gateway:8080/received";
+      const url =
+        name === "in-memory" ? "https://ejemplo.test/articulo" : "http://push-gateway:8080/received";
 
       const preview = await adapter.previewLink(url);
 
@@ -410,17 +448,33 @@ function runContract(name, setup) {
         title: `encrypted-${Date.now()}`,
         encrypted: true
       });
-      assert.equal(encryptedOne.isEncrypted, true, "asking for encryption did not leave the conversation encrypted");
+      assert.equal(
+        encryptedOne.isEncrypted,
+        true,
+        "asking for encryption did not leave the conversation encrypted"
+      );
 
       // Without asking, the homeserver decides, so all that is required is that it says so, not what the
       // answer is: that depends on the policy of whoever runs it.
-      const unasked = await adapter.createConversation({ participantIds: [], title: `unasked-${Date.now()}` });
-      assert.equal(typeof unasked.isEncrypted, "boolean", "the conversation does not say whether it is encrypted");
+      const unasked = await adapter.createConversation({
+        participantIds: [],
+        title: `unasked-${Date.now()}`
+      });
+      assert.equal(
+        typeof unasked.isEncrypted,
+        "boolean",
+        "the conversation does not say whether it is encrypted"
+      );
     });
 
     it("lists what hangs off a conversation without opening each thread", async () => {
-      const question = await adapter.sendMessage(conversationId, `question-${Date.now()}`, { transactionId: `txn-q-${Date.now()}` });
-      await adapter.sendMessage(conversationId, "an answer", { transactionId: `txn-a-${Date.now()}`, threadId: question.id });
+      const question = await adapter.sendMessage(conversationId, `question-${Date.now()}`, {
+        transactionId: `txn-q-${Date.now()}`
+      });
+      await adapter.sendMessage(conversationId, "an answer", {
+        transactionId: `txn-a-${Date.now()}`,
+        threadId: question.id
+      });
 
       const threads = await waitFor("the thread to be known", async () => {
         const listed = await adapter.listThreads(conversationId);
@@ -432,8 +486,13 @@ function runContract(name, setup) {
     });
 
     it("reading inside a thread does not say the conversation was read", async () => {
-      const question = await adapter.sendMessage(conversationId, `another-${Date.now()}`, { transactionId: `txn-q2-${Date.now()}` });
-      const answer = await adapter.sendMessage(conversationId, "answering", { transactionId: `txn-a2-${Date.now()}`, threadId: question.id });
+      const question = await adapter.sendMessage(conversationId, `another-${Date.now()}`, {
+        transactionId: `txn-q2-${Date.now()}`
+      });
+      const answer = await adapter.sendMessage(conversationId, "answering", {
+        transactionId: `txn-a2-${Date.now()}`,
+        threadId: question.id
+      });
       await adapter.markMessageRead(conversationId, question.id);
       // The marker has to have landed before this proves anything, or a late arrival looks like the thread
       // moving it. What is being checked is that reading the thread changes nothing from here on.
@@ -444,7 +503,9 @@ function runContract(name, setup) {
 
       await adapter.markMessageRead(conversationId, answer.id, { threadId: question.id });
 
-      const afterwards = (await adapter.listConversations()).find(item => item.id === conversationId)?.lastReadMessageId;
+      const afterwards = (await adapter.listConversations()).find(
+        item => item.id === conversationId
+      )?.lastReadMessageId;
       assert.equal(afterwards, beforehand, "reading a thread moved the marker of the whole conversation");
     });
 
@@ -487,7 +548,9 @@ function runContract(name, setup) {
     });
 
     it("reads a message without telling the others, and the marker still moves", async () => {
-      const sent = await adapter.sendMessage(conversationId, `quietly-${Date.now()}`, { transactionId: `txn-quiet-${Date.now()}` });
+      const sent = await adapter.sendMessage(conversationId, `quietly-${Date.now()}`, {
+        transactionId: `txn-quiet-${Date.now()}`
+      });
 
       await adapter.markMessageRead(conversationId, sent.id, { private: true });
 
@@ -504,7 +567,9 @@ function runContract(name, setup) {
 
       assert.ok(Array.isArray(waiting));
       assert.ok(waiting.length <= 20);
-      assert.ok(waiting.every(item => typeof item.conversationId === "string" && typeof item.messageId === "string"));
+      assert.ok(
+        waiting.every(item => typeof item.conversationId === "string" && typeof item.messageId === "string")
+      );
       assert.ok(waiting.every(item => typeof item.isMention === "boolean"));
     });
 
@@ -537,14 +602,22 @@ function runContract(name, setup) {
         return people.some(user => user.id === participant) ? people : undefined;
       });
 
-      assert.ok(found.some(user => user.id === participant), `${participant} is not among ${found.map(u => u.id)}`);
+      assert.ok(
+        found.some(user => user.id === participant),
+        `${participant} is not among ${found.map(u => u.id)}`
+      );
       assert.ok(found.every(user => typeof user.id === "string" && user.id.length > 0));
     });
 
     it("sends a reply that points at the message it answers", async () => {
-      const original = await adapter.sendMessage(conversationId, `original-${Date.now()}`, { transactionId: `txn-original-${Date.now()}` });
+      const original = await adapter.sendMessage(conversationId, `original-${Date.now()}`, {
+        transactionId: `txn-original-${Date.now()}`
+      });
 
-      const reply = await adapter.sendMessage(conversationId, "answer", { transactionId: `txn-reply-${Date.now()}`, replyToId: original.id });
+      const reply = await adapter.sendMessage(conversationId, "answer", {
+        transactionId: `txn-reply-${Date.now()}`,
+        replyToId: original.id
+      });
 
       assert.equal(reply.replyToId, original.id);
       assert.equal(original.replyToId, undefined);
@@ -556,7 +629,11 @@ function runContract(name, setup) {
     });
 
     it("invites, renames and leaves a conversation of its own", async () => {
-      const own = await adapter.createConversation({ participantIds: [], title: "RelayKit contract lifecycle", encrypted: false });
+      const own = await adapter.createConversation({
+        participantIds: [],
+        title: "RelayKit contract lifecycle",
+        encrypted: false
+      });
 
       const invited = await adapter.inviteToConversation(own.id, participant);
       assert.ok(invited.participantIds.includes(participant));
@@ -612,7 +689,11 @@ function runContract(name, setup) {
     });
 
     it("removes somebody from a conversation of its own", async () => {
-      const own = await adapter.createConversation({ participantIds: [participant], title: "RelayKit contract kick", encrypted: false });
+      const own = await adapter.createConversation({
+        participantIds: [participant],
+        title: "RelayKit contract kick",
+        encrypted: false
+      });
       await waitFor("the participant to be invited", async () => {
         const conversations = await adapter.listConversations();
         return conversations.find(item => item.id === own.id)?.participantIds.includes(participant);
@@ -625,7 +706,9 @@ function runContract(name, setup) {
     });
 
     it("marks a message as read and can be asked who read it", async () => {
-      const sent = await adapter.sendMessage(conversationId, `read-${Date.now()}`, { transactionId: `txn-read-${Date.now()}` });
+      const sent = await adapter.sendMessage(conversationId, `read-${Date.now()}`, {
+        transactionId: `txn-read-${Date.now()}`
+      });
 
       await adapter.markMessageRead(conversationId, sent.id);
 
@@ -638,7 +721,9 @@ function runContract(name, setup) {
 
       const receipts = await adapter.getReadReceipts(conversationId, sent.id);
       assert.ok(Array.isArray(receipts));
-      assert.ok(receipts.every(receipt => receipt.messageId === sent.id && typeof receipt.readAt === "number"));
+      assert.ok(
+        receipts.every(receipt => receipt.messageId === sent.id && typeof receipt.readAt === "number")
+      );
     });
 
     it("gives the name somebody uses in a conversation when one is named", async () => {
@@ -790,10 +875,13 @@ function runContract(name, setup) {
 
       await adapter.pinMessage(conversationId, sent.id);
 
-      const knownByTheConversation = await waitFor("the conversation to say what it keeps to hand", async () => {
-        const conversations = await adapter.listConversations();
-        return conversations.find(item => item.id === conversationId)?.pinnedIds?.includes(sent.id);
-      });
+      const knownByTheConversation = await waitFor(
+        "the conversation to say what it keeps to hand",
+        async () => {
+          const conversations = await adapter.listConversations();
+          return conversations.find(item => item.id === conversationId)?.pinnedIds?.includes(sent.id);
+        }
+      );
       assert.ok(knownByTheConversation);
 
       const pinned = await waitFor("the pinned message to be listed", async () => {

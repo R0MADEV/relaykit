@@ -40,13 +40,16 @@ async function run() {
   }
 
   await waitFor("bob to see the invitation", async () =>
-    (await bob.client.conversations.list()).some(item => item.id === conversation.id));
+    (await bob.client.conversations.list()).some(item => item.id === conversation.id)
+  );
   await bob.client.conversations.join(conversation.id);
 
   // The point of all this: bob accepted, so alice has to see him as in rather than as invited.
   await waitFor("alice to see bob has accepted", async () => {
     const seen = (await alice.client.conversations.list()).find(item => item.id === conversation.id);
-    return seen?.participantIds.includes(bob.userId) === true && seen.invitedIds?.includes(bob.userId) !== true;
+    return (
+      seen?.participantIds.includes(bob.userId) === true && seen.invitedIds?.includes(bob.userId) !== true
+    );
   });
 
   const asItStands = (await alice.client.conversations.list()).find(item => item.id === conversation.id);

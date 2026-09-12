@@ -23,15 +23,26 @@ const typedOutByHand = [
 ];
 
 const sources = [
-  "matrix-auth", "matrix-polls", "matrix-location", "matrix-mapper", "matrix-profiles",
-  "matrix-security", "matrix-room-operations", "matrix-conversations", "matrix-details"
+  "matrix-auth",
+  "matrix-polls",
+  "matrix-location",
+  "matrix-mapper",
+  "matrix-profiles",
+  "matrix-security",
+  "matrix-room-operations",
+  "matrix-conversations",
+  "matrix-details"
 ].map(name => ({ name, code: readFileSync(`packages/matrix-js/src/${name}.ts`, "utf8") }));
 
 for (const { name, instead } of typedOutByHand) {
   test(`"${name}" is asked of the SDK as ${instead}, not typed out`, () => {
     const wrote = sources.filter(source => source.code.includes(`"${name}"`));
 
-    assert.deepEqual(wrote.map(source => source.name), [], `typed out in: ${wrote.map(s => s.name)}`);
+    assert.deepEqual(
+      wrote.map(source => source.name),
+      [],
+      `typed out in: ${wrote.map(s => s.name)}`
+    );
   });
 }
 

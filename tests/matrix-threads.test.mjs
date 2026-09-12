@@ -38,12 +38,14 @@ test("the threads of a conversation are asked for through the SDK, in one reques
   assert.equal(asked[0].roomId, "!room:localhost");
   assert.equal(asked[0].fromToken, null);
   assert.ok(asked[0].limit >= 1);
-  assert.deepEqual(threads, [{
-    conversationId: "!room:localhost",
-    rootId: "$raiz",
-    replyCount: 3,
-    unreadCount: 0
-  }]);
+  assert.deepEqual(threads, [
+    {
+      conversationId: "!room:localhost",
+      rootId: "$raiz",
+      replyCount: 3,
+      unreadCount: 0
+    }
+  ]);
 });
 
 test("a conversation with nothing hanging off it comes back empty, not broken", async () => {

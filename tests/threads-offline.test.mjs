@@ -24,7 +24,10 @@ test("what hangs from a message is still there when the homeserver is not", asyn
   adapter.listThread = () => Promise.reject(new Error("the homeserver is not answering"));
   const seenOffline = await client.messages.thread(conversation.id, root.id);
 
-  assert.deepEqual(seenOffline.map(message => message.body), ["the answer"]);
+  assert.deepEqual(
+    seenOffline.map(message => message.body),
+    ["the answer"]
+  );
   await client.stop();
 });
 
@@ -46,7 +49,10 @@ test("what the homeserver says about a thread is what is shown", async () => {
   await client.messages.send(conversation.id, "la second", { threadId: root.id });
   const seen = await client.messages.thread(conversation.id, root.id);
 
-  assert.deepEqual(seen.map(message => message.body), ["la first", "la second"]);
+  assert.deepEqual(
+    seen.map(message => message.body),
+    ["la first", "la second"]
+  );
   assert.equal(adapter.listThread === undefined, false);
   await client.stop();
 });
@@ -62,7 +68,10 @@ test("reading the conversation does not throw away what was kept of its threads"
 
   adapter.listThread = () => Promise.reject(new Error("the homeserver is not answering"));
   const seenOffline = await client.messages.thread(conversation.id, root.id);
-  assert.deepEqual(seenOffline.map(message => message.body), ["the answer"]);
+  assert.deepEqual(
+    seenOffline.map(message => message.body),
+    ["the answer"]
+  );
   await client.stop();
 });
 
@@ -74,13 +83,19 @@ test("a thread does not push the conversation out of the cache either", async ()
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   const root = await client.messages.send(conversation.id, "the question");
   for (let index = 0; index < 4; index += 1) {
-    adapter.receiveMessage(conversation.id, "bob", `answer ${index}`, { createdAt: 2000 + index, threadId: root.id });
+    adapter.receiveMessage(conversation.id, "bob", `answer ${index}`, {
+      createdAt: 2000 + index,
+      threadId: root.id
+    });
   }
   await client.messages.thread(conversation.id, root.id);
 
   const shown = await client.messages.list(conversation.id);
 
-  assert.ok(shown.some(message => message.body === "the question"), "the question is part of the conversation");
+  assert.ok(
+    shown.some(message => message.body === "the question"),
+    "the question is part of the conversation"
+  );
   assert.ok(!shown.some(message => message.body.startsWith("answer")), "its answers are not");
   await client.stop();
 });

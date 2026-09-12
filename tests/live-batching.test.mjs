@@ -22,7 +22,9 @@ test("a burst of conversations catching up repaints once, not once each", async 
   const list = createConversationList(client);
   await list.refresh();
   let repaints = 0;
-  list.subscribe(() => { repaints += 1; });
+  list.subscribe(() => {
+    repaints += 1;
+  });
 
   for (const conversation of made) adapter.receiveMessage(conversation.id, "bob", "hola");
   await settle();
@@ -39,7 +41,9 @@ test("what is on screen after the burst is everything that arrived", async () =>
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   let repaints = 0;
-  timeline.subscribe(() => { repaints += 1; });
+  timeline.subscribe(() => {
+    repaints += 1;
+  });
 
   for (let index = 0; index < 30; index += 1) {
     adapter.receiveMessage(conversation.id, "bob", `message ${index}`, { createdAt: 1000 + index });
@@ -58,7 +62,9 @@ test("one message on its own still repaints", async () => {
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   let repaints = 0;
-  timeline.subscribe(() => { repaints += 1; });
+  timeline.subscribe(() => {
+    repaints += 1;
+  });
 
   adapter.receiveMessage(conversation.id, "bob", "solo uno");
   await settle();
@@ -89,8 +95,12 @@ test("one broken subscriber does not leave the others without their repaint", as
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   let told = 0;
-  timeline.subscribe(() => { throw new Error("this one is broken"); });
-  timeline.subscribe(() => { told += 1; });
+  timeline.subscribe(() => {
+    throw new Error("this one is broken");
+  });
+  timeline.subscribe(() => {
+    told += 1;
+  });
 
   adapter.receiveMessage(conversation.id, "bob", "hola");
   await settle();
@@ -106,8 +116,12 @@ test("a broken subscriber does not stop the next repaint either", async () => {
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   let told = 0;
-  timeline.subscribe(() => { throw new Error("this one is broken"); });
-  timeline.subscribe(() => { told += 1; });
+  timeline.subscribe(() => {
+    throw new Error("this one is broken");
+  });
+  timeline.subscribe(() => {
+    told += 1;
+  });
 
   adapter.receiveMessage(conversation.id, "bob", "uno");
   await settle();
@@ -125,7 +139,9 @@ test("a stopped list is not repainted by something that was already on its way",
   const timeline = createMessageTimeline(client, conversation.id);
   await timeline.refresh();
   let repaints = 0;
-  timeline.subscribe(() => { repaints += 1; });
+  timeline.subscribe(() => {
+    repaints += 1;
+  });
 
   adapter.receiveMessage(conversation.id, "bob", "en camino");
   timeline.stop();
@@ -169,7 +185,11 @@ test("what is on screen does not reshuffle when one more arrives at the same mom
   await settle();
 
   const after = timeline.get().map(message => message.id);
-  assert.deepEqual(after.filter(id => before.includes(id)), before, "what was already there must not move about");
+  assert.deepEqual(
+    after.filter(id => before.includes(id)),
+    before,
+    "what was already there must not move about"
+  );
   timeline.stop();
   await client.stop();
 });

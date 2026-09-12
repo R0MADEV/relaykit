@@ -89,7 +89,11 @@ export class InMemoryVerification {
     return this.cancel(sessionId, "mismatch");
   }
 
-  private create(otherUserId: UserId, otherDeviceId: string | undefined, initiatedByMe: boolean): VerificationSession {
+  private create(
+    otherUserId: UserId,
+    otherDeviceId: string | undefined,
+    initiatedByMe: boolean
+  ): VerificationSession {
     const session: VerificationSession = {
       id: `memory-verification-${this.nextSessionId++}`,
       otherUserId,

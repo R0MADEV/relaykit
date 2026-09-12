@@ -61,25 +61,46 @@ class DemoApp {
     this.element("call").addEventListener("click", () => void this.callThem(false));
     this.element("video-call").addEventListener("click", () => void this.callThem(true));
     this.element("answer").addEventListener("click", () => void this.answerThem());
-    this.element("reject").addEventListener("click", () => void this.duringTheCall(
-      (call, client) => client.calls.reject(call.id)));
+    this.element("reject").addEventListener(
+      "click",
+      () => void this.duringTheCall((call, client) => client.calls.reject(call.id))
+    );
     this.element("hang-up").addEventListener("click", () => void this.hangUp());
     // Every one of these is the same shape: whatever it is now, the other way round.
-    this.element("call-mute").addEventListener("click", () => void this.duringTheCall(
-      (call, client) => client.calls.muteMicrophone(call.id, !call.isMicrophoneMuted)));
-    this.element("call-camera").addEventListener("click", () => void this.duringTheCall(
-      (call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted)));
-    this.element("call-hold").addEventListener("click", () => void this.duringTheCall(
-      (call, client) => client.calls.hold(call.id, !call.isOnHold)));
+    this.element("call-mute").addEventListener(
+      "click",
+      () =>
+        void this.duringTheCall((call, client) =>
+          client.calls.muteMicrophone(call.id, !call.isMicrophoneMuted)
+        )
+    );
+    this.element("call-camera").addEventListener(
+      "click",
+      () => void this.duringTheCall((call, client) => client.calls.muteCamera(call.id, !call.isCameraMuted))
+    );
+    this.element("call-hold").addEventListener(
+      "click",
+      () => void this.duringTheCall((call, client) => client.calls.hold(call.id, !call.isOnHold))
+    );
     // A keypad, built once. Pressing one sends it down whatever call is being talked on.
-    this.element("dialpad").replaceChildren(...[..."123456789*0#"].map(digit =>
-      this.button(digit, () => void this.duringTheCall((call, client) => client.calls.pressDigit(call.id, digit)))));
+    this.element("dialpad").replaceChildren(
+      ...[..."123456789*0#"].map(digit =>
+        this.button(
+          digit,
+          () => void this.duringTheCall((call, client) => client.calls.pressDigit(call.id, digit))
+        )
+      )
+    );
     this.select("microphone").addEventListener("change", () => void this.chooseDevice("microphone"));
     this.select("camera").addEventListener("change", () => void this.chooseDevice("camera"));
-    this.onSubmit("transfer-form", () => this.duringTheCall(
-      (call, client) => client.calls.transfer(call.id, this.input("transfer-to").value)));
-    this.element("call-screen").addEventListener("click", () => void this.duringTheCall(
-      (call, client) => client.calls.shareScreen(call.id, !call.isSharingScreen)));
+    this.onSubmit("transfer-form", () =>
+      this.duringTheCall((call, client) => client.calls.transfer(call.id, this.input("transfer-to").value))
+    );
+    this.element("call-screen").addEventListener(
+      "click",
+      () =>
+        void this.duringTheCall((call, client) => client.calls.shareScreen(call.id, !call.isSharingScreen))
+    );
     // A form, not a prompt: it works with a keyboard, it can be translated and it can be tested.
     this.element("poll").addEventListener("click", () => {
       const form = this.element("poll-form");
@@ -144,9 +165,11 @@ class DemoApp {
       void this.client.conversations.join(conversation.id).catch(() => undefined);
     });
     this.client.on("typing.changed", update => this.showTyping(update.conversationId, update.userIds));
-    this.client.on("notification", notification => this.setStatus(
-      `${this.nameOf(notification.senderId)}${notification.isMention ? " te menciona" : ""}: ${notification.body}`
-    ));
+    this.client.on("notification", notification =>
+      this.setStatus(
+        `${this.nameOf(notification.senderId)}${notification.isMention ? " te menciona" : ""}: ${notification.body}`
+      )
+    );
     // Somebody calling is not something to be asked for: it arrives, and the screen has to ring.
     // Everything about calls is drawn again from what is going on, rather than from what the last event said.
     // A phone on a desk holds several at once, they end in any order, and keeping a note here of which one is
@@ -242,8 +265,10 @@ class DemoApp {
     const name = document.createElement("span");
     name.className = "name";
     const pending = new Set(conversation.invitedIds ?? []);
-    const others = this.otherParticipants(conversation)
-      .map(participantId => `${this.nameOf(participantId, conversation.id)}${pending.has(participantId) ? " (pendiente)" : ""}`);
+    const others = this.otherParticipants(conversation).map(
+      participantId =>
+        `${this.nameOf(participantId, conversation.id)}${pending.has(participantId) ? " (pendiente)" : ""}`
+    );
     name.textContent = conversation.title ?? (others.length > 0 ? others.join(", ") : conversation.id);
     const preview = document.createElement("span");
     preview.className = "preview";
@@ -269,13 +294,16 @@ class DemoApp {
     const known = this.names.get(key);
     if (known !== undefined) return known;
     this.names.set(key, userId);
-    void this.client.users.profile(userId, conversationId).then(profile => {
-      const resolved = profile.displayName ?? userId;
-      if (resolved === userId) return;
-      this.names.set(key, resolved);
-      void this.refreshConversations();
-      if (this.timeline) this.renderTimeline(this.timeline.get());
-    }).catch(() => undefined);
+    void this.client.users
+      .profile(userId, conversationId)
+      .then(profile => {
+        const resolved = profile.displayName ?? userId;
+        if (resolved === userId) return;
+        this.names.set(key, resolved);
+        void this.refreshConversations();
+        if (this.timeline) this.renderTimeline(this.timeline.get());
+      })
+      .catch(() => undefined);
     return userId;
   }
 
@@ -320,7 +348,9 @@ class DemoApp {
   private renderTimeline(messages: readonly Message[]): void {
     const timeline = this.element("timeline");
     // The line goes right after the last message this person had read, which the conversation remembers.
-    const lastRead = this.conversations?.get().find(item => item.id === this.conversationId)?.lastReadMessageId;
+    const lastRead = this.conversations
+      ?.get()
+      .find(item => item.id === this.conversationId)?.lastReadMessageId;
     const lastReadIndex = lastRead ? messages.findIndex(message => message.id === lastRead) : -1;
     const drawn: Node[] = [this.element("load-more")];
     messages.forEach((message, index) => {
@@ -379,7 +409,9 @@ class DemoApp {
 
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.append(`${this.nameOf(message.senderId, message.conversationId)} · ${message.status}${message.editedAt ? " · editado" : ""}`);
+    meta.append(
+      `${this.nameOf(message.senderId, message.conversationId)} · ${message.status}${message.editedAt ? " · editado" : ""}`
+    );
     const attachment = message.attachment;
     if (attachment?.voice) {
       meta.append(`🎤 ${Math.round(attachment.voice.durationMs / 1000)}s`);
@@ -389,7 +421,9 @@ class DemoApp {
     }
     if (attachment?.thumbnail) {
       const thumbnail = attachment.thumbnail;
-      meta.append(this.button("Vista previa", () => void this.download(thumbnail, `preview-${attachment.name}`)));
+      meta.append(
+        this.button("Vista previa", () => void this.download(thumbnail, `preview-${attachment.name}`))
+      );
     }
     if (!message.deletedAt && !message.undecryptable) {
       meta.append(this.button("Responder", () => this.startReply(message)));
@@ -400,8 +434,18 @@ class DemoApp {
       }
     }
     if (message.status === "failed") {
-      meta.append(this.button("Reintentar", () => void this.client.messages.retry(message.id).catch(error => this.showError(error))));
-      meta.append(this.button("Cancelar", () => void this.client.messages.cancel(message.id).catch(error => this.showError(error))));
+      meta.append(
+        this.button(
+          "Reintentar",
+          () => void this.client.messages.retry(message.id).catch(error => this.showError(error))
+        )
+      );
+      meta.append(
+        this.button(
+          "Cancelar",
+          () => void this.client.messages.cancel(message.id).catch(error => this.showError(error))
+        )
+      );
     }
     item.replaceChildren(...children, meta);
     return item;
@@ -470,7 +514,8 @@ class DemoApp {
   private async cycleNotifications(): Promise<void> {
     if (!this.conversationId) return;
     const order = ["all", "mentions", "none"] as const;
-    const current = this.conversations?.get().find(item => item.id === this.conversationId)?.notifications ?? "all";
+    const current =
+      this.conversations?.get().find(item => item.id === this.conversationId)?.notifications ?? "all";
     const next = order[(order.indexOf(current) + 1) % order.length] ?? "all";
     try {
       await this.client.conversations.setNotifications(this.conversationId, next);
@@ -521,7 +566,9 @@ class DemoApp {
         this.setStatus("No hay ninguna conversacion publica con ese nombre");
         return;
       }
-      const menu = found.map((item, index) => `${index + 1}. ${item.title ?? item.alias ?? item.id}`).join("\n");
+      const menu = found
+        .map((item, index) => `${index + 1}. ${item.title ?? item.alias ?? item.id}`)
+        .join("\n");
       const answer = window.prompt(`¿A cual entras?\n${menu}`, "1");
       const chosen = found[Number(answer) - 1];
       if (!chosen) return;
@@ -549,7 +596,12 @@ class DemoApp {
     const answer = window.prompt("¿Que sitio? latitud, longitud", "43.263, -2.935");
     if (!answer) return;
     const [latitude, longitude] = answer.split(",").map(part => Number(part.trim()));
-    if (latitude === undefined || longitude === undefined || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    if (
+      latitude === undefined ||
+      longitude === undefined ||
+      Number.isNaN(latitude) ||
+      Number.isNaN(longitude)
+    ) {
       this.setStatus("Eso no son dos numeros");
       return;
     }
@@ -569,7 +621,8 @@ class DemoApp {
   private async cycleJoinRule(): Promise<void> {
     if (!this.conversationId) return;
     const order = ["invite", "public", "knock"] as const;
-    const current = this.conversations?.get().find(item => item.id === this.conversationId)?.joinRule ?? "invite";
+    const current =
+      this.conversations?.get().find(item => item.id === this.conversationId)?.joinRule ?? "invite";
     const next = order[(order.indexOf(current) + 1) % order.length] ?? "invite";
     try {
       await this.client.conversations.setJoinRule(this.conversationId, next);
@@ -583,7 +636,9 @@ class DemoApp {
 
   private async rememberDraft(): Promise<void> {
     if (!this.conversationId) return;
-    await this.client.conversations.saveDraft(this.conversationId, this.input("message").value).catch(() => undefined);
+    await this.client.conversations
+      .saveDraft(this.conversationId, this.input("message").value)
+      .catch(() => undefined);
   }
 
   private async restoreDraft(): Promise<void> {
@@ -696,8 +751,16 @@ class DemoApp {
     try {
       await this.client.messages.sendFile(
         this.conversationId,
-        { name: file.name, mimeType: file.type || "application/octet-stream", data: new Uint8Array(await file.arrayBuffer()) },
-        { onProgress: fraction => { if (progress) progress.value = fraction; } }
+        {
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          data: new Uint8Array(await file.arrayBuffer())
+        },
+        {
+          onProgress: fraction => {
+            if (progress) progress.value = fraction;
+          }
+        }
       );
       (this.element("file-form") as HTMLFormElement).reset();
     } catch (error) {
@@ -737,7 +800,9 @@ class DemoApp {
 
   private showTyping(conversationId: ConversationId, userIds: readonly string[]): void {
     if (conversationId !== this.conversationId) return;
-    const others = userIds.filter(userId => userId !== this.ownUserId).map(userId => this.nameOf(userId, this.conversationId));
+    const others = userIds
+      .filter(userId => userId !== this.ownUserId)
+      .map(userId => this.nameOf(userId, this.conversationId));
     this.element("typing").textContent = others.length > 0 ? `${others.join(", ")} está escribiendo…` : "";
   }
 
@@ -762,9 +827,10 @@ class DemoApp {
   private imageWithBlur(attachment: Attachment): HTMLElement {
     const holder = document.createElement("div");
     const width = Math.min(attachment.width ?? 240, 240);
-    const height = attachment.height && attachment.width
-      ? Math.round((attachment.height / attachment.width) * width)
-      : 160;
+    const height =
+      attachment.height && attachment.width
+        ? Math.round((attachment.height / attachment.width) * width)
+        : 160;
     if (attachment.blurhash) {
       const blurred = decodeBlurhash(attachment.blurhash, width, height);
       blurred.className = "blurred";
@@ -835,7 +901,10 @@ class DemoApp {
       if (poll.isClosed) {
         row.append(label, bar);
       } else {
-        row.append(this.button(label, () => void this.vote(poll, answer.id)), bar);
+        row.append(
+          this.button(label, () => void this.vote(poll, answer.id)),
+          bar
+        );
       }
       item.append(row);
     }
@@ -894,9 +963,10 @@ class DemoApp {
     const sharingId = this.sharingId;
     if (!sharingId || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      position => void this.client.location
-        .update(sharingId, { latitude: position.coords.latitude, longitude: position.coords.longitude })
-        .catch(error => this.showError(error)),
+      position =>
+        void this.client.location
+          .update(sharingId, { latitude: position.coords.latitude, longitude: position.coords.longitude })
+          .catch(error => this.showError(error)),
       // No permission means no position, and that is not a failure: nothing is told, and that is all.
       () => this.setStatus("Sin permiso para saber dónde estás"),
       { enableHighAccuracy: false, timeout: 5000 }
@@ -996,11 +1066,15 @@ class DemoApp {
     void this.client.media.preview(url).then(
       seen => {
         if (this.previewedUrl !== url) return;
-        preview.textContent = seen.title ? `🔗 ${seen.title}${seen.description ? ` — ${seen.description}` : ""}` : "";
+        preview.textContent = seen.title
+          ? `🔗 ${seen.title}${seen.description ? ` — ${seen.description}` : ""}`
+          : "";
         preview.hidden = !seen.title;
       },
       // A link the homeserver cannot look at is not an error to show: there is simply no preview.
-      () => { preview.hidden = true; }
+      () => {
+        preview.hidden = true;
+      }
     );
   }
 
@@ -1044,9 +1118,13 @@ class DemoApp {
     const fill = (id: string, kind: MediaDeviceKind, fallback: string) => {
       const picker = this.select(id);
       const chosen = picker.value;
-      picker.replaceChildren(...devices
-        .filter(device => device.kind === kind)
-        .map((device, position) => new Option(device.label || `${fallback} ${position + 1}`, device.deviceId)));
+      picker.replaceChildren(
+        ...devices
+          .filter(device => device.kind === kind)
+          .map(
+            (device, position) => new Option(device.label || `${fallback} ${position + 1}`, device.deviceId)
+          )
+      );
       if (chosen) picker.value = chosen;
     };
     fill("microphone", "audioinput", "Micrófono");
@@ -1083,16 +1161,16 @@ class DemoApp {
     }
   }
 
-
   /**
    * Everything about calls, drawn from what is going on. One is talked on and the rest are listed; which one
    * that is stays whatever it was, as long as it is still there.
    */
   private async drawTheCalls(): Promise<void> {
     const going = await this.client.calls.list();
-    const talkingOn = going.find(call => call.id === this.call?.id)
-      ?? going.find(call => !call.isOnHold && call.state !== "ringing")
-      ?? going[0];
+    const talkingOn =
+      going.find(call => call.id === this.call?.id) ??
+      going.find(call => !call.isOnHold && call.state !== "ringing") ??
+      going[0];
     if (this.call && !talkingOn) void this.fillInDevices();
     this.call = talkingOn;
     if (talkingOn) this.showCall(talkingOn);
@@ -1106,14 +1184,17 @@ class DemoApp {
    */
   private async showOtherCalls(going: readonly Call[]): Promise<void> {
     const others = going.filter(call => call.id !== this.call?.id);
-    this.element("other-calls").replaceChildren(...others.map(call => {
-      const row = document.createElement("div");
-      row.className = "other-call";
-      row.textContent = `${this.nameOf(call.callerId)} · ${call.state}${call.isOnHold ? " · en espera" : ""}`;
-      row.append(this.button(call.state === "ringing" ? "Descolgar" : "Pasar a esta", () =>
-        void this.takeUp(call)));
-      return row;
-    }));
+    this.element("other-calls").replaceChildren(
+      ...others.map(call => {
+        const row = document.createElement("div");
+        row.className = "other-call";
+        row.textContent = `${this.nameOf(call.callerId)} · ${call.state}${call.isOnHold ? " · en espera" : ""}`;
+        row.append(
+          this.button(call.state === "ringing" ? "Descolgar" : "Pasar a esta", () => void this.takeUp(call))
+        );
+        return row;
+      })
+    );
   }
 
   /** Taking up another call: whatever was being talked on waits, and this one carries on. */
@@ -1121,9 +1202,8 @@ class DemoApp {
     const talking = this.call;
     try {
       if (talking && talking.id !== call.id) await this.client.calls.hold(talking.id, true);
-      const taken = call.state === "ringing"
-        ? await this.client.calls.answer(call.id, { video: call.isVideo })
-        : call;
+      const taken =
+        call.state === "ringing" ? await this.client.calls.answer(call.id, { video: call.isVideo }) : call;
       if (taken.isOnHold) await this.client.calls.hold(taken.id, false);
       this.call = taken;
       await this.drawTheCalls();
@@ -1135,7 +1215,6 @@ class DemoApp {
   /** What there is to see and hear while a call is going on. */
   /** What the one being talked on looks like. Which one that is, and whether there is one, is decided above. */
   private showCall(call: Call): void {
-
     const placedByMe = call.callerId === this.ownUserId;
     const beingRung = call.state === "ringing" && !placedByMe;
     this.element("answer").hidden = !beingRung;
@@ -1144,7 +1223,9 @@ class DemoApp {
     // A button has to say what pressing it will do, or nobody knows whether it is already pressed.
     this.element("call-mute").textContent = call.isMicrophoneMuted ? "Hablar" : "Silenciar micro";
     this.element("call-hold").textContent = call.isOnHold ? "Reanudar" : "Espera";
-    this.element("call-screen").textContent = call.isSharingScreen ? "Dejar de compartir" : "Compartir pantalla";
+    this.element("call-screen").textContent = call.isSharingScreen
+      ? "Dejar de compartir"
+      : "Compartir pantalla";
     const camera = this.element("call-camera");
     camera.hidden = !call.isVideo;
     camera.textContent = call.isCameraMuted ? "Encender cámara" : "Apagar cámara";
@@ -1153,10 +1234,10 @@ class DemoApp {
     this.element("call-state").textContent = call.isOnHoldByThem
       ? `${this.nameOf(call.talkingTo ?? call.callerId)} te ha puesto en espera`
       : beingRung
-      ? `${this.nameOf(call.callerId)} te llama`
-      : placedByMe
-        ? `Llamando: ${call.state}`
-        : `Hablando con ${this.nameOf(call.callerId)}: ${call.state}`;
+        ? `${this.nameOf(call.callerId)} te llama`
+        : placedByMe
+          ? `Llamando: ${call.state}`
+          : `Hablando con ${this.nameOf(call.callerId)}: ${call.state}`;
 
     // The stream goes to the element as it is. This is what the library hands over, and what a browser plays.
     const media = this.element("call-media") as HTMLVideoElement;
@@ -1250,7 +1331,6 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => app.dispose());
 }
 
-
 /**
  * The waveform that travels with the voice note, drawn. It shows at a glance whether somebody sent two
  * seconds or two minutes, and where the pauses are, without having to play it.
@@ -1317,9 +1397,13 @@ function decodeBlurhash(hash: string, width: number, height: number): HTMLCanvas
       const value = decode83(hash.slice(4 + index * 2, 6 + index * 2));
       const sign = (part: number) => (part - 9) / 9;
       colours.push([
-        Math.sign(sign(Math.floor(value / (19 * 19)))) * (Math.abs(sign(Math.floor(value / (19 * 19)))) ** 2) * highest,
-        Math.sign(sign(Math.floor(value / 19) % 19)) * (Math.abs(sign(Math.floor(value / 19) % 19)) ** 2) * highest,
-        Math.sign(sign(value % 19)) * (Math.abs(sign(value % 19)) ** 2) * highest
+        Math.sign(sign(Math.floor(value / (19 * 19)))) *
+          Math.abs(sign(Math.floor(value / (19 * 19)))) ** 2 *
+          highest,
+        Math.sign(sign(Math.floor(value / 19) % 19)) *
+          Math.abs(sign(Math.floor(value / 19) % 19)) ** 2 *
+          highest,
+        Math.sign(sign(value % 19)) * Math.abs(sign(value % 19)) ** 2 * highest
       ]);
     }
     // Painted small and stretched by the browser: that way the blur comes out smooth without working out
@@ -1337,7 +1421,8 @@ function decodeBlurhash(hash: string, width: number, height: number): HTMLCanvas
         let blue = 0;
         for (let column = 0; column < across; column += 1) {
           for (let row = 0; row < down; row += 1) {
-            const weight = Math.cos((Math.PI * x * column) / small.width) * Math.cos((Math.PI * y * row) / small.height);
+            const weight =
+              Math.cos((Math.PI * x * column) / small.width) * Math.cos((Math.PI * y * row) / small.height);
             const colour = colours[row * across + column] as number[];
             red += (colour[0] as number) * weight;
             green += (colour[1] as number) * weight;

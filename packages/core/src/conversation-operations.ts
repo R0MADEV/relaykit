@@ -47,16 +47,12 @@ export class ConversationOperations {
     if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
       throw new SdkError("INVALID_INPUT", "How many conversations must be a positive whole number");
     }
-    const storedConversations = this.context.storage
-      ? await this.context.storage.getConversations()
-      : [];
+    const storedConversations = this.context.storage ? await this.context.storage.getConversations() : [];
     try {
       const conversations = await this.context.adapter.listConversations(limit);
       // Before catching up the adapter knows only what has arrived so far, so what was kept from last time is
       // shown alongside it. Once caught up, what the adapter says is the whole picture.
-      const shown = this.context.isCaughtUp()
-        ? conversations
-        : union(storedConversations, conversations);
+      const shown = this.context.isCaughtUp() ? conversations : union(storedConversations, conversations);
       this.remember(conversations);
       await this.persistChanged(conversations, storedConversations);
       await this.trimCache(shown);
@@ -125,9 +121,8 @@ export class ConversationOperations {
     return conversations.find(conversation => {
       const others = conversation.participantIds.filter(participantId => participantId !== ownUserId);
       const isDirectWithUser = conversation.isDirect === true && others.length === 1 && others[0] === userId;
-      const matchesMembership = membership === "invite"
-        ? conversation.membership === "invite"
-        : conversation.membership !== "invite";
+      const matchesMembership =
+        membership === "invite" ? conversation.membership === "invite" : conversation.membership !== "invite";
       return isDirectWithUser && matchesMembership;
     });
   }
@@ -140,7 +135,10 @@ export class ConversationOperations {
     const conversations = await this.list();
     return conversations.filter(conversation => {
       const matchesTitle = conversation.title?.toLowerCase().includes(needle) ?? false;
-      return matchesTitle || conversation.participantIds.some(participantId => participantId.toLowerCase().includes(needle));
+      return (
+        matchesTitle ||
+        conversation.participantIds.some(participantId => participantId.toLowerCase().includes(needle))
+      );
     });
   }
 
@@ -203,26 +201,30 @@ export class ConversationOperations {
     const { storage } = this.context;
     if (!storage) return;
     const known = new Map(stored.map(conversation => [conversation.id, JSON.stringify(conversation)]));
-    const changed = conversations.filter(conversation => known.get(conversation.id) !== JSON.stringify(conversation));
+    const changed = conversations.filter(
+      conversation => known.get(conversation.id) !== JSON.stringify(conversation)
+    );
     await storage.saveConversations(changed);
   }
 
   /** Removes somebody from the conversation. They can come back if invited again. */
   async remove(conversationId: string, userId: UserId, reason?: string): Promise<Conversation> {
-    return this.save(await this.context.adapter.removeFromConversation(
-      conversationId,
-      this.requireUser(userId),
-      reason
-    ));
+    return this.save(
+      await this.context.adapter.removeFromConversation(conversationId, this.requireUser(userId), reason)
+    );
   }
 
   /** Removes somebody and keeps them out until the ban is lifted. */
   async ban(conversationId: string, userId: UserId, reason?: string): Promise<Conversation> {
-    return this.save(await this.context.adapter.banFromConversation(conversationId, this.requireUser(userId), reason));
+    return this.save(
+      await this.context.adapter.banFromConversation(conversationId, this.requireUser(userId), reason)
+    );
   }
 
   async unban(conversationId: string, userId: UserId): Promise<Conversation> {
-    return this.save(await this.context.adapter.unbanFromConversation(conversationId, this.requireUser(userId)));
+    return this.save(
+      await this.context.adapter.unbanFromConversation(conversationId, this.requireUser(userId))
+    );
   }
 
   /**
@@ -470,7 +472,10 @@ export class ConversationOperations {
 }
 
 /** Newest activity first, which is the order a conversation list is expected to show. */
-function firstFew(conversations: readonly Conversation[], limit: number | undefined): readonly Conversation[] {
+function firstFew(
+  conversations: readonly Conversation[],
+  limit: number | undefined
+): readonly Conversation[] {
   return limit === undefined ? conversations : conversations.slice(0, limit);
 }
 

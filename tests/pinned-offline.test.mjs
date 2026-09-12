@@ -34,7 +34,10 @@ test("what was pinned is still there when the homeserver is not", async () => {
   adapter.listPinnedMessages = () => Promise.reject(new Error("the homeserver is not answering"));
   const seenOffline = await client.conversations.pinned(conversation.id);
 
-  assert.deepEqual(seenOffline.map(message => message.body), ["esto hay que tenerlo a mano"]);
+  assert.deepEqual(
+    seenOffline.map(message => message.body),
+    ["esto hay que tenerlo a mano"]
+  );
   await client.stop();
 });
 

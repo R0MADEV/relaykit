@@ -61,7 +61,11 @@ async function waitUntilTheWindowHolds(client: MatrixClient, upTo: number, timeo
   }
 }
 
-async function waitUntilTheRoomArrives(client: MatrixClient, conversationId: string, timeoutMs = 15000): Promise<void> {
+async function waitUntilTheRoomArrives(
+  client: MatrixClient,
+  conversationId: string,
+  timeoutMs = 15000
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (client.getRoom(conversationId)) return;
@@ -69,7 +73,11 @@ async function waitUntilTheRoomArrives(client: MatrixClient, conversationId: str
   }
 }
 
-function listOf(size: number): { ranges: [number, number][]; timeline_limit: number; required_state: [string, string][] } {
+function listOf(size: number): {
+  ranges: [number, number][];
+  timeline_limit: number;
+  required_state: [string, string][];
+} {
   return {
     ranges: [[0, size - 1]],
     timeline_limit: 20,
@@ -110,7 +118,4 @@ const stateForAList: [string, string][] = [
  * person on the other end to hand over their audio; not finding them, it stops, and the caller is left with a
  * call that says it is connected and cannot be heard.
  */
-const stateForOneConversation: [string, string][] = [
-  ...whatAConversationIs,
-  [EventType.RoomMember, "*"]
-];
+const stateForOneConversation: [string, string][] = [...whatAConversationIs, [EventType.RoomMember, "*"]];

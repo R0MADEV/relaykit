@@ -4,7 +4,10 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 // A room with a real crowd in it, because that is where a conversation list stops being cheap.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
+const alice = {
+  username: process.env.MATRIX_USER_A ?? "alice",
+  password: process.env.MATRIX_PASSWORD_A ?? "alice-password"
+};
 const crowd = Number(process.env.BENCH_CROWD ?? 200);
 
 /**
@@ -38,9 +41,15 @@ globalThis.fetch = async (input, init) => {
 async function register(username) {
   const response = await realFetch(`${homeserver}/_matrix/client/v3/register`, {
     method: "POST",
-    body: JSON.stringify({ username, password: "crowd-password", auth: { type: "m.login.dummy" }, inhibit_login: false })
+    body: JSON.stringify({
+      username,
+      password: "crowd-password",
+      auth: { type: "m.login.dummy" },
+      inhibit_login: false
+    })
   });
-  if (!response.ok) throw new Error(`could not register ${username}: ${response.status} ${await response.text()}`);
+  if (!response.ok)
+    throw new Error(`could not register ${username}: ${response.status} ${await response.text()}`);
   return response.json();
 }
 
@@ -86,7 +95,7 @@ async function buildTheCrowd() {
 
 async function main() {
   // Reusing a crowd that already exists, so the same room can be measured again under different settings.
-  const roomId = process.env.BENCH_ROOM ?? await buildTheCrowd();
+  const roomId = process.env.BENCH_ROOM ?? (await buildTheCrowd());
   console.log(`the room being measured is ${roomId}`);
 
   // A fresh session, which is what opening the application looks like for somebody in that room.
@@ -113,18 +122,24 @@ async function main() {
   const paintedAt = performance.now();
   await returning.start({ waitForSync: false });
   const shown = await returning.conversations.list();
-  console.log(`${"start without waiting and paint".padEnd(44)} ${(performance.now() - paintedAt).toFixed(1).padStart(8)} ms`);
+  console.log(
+    `${"start without waiting and paint".padEnd(44)} ${(performance.now() - paintedAt).toFixed(1).padStart(8)} ms`
+  );
   console.log(`${shown.length} conversations painted from what was already here`);
 
   // What an application that goes off screen and comes back pays, against starting from nothing.
   await returning.pause();
   const pickedUpAt = performance.now();
   await returning.resume();
-  console.log(`${"put aside and picked up again".padEnd(44)} ${(performance.now() - pickedUpAt).toFixed(1).padStart(8)} ms`);
+  console.log(
+    `${"put aside and picked up again".padEnd(44)} ${(performance.now() - pickedUpAt).toFixed(1).padStart(8)} ms`
+  );
   await returning.pause();
   const pickedUpFast = performance.now();
   await returning.resume({ waitForSync: false });
-  console.log(`${"picked up without waiting".padEnd(44)} ${(performance.now() - pickedUpFast).toFixed(1).padStart(8)} ms`);
+  console.log(
+    `${"picked up without waiting".padEnd(44)} ${(performance.now() - pickedUpFast).toFixed(1).padStart(8)} ms`
+  );
   // Letting it settle before signing out. Signing out on top of a sync still in flight makes matrix-js-sdk
   // throw from inside its own event processing, where nothing here can catch it.
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -143,7 +158,9 @@ async function main() {
   await arriving.logout().catch(() => undefined);
 }
 
-main().then(() => process.exit(0)).catch(error => {
-  console.error(`crowd measurement failed: ${error.message}`);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(`crowd measurement failed: ${error.message}`);
+    process.exit(1);
+  });

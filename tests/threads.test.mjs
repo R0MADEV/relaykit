@@ -22,7 +22,10 @@ test("an answer can hang from a message and be read as a thread", async () => {
 
   assert.equal(answer.threadId, root.id);
   const thread = await client.messages.thread(conversation.id, root.id);
-  assert.deepEqual(thread.map(message => message.body), ["Yo lo hago"]);
+  assert.deepEqual(
+    thread.map(message => message.body),
+    ["Yo lo hago"]
+  );
   await client.stop();
 });
 
@@ -33,14 +36,19 @@ test("the main timeline does not repeat what belongs to a thread", async () => {
 
   const timeline = await client.messages.list(conversation.id);
 
-  assert.deepEqual(timeline.map(message => message.body), ["raiz"]);
+  assert.deepEqual(
+    timeline.map(message => message.body),
+    ["raiz"]
+  );
   await client.stop();
 });
 
 test("a thread answer validates what it hangs from", async () => {
   const { client, conversation } = await startClient();
 
-  await assert.rejects(client.messages.send(conversation.id, "suelto", { threadId: "  " }), { code: "INVALID_INPUT" });
+  await assert.rejects(client.messages.send(conversation.id, "suelto", { threadId: "  " }), {
+    code: "INVALID_INPUT"
+  });
   await assert.rejects(client.messages.thread(conversation.id, ""), { code: "INVALID_INPUT" });
   await client.stop();
 });

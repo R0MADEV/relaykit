@@ -12,14 +12,18 @@ function fakeRoom() {
     userId: `@person-${index}:example.org`,
     membership: index % 20 === 0 ? "invite" : "join"
   }));
-  const events = Array.from({ length: timeline }, (_, index) => new MatrixEvent({
-    type: "m.room.message",
-    event_id: `$event-${index}`,
-    sender: `@person-${index % members}:example.org`,
-    room_id: roomId,
-    origin_server_ts: 1700000000000 + index,
-    content: { msgtype: "m.text", body: `mensaje ${index} con algo de texto` }
-  }));
+  const events = Array.from(
+    { length: timeline },
+    (_, index) =>
+      new MatrixEvent({
+        type: "m.room.message",
+        event_id: `$event-${index}`,
+        sender: `@person-${index % members}:example.org`,
+        room_id: roomId,
+        origin_server_ts: 1700000000000 + index,
+        content: { msgtype: "m.text", body: `mensaje ${index} con algo de texto` }
+      })
+  );
   return {
     roomId,
     name: "Sala grande",

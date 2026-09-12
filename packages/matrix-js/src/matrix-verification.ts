@@ -61,7 +61,10 @@ export class MatrixVerificationTracker {
     if (!crypto) throw new Error("Matrix crypto is not initialized");
     const isOwnUser = userId === client.getSafeUserId();
     if (!deviceId && !isOwnUser && !options.conversationId) {
-      throw new SdkError("INVALID_INPUT", "Verifying another person needs a conversation the two of you share");
+      throw new SdkError(
+        "INVALID_INPUT",
+        "Verifying another person needs a conversation the two of you share"
+      );
     }
     // Verifying another person happens inside a conversation, which is how their other devices hear about it.
     const request = deviceId
@@ -97,7 +100,7 @@ export class MatrixVerificationTracker {
       }
       return undefined;
     });
-    const verifier = scanned ?? await this.waitForVerifier(tracked);
+    const verifier = scanned ?? (await this.waitForVerifier(tracked));
     tracked.verifier = verifier;
     // Not waiting for the far side to say it was really scanned: that answer arrives as a change, and waiting
     // here would leave the caller stuck until somebody on the other device pressed something.
@@ -184,13 +187,15 @@ export class MatrixVerificationTracker {
       tracked.verifier = await request.startVerification(sasMethod);
       this.attachVerifier(id, tracked, tracked.verifier);
     }
-    const incomingVerifier = request.phase === VerificationPhase.Started && !tracked.verifier ? request.verifier : undefined;
+    const incomingVerifier =
+      request.phase === VerificationPhase.Started && !tracked.verifier ? request.verifier : undefined;
     if (incomingVerifier) {
       tracked.verifier = incomingVerifier;
       this.attachVerifier(id, tracked, incomingVerifier);
     }
     this.emitChange(id);
-    const isFinished = request.phase === VerificationPhase.Done || request.phase === VerificationPhase.Cancelled;
+    const isFinished =
+      request.phase === VerificationPhase.Done || request.phase === VerificationPhase.Cancelled;
     if (isFinished) this.sessions.delete(id);
   }
 
@@ -252,11 +257,16 @@ export class MatrixVerificationTracker {
 
 function mapPhase(phase: VerificationPhase, hasSas: boolean): VerificationSession["phase"] {
   switch (phase) {
-    case VerificationPhase.Ready: return "ready";
-    case VerificationPhase.Started: return hasSas ? "sas" : "started";
-    case VerificationPhase.Done: return "done";
-    case VerificationPhase.Cancelled: return "cancelled";
-    default: return "requested";
+    case VerificationPhase.Ready:
+      return "ready";
+    case VerificationPhase.Started:
+      return hasSas ? "sas" : "started";
+    case VerificationPhase.Done:
+      return "done";
+    case VerificationPhase.Cancelled:
+      return "cancelled";
+    default:
+      return "requested";
   }
 }
 

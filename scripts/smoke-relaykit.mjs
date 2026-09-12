@@ -75,7 +75,9 @@ async function main() {
       { onProgress: fraction => progress.push(fraction) }
     );
     if (!sentFile.attachment || progress.at(-1) !== 1) {
-      throw new Error(`The attachment was not sent with progress: ${JSON.stringify({ attachment: sentFile.attachment, progress })}`);
+      throw new Error(
+        `The attachment was not sent with progress: ${JSON.stringify({ attachment: sentFile.attachment, progress })}`
+      );
     }
     const receivedFile = await waitForMessage(bobClient, conversation.id, fileName);
     const receivedThumbnail = receivedFile.attachment.thumbnail;
@@ -83,13 +85,15 @@ async function main() {
       throw new Error("The received attachment has no thumbnail");
     }
     const downloadedThumbnail = await bobClient.media.download(receivedThumbnail);
-    const isSameThumbnail = downloadedThumbnail.length === thumbnailBytes.length
-      && downloadedThumbnail.every((byte, index) => byte === thumbnailBytes[index]);
+    const isSameThumbnail =
+      downloadedThumbnail.length === thumbnailBytes.length &&
+      downloadedThumbnail.every((byte, index) => byte === thumbnailBytes[index]);
     if (!isSameThumbnail) {
       throw new Error("The downloaded thumbnail does not match the uploaded bytes");
     }
     const downloaded = await bobClient.media.download(receivedFile.attachment);
-    const isSameContent = downloaded.length === fileBytes.length && downloaded.every((byte, index) => byte === fileBytes[index]);
+    const isSameContent =
+      downloaded.length === fileBytes.length && downloaded.every((byte, index) => byte === fileBytes[index]);
     if (!isSameContent) {
       throw new Error("The downloaded attachment does not match the uploaded bytes");
     }
@@ -150,9 +154,13 @@ async function main() {
     const direct = await aliceClient.conversations.open(who("bob"));
     const directAgain = await aliceClient.conversations.open(who("bob"));
     if (!direct.isDirect || direct.id !== directAgain.id) {
-      throw new Error(`Opening the direct conversation twice produced different rooms: ${direct.id} vs ${directAgain.id}`);
+      throw new Error(
+        `Opening the direct conversation twice produced different rooms: ${direct.id} vs ${directAgain.id}`
+      );
     }
-    console.log(`RelayKit end-to-end smoke check passed (text + encrypted attachment + unread ${unread.unreadCount} + direct conversation + pagination in ${pages} page(s))`);
+    console.log(
+      `RelayKit end-to-end smoke check passed (text + encrypted attachment + unread ${unread.unreadCount} + direct conversation + pagination in ${pages} page(s))`
+    );
   } finally {
     await bobClient.logout();
     await aliceClient.logout();

@@ -23,7 +23,12 @@ async function main() {
   const newcomer = createClient();
   let existing;
   try {
-    const session = await newcomer.register({ homeserver, username, password, deviceName: "RelayKit registration smoke" });
+    const session = await newcomer.register({
+      homeserver,
+      username,
+      password,
+      deviceName: "RelayKit registration smoke"
+    });
     if (!session.userId.startsWith(`@${username}:`) || !session.accessToken) {
       throw new Error(`Registration returned an odd session: ${JSON.stringify(session)}`);
     }
@@ -31,7 +36,12 @@ async function main() {
 
     // A brand new account has to be able to talk straight away.
     existing = createClient();
-    await existing.login({ homeserver, username: "alice", password: "alice-password", deviceName: "RelayKit registration smoke" });
+    await existing.login({
+      homeserver,
+      username: "alice",
+      password: "alice-password",
+      deviceName: "RelayKit registration smoke"
+    });
     await existing.start();
     // The same server the newcomer just joined, whatever it calls itself.
     const conversation = await newcomer.conversations.open(`@alice:${session.userId.split(":")[1]}`);

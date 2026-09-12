@@ -43,8 +43,21 @@ test("mapRedactedMessage builds a deleted message from a redacted message event"
 });
 
 test("mapRedactedMessage ignores redactions of non-message events", () => {
-  const reaction = new MatrixEvent({ type: "m.reaction", event_id: "$reaction", sender: "@bob:example.org", room_id: roomId, content: {} });
-  const redaction = new MatrixEvent({ type: "m.room.redaction", event_id: "$redaction", sender: "@bob:example.org", room_id: roomId, redacts: "$reaction", content: {} });
+  const reaction = new MatrixEvent({
+    type: "m.reaction",
+    event_id: "$reaction",
+    sender: "@bob:example.org",
+    room_id: roomId,
+    content: {}
+  });
+  const redaction = new MatrixEvent({
+    type: "m.room.redaction",
+    event_id: "$redaction",
+    sender: "@bob:example.org",
+    room_id: roomId,
+    redacts: "$reaction",
+    content: {}
+  });
 
   assert.equal(mapRedactedMessage(reaction, redaction), undefined);
 });
@@ -54,8 +67,11 @@ test("mapReadReceipts flattens m.read receipts into one receipt per user and mes
     type: "m.receipt",
     room_id: roomId,
     content: {
-      "$one": { "m.read": { "@bob:example.org": { ts: 10 }, "@carol:example.org": { ts: 20 } } },
-      "$two": { "m.read": { "@bob:example.org": { ts: 30 } }, "m.read.private": { "@dave:example.org": { ts: 40 } } }
+      $one: { "m.read": { "@bob:example.org": { ts: 10 }, "@carol:example.org": { ts: 20 } } },
+      $two: {
+        "m.read": { "@bob:example.org": { ts: 30 } },
+        "m.read.private": { "@dave:example.org": { ts: 40 } }
+      }
     }
   });
 
@@ -70,7 +86,7 @@ test("a receipt with no room of its own is placed by the room it was told about"
   // This is what a real homeserver sends: the ephemeral event carries no room id at all.
   const event = new MatrixEvent({
     type: "m.receipt",
-    content: { "$one": { "m.read": { "@bob:example.org": { ts: 10 } } } }
+    content: { $one: { "m.read": { "@bob:example.org": { ts: 10 } } } }
   });
 
   assert.deepEqual(mapReadReceipts(event, roomId), [
@@ -81,14 +97,18 @@ test("a receipt with no room of its own is placed by the room it was told about"
 test("a receipt belonging to no room at all is dropped", () => {
   const event = new MatrixEvent({
     type: "m.receipt",
-    content: { "$one": { "m.read": { "@bob:example.org": { ts: 10 } } } }
+    content: { $one: { "m.read": { "@bob:example.org": { ts: 10 } } } }
   });
 
   assert.deepEqual(mapReadReceipts(event, undefined), []);
 });
 
 test("mapTyping maps the typing user list of a room", () => {
-  const event = new MatrixEvent({ type: "m.typing", room_id: roomId, content: { user_ids: ["@bob:example.org"] } });
+  const event = new MatrixEvent({
+    type: "m.typing",
+    room_id: roomId,
+    content: { user_ids: ["@bob:example.org"] }
+  });
 
   assert.deepEqual(mapTyping(event, roomId), { conversationId: roomId, userIds: ["@bob:example.org"] });
 });
@@ -115,11 +135,20 @@ test("mapPresence maps a presence event with status and last activity", () => {
 
   const presence = mapPresence(event, 10000);
 
-  assert.deepEqual(presence, { userId: "@bob:example.org", presence: "unavailable", statusMessage: "away", lastActiveAt: 5000 });
+  assert.deepEqual(presence, {
+    userId: "@bob:example.org",
+    presence: "unavailable",
+    statusMessage: "away",
+    lastActiveAt: 5000
+  });
 });
 
 test("mapPresence rejects unknown presence states", () => {
-  const event = new MatrixEvent({ type: "m.presence", sender: "@bob:example.org", content: { presence: "busy" } });
+  const event = new MatrixEvent({
+    type: "m.presence",
+    sender: "@bob:example.org",
+    content: { presence: "busy" }
+  });
 
   assert.equal(mapPresence(event, 10000), undefined);
 });
@@ -160,8 +189,14 @@ function fakeClient({ pending, eventsById }) {
     calls,
     getCrypto: () => undefined,
     getRoom: () => room,
-    sendMessage: async () => { calls.sendMessage += 1; return { event_id: "$sent" }; },
-    resendEvent: async () => { calls.resendEvent += 1; return { event_id: "$resent" }; }
+    sendMessage: async () => {
+      calls.sendMessage += 1;
+      return { event_id: "$sent" };
+    },
+    resendEvent: async () => {
+      calls.resendEvent += 1;
+      return { event_id: "$resent" };
+    }
   };
 }
 
@@ -216,11 +251,13 @@ function matrixError({ httpStatus, errcode, data = {} }) {
 }
 
 test("a rate limit becomes a typed error carrying how long to wait", () => {
-  const translated = translateMatrixError(matrixError({
-    httpStatus: 429,
-    errcode: "M_LIMIT_EXCEEDED",
-    data: { retry_after_ms: 4200 }
-  }));
+  const translated = translateMatrixError(
+    matrixError({
+      httpStatus: 429,
+      errcode: "M_LIMIT_EXCEEDED",
+      data: { retry_after_ms: 4200 }
+    })
+  );
 
   assert.equal(translated.name, "SdkError");
   assert.equal(translated.code, "RATE_LIMITED");
@@ -250,7 +287,9 @@ test("the adapter reports a rate limited send as a typed error", async () => {
       getMyMembership: () => "join",
       currentState: { getStateEvents: () => null }
     }),
-    sendMessage: async () => { throw matrixError({ httpStatus: 429, errcode: "M_LIMIT_EXCEEDED", data: { retry_after_ms: 1000 } }); }
+    sendMessage: async () => {
+      throw matrixError({ httpStatus: 429, errcode: "M_LIMIT_EXCEEDED", data: { retry_after_ms: 1000 } });
+    }
   };
   const adapter = new MatrixJsAdapter();
   // Reaching into the runtime is the only way to exercise the adapter boundary without a homeserver.
@@ -270,7 +309,11 @@ test("mapMessage reads what a message replies to", () => {
     sender: "@bob:example.org",
     room_id: roomId,
     origin_server_ts: 2000,
-    content: { msgtype: "m.text", body: "me viene bien", "m.relates_to": { "m.in_reply_to": { event_id: "$original" } } }
+    content: {
+      msgtype: "m.text",
+      body: "me viene bien",
+      "m.relates_to": { "m.in_reply_to": { event_id: "$original" } }
+    }
   });
 
   const message = mapMessage(reply);
@@ -281,11 +324,13 @@ test("mapMessage reads what a message replies to", () => {
 });
 
 test("any other homeserver error is still reported as an SDK error, never as a Matrix one", () => {
-  const translated = translateMatrixError(matrixError({
-    httpStatus: 404,
-    errcode: "M_NOT_FOUND",
-    data: { error: "Can't join remote room because no servers that are in the room have been provided." }
-  }));
+  const translated = translateMatrixError(
+    matrixError({
+      httpStatus: 404,
+      errcode: "M_NOT_FOUND",
+      data: { error: "Can't join remote room because no servers that are in the room have been provided." }
+    })
+  );
 
   assert.equal(translated.name, "SdkError");
   assert.equal(translated.code, "ADAPTER_ERROR");
@@ -297,7 +342,9 @@ test("the adapter never lets a Matrix error reach the caller", async () => {
   const adapter = new MatrixJsAdapter();
   adapter.runtime = {
     getClient: () => ({
-      joinRoom: async () => { throw matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: "no such room" } }); }
+      joinRoom: async () => {
+        throw matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: "no such room" } });
+      }
     }),
     reachFor: async () => {},
     widenTheWindow: async () => {}
@@ -422,7 +469,10 @@ test("a conversation nobody left for later does not claim to be unread", () => {
   const { mapConversation } = mapper;
 
   assert.equal(mapConversation(fakeRoom([])).isUnread, undefined);
-  assert.equal(mapConversation(fakeRoom([], { accountData: { "m.marked_unread": { unread: false } } })).isUnread, false);
+  assert.equal(
+    mapConversation(fakeRoom([], { accountData: { "m.marked_unread": { unread: false } } })).isUnread,
+    false
+  );
 });
 
 test("a conversation that was replaced points at the one that carries on", () => {
@@ -522,7 +572,12 @@ test("a voice note is told apart from an audio file somebody attached", () => {
     sender: "@alice:example.org",
     room_id: roomId,
     origin_server_ts: 1000,
-    content: { msgtype: "m.audio", body: "cancion.mp3", url: "mxc://example.org/song", info: { mimetype: "audio/mpeg" } }
+    content: {
+      msgtype: "m.audio",
+      body: "cancion.mp3",
+      url: "mxc://example.org/song",
+      info: { mimetype: "audio/mpeg" }
+    }
   });
 
   assert.equal(mapMessage(voice).attachment.voice.durationMs, 3200);
@@ -576,7 +631,9 @@ test("a conversation that only speaks up for mentions is read back that way", ()
 
 test("a conversation nobody silenced says nothing about notifications", () => {
   const { mapConversation } = mapper;
-  const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], { pushRules: { global: {} } });
+  const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
+    pushRules: { global: {} }
+  });
 
   assert.equal(mapConversation(room).notifications, undefined);
 });
@@ -615,7 +672,11 @@ test("the participants of a conversation are those in it, not those who left", (
 
   const conversation = mapConversation(room);
 
-  assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
+  assert.deepEqual(conversation.participantIds, [
+    "@alice:example.org",
+    "@bob:example.org",
+    "@dave:example.org"
+  ]);
 });
 
 const { waitUntilRoomIsUsable } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
@@ -624,7 +685,9 @@ function joiningRoom(readyAfter) {
   let polls = 0;
   return {
     roomId,
-    get polls() { return polls; },
+    get polls() {
+      return polls;
+    },
     getMyMembership: () => (polls++ >= readyAfter ? "join" : "invite"),
     currentState: { getStateEvents: () => (polls > readyAfter ? {} : null) }
   };
@@ -655,7 +718,11 @@ test("a conversation says who has been invited and has not accepted yet", () => 
 
   const conversation = mapConversation(room);
 
-  assert.deepEqual(conversation.participantIds, ["@alice:example.org", "@bob:example.org", "@dave:example.org"]);
+  assert.deepEqual(conversation.participantIds, [
+    "@alice:example.org",
+    "@bob:example.org",
+    "@dave:example.org"
+  ]);
   assert.deepEqual(conversation.invitedIds, ["@dave:example.org"]);
 });
 
@@ -680,7 +747,10 @@ test("the timeline leaves out messages the homeserver has not accepted yet", () 
 
   const messages = mapMessages([pending, accepted]);
 
-  assert.deepEqual(messages.map(message => message.body), ["confirmado"]);
+  assert.deepEqual(
+    messages.map(message => message.body),
+    ["confirmado"]
+  );
 });
 
 const { handleClientEvent } = await import("../packages/matrix-js/dist/matrix-handlers.js");

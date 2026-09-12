@@ -27,7 +27,9 @@ test("verifying another person happens in the conversation the two of them share
 
   await client.verification.request("bob");
 
-  const direct = (await adapter.listConversations()).filter(item => item.isDirect && item.participantIds.includes("bob"));
+  const direct = (await adapter.listConversations()).filter(
+    item => item.isDirect && item.participantIds.includes("bob")
+  );
   assert.equal(direct.length, 1, "it must use one direct conversation, not open a second one");
   await client.stop();
 });
@@ -38,8 +40,13 @@ test("a conversation the two already share is used instead of opening another", 
 
   await client.verification.request("bob");
 
-  const direct = (await adapter.listConversations()).filter(item => item.isDirect && item.participantIds.includes("bob"));
-  assert.deepEqual(direct.map(item => item.id), [existing.id]);
+  const direct = (await adapter.listConversations()).filter(
+    item => item.isDirect && item.participantIds.includes("bob")
+  );
+  assert.deepEqual(
+    direct.map(item => item.id),
+    [existing.id]
+  );
   await client.stop();
 });
 

@@ -56,7 +56,11 @@ test("the formatting and the kind travel with the message", async () => {
 test("a file is passed on as a file, not as its name", async () => {
   const { client, from, to } = await startClient();
   const data = new Uint8Array([1, 2, 3, 4]);
-  const original = await client.messages.sendFile(from.id, { name: "informe.pdf", mimeType: "application/pdf", data });
+  const original = await client.messages.sendFile(from.id, {
+    name: "informe.pdf",
+    mimeType: "application/pdf",
+    data
+  });
 
   const forwarded = await client.messages.forward(original.id, to.id);
 
@@ -69,7 +73,11 @@ test("a file is passed on as a file, not as its name", async () => {
 
 test("a place is passed on as a place", async () => {
   const { client, from, to } = await startClient();
-  const original = await client.messages.sendLocation(from.id, { latitude: 43.263, longitude: -2.935, description: "Bilbao" });
+  const original = await client.messages.sendLocation(from.id, {
+    latitude: 43.263,
+    longitude: -2.935,
+    description: "Bilbao"
+  });
 
   const forwarded = await client.messages.forward(original.id, to.id);
 

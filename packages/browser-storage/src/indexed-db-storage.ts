@@ -25,9 +25,7 @@ export class IndexedDbStorage implements MessagingStorage {
 
   constructor(databaseName = "relaykit", options: IndexedDbStorageOptions = {}) {
     this.database = this.open(databaseName);
-    this.encryptionKey = options.encryptionSecret
-      ? this.createKey(options.encryptionSecret)
-      : undefined;
+    this.encryptionKey = options.encryptionSecret ? this.createKey(options.encryptionSecret) : undefined;
     // Held onto until somebody asks for the store, so a failure here is reported then and not as a rejection
     // nobody was listening for.
     this.encryptionKey?.catch(() => undefined);
@@ -43,8 +41,12 @@ export class IndexedDbStorage implements MessagingStorage {
   async rekey(newSecret: string): Promise<void> {
     const messages = await this.request<Message[]>(messageStore, "readonly", store => store.getAll());
     const conversations = await this.getConversations();
-    const operations = await this.request<OutboxOperation[]>(outboxStore, "readonly", store => store.getAll());
-    const drafts = await this.request<{ id: string; text: string }[]>(draftStore, "readonly", store => store.getAll());
+    const operations = await this.request<OutboxOperation[]>(outboxStore, "readonly", store =>
+      store.getAll()
+    );
+    const drafts = await this.request<{ id: string; text: string }[]>(draftStore, "readonly", store =>
+      store.getAll()
+    );
 
     const readableMessages: Message[] = [];
     for (const stored of messages) {
@@ -64,9 +66,11 @@ export class IndexedDbStorage implements MessagingStorage {
 
     this.encryptionKey = this.createKey(newSecret);
 
-    await Promise.all([conversationStore, messageStore, outboxStore, draftStore, profileStore].map(name =>
-      this.request(name, "readwrite", store => store.clear())
-    ));
+    await Promise.all(
+      [conversationStore, messageStore, outboxStore, draftStore, profileStore].map(name =>
+        this.request(name, "readwrite", store => store.clear())
+      )
+    );
     for (const conversation of conversations) await this.saveConversation(conversation);
     for (const message of readableMessages) await this.saveMessage(message);
     for (const operation of readableOperations) await this.saveOutboxOperation(operation);
@@ -123,7 +127,9 @@ export class IndexedDbStorage implements MessagingStorage {
   }
 
   async getReadyOutbox(now: number): Promise<readonly OutboxOperation[]> {
-    const operations = await this.request<OutboxOperation[]>(outboxStore, "readonly", store => store.getAll());
+    const operations = await this.request<OutboxOperation[]>(outboxStore, "readonly", store =>
+      store.getAll()
+    );
     const result: OutboxOperation[] = [];
     for (const operation of operations) {
       if (operation.nextAttemptAt > now) continue;
@@ -134,7 +140,9 @@ export class IndexedDbStorage implements MessagingStorage {
   }
 
   async getOutboxOperation(operationId: string): Promise<OutboxOperation | undefined> {
-    const operation = await this.request<OutboxOperation | undefined>(outboxStore, "readonly", store => store.get(operationId));
+    const operation = await this.request<OutboxOperation | undefined>(outboxStore, "readonly", store =>
+      store.get(operationId)
+    );
     return operation ? this.restoreOperation(operation) : undefined;
   }
 
@@ -144,11 +152,17 @@ export class IndexedDbStorage implements MessagingStorage {
     const storedOperation: OutboxOperation = {
       ...operation,
       body: await this.encrypt(operation.body),
-      ...(attachment ? { attachment: {
-        ...attachment,
-        data: await this.encryptBytes(attachment.data),
-        ...(thumbnail ? { thumbnail: { ...thumbnail, data: await this.encryptBytes(thumbnail.data) } } : {})
-      } } : {})
+      ...(attachment
+        ? {
+            attachment: {
+              ...attachment,
+              data: await this.encryptBytes(attachment.data),
+              ...(thumbnail
+                ? { thumbnail: { ...thumbnail, data: await this.encryptBytes(thumbnail.data) } }
+                : {})
+            }
+          }
+        : {})
     };
     await this.request(outboxStore, "readwrite", store => store.put(storedOperation));
   }
@@ -167,21 +181,29 @@ export class IndexedDbStorage implements MessagingStorage {
     return {
       ...operation,
       body,
-      ...(attachment && data ? { attachment: {
-        ...attachment,
-        data,
-        ...(thumbnail && thumbnailData ? { thumbnail: { ...thumbnail, data: thumbnailData } } : {})
-      } } : {})
+      ...(attachment && data
+        ? {
+            attachment: {
+              ...attachment,
+              data,
+              ...(thumbnail && thumbnailData ? { thumbnail: { ...thumbnail, data: thumbnailData } } : {})
+            }
+          }
+        : {})
     };
   }
 
   async getMessage(messageId: MessageId): Promise<Message | undefined> {
-    const message = await this.request<Message | undefined>(messageStore, "readonly", store => store.get(messageId));
+    const message = await this.request<Message | undefined>(messageStore, "readonly", store =>
+      store.get(messageId)
+    );
     return message ? this.restoreMessage(message) : undefined;
   }
 
   async getConversations(): Promise<readonly Conversation[]> {
-    const conversations = await this.request<Conversation[]>(conversationStore, "readonly", store => store.getAll());
+    const conversations = await this.request<Conversation[]>(conversationStore, "readonly", store =>
+      store.getAll()
+    );
     const result: Conversation[] = [];
     for (const conversation of conversations) {
       if (!conversation.lastMessage) {
@@ -249,7 +271,9 @@ export class IndexedDbStorage implements MessagingStorage {
 
   async saveConversations(conversations: readonly Conversation[]): Promise<void> {
     if (conversations.length === 0) return;
-    const prepared = await Promise.all(conversations.map(conversation => this.prepareConversation(conversation)));
+    const prepared = await Promise.all(
+      conversations.map(conversation => this.prepareConversation(conversation))
+    );
     await this.writeAll(conversationStore, prepared);
   }
 
@@ -257,13 +281,17 @@ export class IndexedDbStorage implements MessagingStorage {
     await this.request(conversationStore, "readwrite", store => store.delete(conversationId));
     const messages = await this.request<Message[]>(messageStore, "readonly", store => store.getAll());
     const stale = messages.filter(message => message.conversationId === conversationId);
-    await Promise.all(stale.map(message => this.request(messageStore, "readwrite", store => store.delete(message.id))));
+    await Promise.all(
+      stale.map(message => this.request(messageStore, "readwrite", store => store.delete(message.id)))
+    );
   }
 
   async clear(): Promise<void> {
-    await Promise.all([conversationStore, messageStore, outboxStore, draftStore, profileStore].map(name =>
-      this.request(name, "readwrite", store => store.clear())
-    ));
+    await Promise.all(
+      [conversationStore, messageStore, outboxStore, draftStore, profileStore].map(name =>
+        this.request(name, "readwrite", store => store.clear())
+      )
+    );
   }
 
   private open(databaseName: string): Promise<IDBDatabase> {
@@ -342,7 +370,9 @@ export class IndexedDbStorage implements MessagingStorage {
     }
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const plain = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
-    const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await this.encryptionKey, plain));
+    const encrypted = new Uint8Array(
+      await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await this.encryptionKey, plain)
+    );
     const stored = new Uint8Array(iv.byteLength + encrypted.byteLength);
     stored.set(iv);
     stored.set(encrypted, iv.byteLength);
@@ -355,9 +385,14 @@ export class IndexedDbStorage implements MessagingStorage {
       return value;
     }
     const iv = value.slice(0, 12);
-    const encrypted = value.buffer.slice(value.byteOffset + 12, value.byteOffset + value.byteLength) as ArrayBuffer;
+    const encrypted = value.buffer.slice(
+      value.byteOffset + 12,
+      value.byteOffset + value.byteLength
+    ) as ArrayBuffer;
     try {
-      return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await this.encryptionKey, encrypted));
+      return new Uint8Array(
+        await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await this.encryptionKey, encrypted)
+      );
     } catch {
       return undefined;
     }

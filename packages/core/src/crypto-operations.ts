@@ -1,6 +1,12 @@
 import { SdkError } from "./errors.js";
 import type { MessagingAdapter } from "./adapter.js";
-import type { CryptoStatus, KeyBackupRestoreSummary, KeyBackupStatus, RecoverySetup, RecoverySetupOptions } from "./models.js";
+import type {
+  CryptoStatus,
+  KeyBackupRestoreSummary,
+  KeyBackupStatus,
+  RecoverySetup,
+  RecoverySetupOptions
+} from "./models.js";
 
 export interface CryptoOperationsContext {
   readonly adapter: MessagingAdapter;

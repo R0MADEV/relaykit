@@ -44,11 +44,17 @@ function fakeCall(placing) {
 test("a call that comes back has really been sent, because placing it needs the microphone first", async () => {
   let sent = false;
   const calls = new MatrixCalls();
-  const client = fakeClient(fakeCall(async () => {
-    await new Promise(resolve => setTimeout(resolve, 20));
-    sent = true;
-  }));
-  calls.watch(client, () => undefined, () => undefined);
+  const client = fakeClient(
+    fakeCall(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      sent = true;
+    })
+  );
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
 
   await calls.place(client, "!room:localhost", { video: false });
 
@@ -57,14 +63,17 @@ test("a call that comes back has really been sent, because placing it needs the 
 
 test("a call that could not be placed says so, instead of looking like it is ringing", async () => {
   const calls = new MatrixCalls();
-  const client = fakeClient(fakeCall(async () => {
-    throw new Error("Permission denied");
-  }));
-  calls.watch(client, () => undefined, () => undefined);
-
-  await assert.rejects(
-    () => calls.place(client, "!room:localhost", { video: false }),
-    /Permission denied/
+  const client = fakeClient(
+    fakeCall(async () => {
+      throw new Error("Permission denied");
+    })
   );
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
+
+  await assert.rejects(() => calls.place(client, "!room:localhost", { video: false }), /Permission denied/);
   assert.deepEqual(calls.list(), [], "a call that never went out was left going on");
 });

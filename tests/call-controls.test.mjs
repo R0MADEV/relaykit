@@ -26,17 +26,34 @@ function fakeCall(asked) {
     on: () => undefined,
     placeVoiceCall: async () => undefined,
     placeVideoCall: async () => undefined,
-    setMicrophoneMuted: muted => { asked.push(`setMicrophoneMuted(${muted})`); state.microphone = muted; return muted; },
+    setMicrophoneMuted: muted => {
+      asked.push(`setMicrophoneMuted(${muted})`);
+      state.microphone = muted;
+      return muted;
+    },
     isMicrophoneMuted: () => state.microphone,
-    setLocalVideoMuted: muted => { asked.push(`setLocalVideoMuted(${muted})`); state.camera = muted; return muted; },
+    setLocalVideoMuted: muted => {
+      asked.push(`setLocalVideoMuted(${muted})`);
+      state.camera = muted;
+      return muted;
+    },
     isLocalVideoMuted: () => state.camera,
     // The SDK lets go of the track when the camera is put away, so this follows it.
-    get hasLocalUserMediaVideoTrack() { return !state.camera; },
-    setRemoteOnHold: held => { asked.push(`setRemoteOnHold(${held})`); state.held = held; },
+    get hasLocalUserMediaVideoTrack() {
+      return !state.camera;
+    },
+    setRemoteOnHold: held => {
+      asked.push(`setRemoteOnHold(${held})`);
+      state.held = held;
+    },
     isRemoteOnHold: () => state.held,
     reject: () => asked.push("reject()"),
     hangup: () => asked.push("hangup()"),
-    setScreensharingEnabled: async sharing => { asked.push(`setScreensharingEnabled(${sharing})`); state.sharing = sharing; return sharing; },
+    setScreensharingEnabled: async sharing => {
+      asked.push(`setScreensharingEnabled(${sharing})`);
+      state.sharing = sharing;
+      return sharing;
+    },
     isScreensharing: () => state.sharing,
     isLocalOnHold: () => false,
     getRemoteAssertedIdentity: () => undefined,
@@ -59,7 +76,11 @@ async function placed(asked) {
     on: () => undefined
   };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   await calls.place(client, "!room:localhost", { video: false });
   return { calls, client, call };
 }
@@ -176,7 +197,11 @@ test("silencing, holding and the rest are announced, or the screen never finds o
     on: () => undefined
   };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, reported => told.push(reported));
+  calls.watch(
+    client,
+    () => undefined,
+    reported => told.push(reported)
+  );
   await calls.place(client, "!room:localhost", { video: true });
   told.length = 0;
 
@@ -207,7 +232,11 @@ test("being refused a silence is said out loud, not reported as done", async () 
     on: () => undefined
   };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   await calls.place(client, "!room:localhost", { video: true });
 
   await assert.rejects(() => calls.muteMicrophone("call-1", true), /could not be silenced/i);
@@ -233,7 +262,9 @@ test("silencing comes back only once the call says it is silenced", async () => 
   let muted = false;
   call.setMicrophoneMuted = wanted => {
     // Settles a moment later, as the real one does.
-    setTimeout(() => { muted = wanted; }, 30);
+    setTimeout(() => {
+      muted = wanted;
+    }, 30);
     return muted;
   };
   call.isMicrophoneMuted = () => muted;
@@ -244,7 +275,11 @@ test("silencing comes back only once the call says it is silenced", async () => 
     on: () => undefined
   };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   await calls.place(client, "!room:localhost", { video: false });
 
   await calls.muteMicrophone("call-1", true);
@@ -267,7 +302,9 @@ test("putting the camera away comes back once the camera is really gone", async 
   call.setLocalVideoMuted = wanted => {
     away = wanted;
     // The track goes a moment later, as the real one does.
-    setTimeout(() => { stillHasTheTrack = !wanted; }, 40);
+    setTimeout(() => {
+      stillHasTheTrack = !wanted;
+    }, 40);
     return away;
   };
   call.isLocalVideoMuted = () => away;
@@ -279,7 +316,11 @@ test("putting the camera away comes back once the camera is really gone", async 
     on: () => undefined
   };
   const calls = new MatrixCalls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   await calls.place(client, "!room:localhost", { video: true });
 
   await calls.muteCamera("call-1", true);

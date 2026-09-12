@@ -14,10 +14,25 @@ function makeCertificate() {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "relaykit-tls-"));
   const key = path.join(folder, "tls.key");
   const certificate = path.join(folder, "tls.crt");
-  execFileSync("openssl", [
-    "req", "-x509", "-newkey", "rsa:2048", "-keyout", key, "-out", certificate,
-    "-days", "1", "-nodes", "-subj", "/CN=localhost"
-  ], { stdio: "ignore" });
+  execFileSync(
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-keyout",
+      key,
+      "-out",
+      certificate,
+      "-days",
+      "1",
+      "-nodes",
+      "-subj",
+      "/CN=localhost"
+    ],
+    { stdio: "ignore" }
+  );
   return { key: fs.readFileSync(key), cert: fs.readFileSync(certificate) };
 }
 
@@ -28,7 +43,12 @@ function makeCertificate() {
  * for the context to be genuinely secure, which is what has to be exercised.
  */
 function serve(root) {
-  const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm" };
+  const types = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".wasm": "application/wasm"
+  };
   const identity = makeCertificate();
   return new Promise(resolve => {
     const server = https.createServer({ key: identity.key, cert: identity.cert }, (request, response) => {

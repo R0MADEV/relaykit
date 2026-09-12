@@ -36,7 +36,11 @@ import type {
 import { mapConversation, mapMessages } from "./matrix-mapper.js";
 import { waitForRoom } from "./matrix-room-operations.js";
 
-export async function setMatrixTopic(client: MatrixClient, conversationId: string, topic: string): Promise<Conversation> {
+export async function setMatrixTopic(
+  client: MatrixClient,
+  conversationId: string,
+  topic: string
+): Promise<Conversation> {
   await client.setRoomTopic(conversationId, topic);
   const conversation = mapConversation(await waitForRoom(client, conversationId));
   // The state event reaches the room through sync, so the answer already carries what was just set.
@@ -57,7 +61,11 @@ export async function setMatrixConversationAvatar(
   const conversation = mapConversation(await waitForRoom(client, conversationId));
   return {
     ...conversation,
-    avatar: { mimeType: image.mimeType, size: image.data.byteLength, source: JSON.stringify({ url: upload.content_uri }) }
+    avatar: {
+      mimeType: image.mimeType,
+      size: image.data.byteLength,
+      source: JSON.stringify({ url: upload.content_uri })
+    }
   };
 }
 
@@ -113,13 +121,18 @@ export async function stopWatchingForMatrixKeyword(client: MatrixClient, word: s
 
 export async function listMatrixKeywords(client: MatrixClient): Promise<readonly string[]> {
   const rules = await client.getPushRules();
-  return (rules.global.content ?? [])
-    // The rules the homeserver ships with start with a dot, and they are not words anybody chose.
-    .filter(rule => !rule.rule_id.startsWith("."))
-    .map(rule => rule.pattern ?? rule.rule_id);
+  return (
+    (rules.global.content ?? [])
+      // The rules the homeserver ships with start with a dot, and they are not words anybody chose.
+      .filter(rule => !rule.rule_id.startsWith("."))
+      .map(rule => rule.pattern ?? rule.rule_id)
+  );
 }
 
-export async function registerMatrixPush(client: MatrixClient, registration: PushRegistration): Promise<void> {
+export async function registerMatrixPush(
+  client: MatrixClient,
+  registration: PushRegistration
+): Promise<void> {
   await client.setPusher({
     pushkey: registration.deviceToken,
     kind: "http",
@@ -133,7 +146,9 @@ export async function registerMatrixPush(client: MatrixClient, registration: Pus
   });
 }
 
-export async function listMatrixPushRegistrations(client: MatrixClient): Promise<readonly PushRegistration[]> {
+export async function listMatrixPushRegistrations(
+  client: MatrixClient
+): Promise<readonly PushRegistration[]> {
   const { pushers } = await client.getPushers();
   return pushers.map(pusher => {
     const { url, format, ...rest } = (pusher.data ?? {}) as Record<string, string>;
@@ -174,7 +189,12 @@ export async function setMatrixJoinRule(
   conversationId: string,
   rule: JoinRule
 ): Promise<Conversation> {
-  await client.sendStateEvent(conversationId, EventType.RoomJoinRules, { join_rule: joinRuleNames[rule] }, "");
+  await client.sendStateEvent(
+    conversationId,
+    EventType.RoomJoinRules,
+    { join_rule: joinRuleNames[rule] },
+    ""
+  );
   return { ...mapConversation(await waitForRoom(client, conversationId)), joinRule: rule };
 }
 
@@ -313,7 +333,8 @@ export async function listMatrixThreads(
 const threadsPerAsk = 100;
 
 function summarise(client: MatrixClient, room: Room, root: IRoomEvent): ThreadSummary {
-  const aggregated = root.unsigned?.["m.relations"]?.[THREAD_RELATION_TYPE.name] as ThreadAggregation | undefined;
+  const aggregated = root.unsigned?.["m.relations"]?.[THREAD_RELATION_TYPE.name] as
+    ThreadAggregation | undefined;
   // The homeserver sends the latest answer along, but in an encrypted conversation it arrives as a locked box.
   // The SDK has already opened the one it holds, so that is the one shown whenever it is to hand.
   const latest = aggregated?.latest_event?.event_id;
@@ -344,7 +365,11 @@ export async function listMatrixMutedUsers(client: MatrixClient): Promise<readon
     .map(rule => rule.rule_id);
 }
 
-export async function setMatrixUserMuted(client: MatrixClient, userId: string, muted: boolean): Promise<void> {
+export async function setMatrixUserMuted(
+  client: MatrixClient,
+  userId: string,
+  muted: boolean
+): Promise<void> {
   // Deleting first either way: adding a rule that is already there would leave two saying the same thing.
   await client.deletePushRule("global", PushRuleKind.SenderSpecific, userId).catch(() => undefined);
   if (muted) {
@@ -368,7 +393,9 @@ const rulesAboutOrdinaryMessages = [
 
 export async function getMatrixNotificationLevel(client: MatrixClient): Promise<NotificationLevel> {
   const rules = await client.getPushRules();
-  const isSilent = (rules.global?.override ?? []).some(rule => rule.rule_id === RuleId.Master && rule.enabled);
+  const isSilent = (rules.global?.override ?? []).some(
+    rule => rule.rule_id === RuleId.Master && rule.enabled
+  );
   if (isSilent) return "none";
   const underlying = rules.global?.underride ?? [];
   const ordinaryMessagesAreOff = rulesAboutOrdinaryMessages.every(ruleId => {
@@ -378,10 +405,14 @@ export async function getMatrixNotificationLevel(client: MatrixClient): Promise<
   return ordinaryMessagesAreOff ? "mentions" : "all";
 }
 
-export async function setMatrixNotificationLevel(client: MatrixClient, level: NotificationLevel): Promise<void> {
+export async function setMatrixNotificationLevel(
+  client: MatrixClient,
+  level: NotificationLevel
+): Promise<void> {
   await client.setPushRuleEnabled("global", PushRuleKind.Override, RuleId.Master, level === "none");
   for (const ruleId of rulesAboutOrdinaryMessages) {
-    await client.setPushRuleEnabled("global", PushRuleKind.Underride, ruleId, level === "all")
+    await client
+      .setPushRuleEnabled("global", PushRuleKind.Underride, ruleId, level === "all")
       .catch(() => undefined);
   }
   // What this client holds is refreshed by sync, which has not happened yet: asking updates it now, so reading
@@ -393,14 +424,15 @@ export async function setMatrixNotificationLevel(client: MatrixClient, level: No
  * What the homeserver is holding for this account. An application that was closed has no events to work it
  * out from, so it asks. A highlight is the protocol saying this one names the person, which deserves more.
  */
-export async function listMatrixPending(client: MatrixClient, limit: number): Promise<readonly Notification[]> {
+export async function listMatrixPending(
+  client: MatrixClient,
+  limit: number
+): Promise<readonly Notification[]> {
   // The SDK only reaches this endpoint through its notification timeline, which asks for highlights alone.
   // What a cold start has to show is everything waiting, so it is asked for directly.
-  const response = await client.http.authedRequest<INotificationsResponse>(
-    Method.Get,
-    "/notifications",
-    { limit: String(limit) }
-  );
+  const response = await client.http.authedRequest<INotificationsResponse>(Method.Get, "/notifications", {
+    limit: String(limit)
+  });
   return (response.notifications ?? []).map(waiting => ({
     conversationId: waiting.room_id,
     messageId: waiting.event.event_id,
@@ -427,18 +459,34 @@ export async function setMatrixUnread(
   return { ...mapConversation(await waitForRoom(client, conversationId)), isUnread: unread };
 }
 
-export async function pinMatrixMessage(client: MatrixClient, conversationId: string, messageId: string): Promise<void> {
+export async function pinMatrixMessage(
+  client: MatrixClient,
+  conversationId: string,
+  messageId: string
+): Promise<void> {
   const pinned = await readPinnedIds(client, conversationId);
   if (pinned.includes(messageId)) return;
   await client.sendStateEvent(conversationId, pinnedEvent, { pinned: [...pinned, messageId] }, "");
 }
 
-export async function unpinMatrixMessage(client: MatrixClient, conversationId: string, messageId: string): Promise<void> {
+export async function unpinMatrixMessage(
+  client: MatrixClient,
+  conversationId: string,
+  messageId: string
+): Promise<void> {
   const pinned = await readPinnedIds(client, conversationId);
-  await client.sendStateEvent(conversationId, pinnedEvent, { pinned: pinned.filter(id => id !== messageId) }, "");
+  await client.sendStateEvent(
+    conversationId,
+    pinnedEvent,
+    { pinned: pinned.filter(id => id !== messageId) },
+    ""
+  );
 }
 
-export async function listMatrixPinnedMessages(client: MatrixClient, conversationId: string): Promise<readonly Message[]> {
+export async function listMatrixPinnedMessages(
+  client: MatrixClient,
+  conversationId: string
+): Promise<readonly Message[]> {
   const room = await waitForRoom(client, conversationId);
   const pinned = await readPinnedIds(client, conversationId);
   const events = pinned.map(id => room.findEventById(id)).filter(event => event !== undefined);

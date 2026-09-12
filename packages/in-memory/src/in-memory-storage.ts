@@ -57,7 +57,9 @@ export class InMemoryStorage implements MessagingStorage {
   }
 
   async getPendingMessages(): Promise<readonly Message[]> {
-    return [...this.messages.values()].filter(message => message.status === "queued" || message.status === "failed");
+    return [...this.messages.values()].filter(
+      message => message.status === "queued" || message.status === "failed"
+    );
   }
 
   async saveConversation(conversation: Conversation): Promise<void> {

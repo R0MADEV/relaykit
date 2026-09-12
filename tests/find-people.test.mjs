@@ -18,7 +18,10 @@ test("somebody can be found by the name they go by, not only by their identifier
 
   const found = await client.users.search("ana");
 
-  assert.deepEqual(found.map(user => user.id), ["@ana:localhost"]);
+  assert.deepEqual(
+    found.map(user => user.id),
+    ["@ana:localhost"]
+  );
   assert.equal(found[0].displayName, "Ana Ruiz");
   await client.stop();
 });

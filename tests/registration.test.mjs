@@ -42,6 +42,9 @@ test("a homeserver that asks for more than a password says so", async () => {
 
   await assert.rejects(
     client.register(credentials),
-    error => error.code === "REGISTRATION_UNSUPPORTED" && /recaptcha/.test(error.message) && /terms/.test(error.message)
+    error =>
+      error.code === "REGISTRATION_UNSUPPORTED" &&
+      /recaptcha/.test(error.message) &&
+      /terms/.test(error.message)
   );
 });

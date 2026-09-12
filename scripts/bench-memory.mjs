@@ -24,7 +24,10 @@ async function main() {
 
   const ids = [];
   for (let index = 0; index < conversations; index += 1) {
-    const conversation = await adapter.createConversation({ participantIds: ["bob"], title: `Sala ${index}` });
+    const conversation = await adapter.createConversation({
+      participantIds: ["bob"],
+      title: `Sala ${index}`
+    });
     ids.push(conversation.id);
     for (let message = 0; message < messagesEach; message += 1) {
       adapter.receiveMessage(conversation.id, "bob", `mensaje ${message} de la sala ${index}`);
@@ -35,7 +38,9 @@ async function main() {
   }
 
   const beforeUsing = heldMegabytes();
-  console.log(`after filling ${conversations} conversations of ${messagesEach} messages   ${String(beforeUsing).padStart(5)} MB`);
+  console.log(
+    `after filling ${conversations} conversations of ${messagesEach} messages   ${String(beforeUsing).padStart(5)} MB`
+  );
 
   // A day of use: every conversation opened, every face painted.
   for (const id of ids) await client.messages.list(id);
@@ -51,7 +56,9 @@ async function main() {
   console.log(`after stopping                                  ${String(heldMegabytes()).padStart(5)} MB`);
 }
 
-main().then(() => process.exit(0)).catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });

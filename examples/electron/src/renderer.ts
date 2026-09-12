@@ -53,7 +53,7 @@ async function run(): Promise<void> {
 
   // The key that encrypts the local store comes from the operating system keychain, never from the token.
   const storageSecret = await window.relaykit.getStorageSecret();
-  detail.storageSecretIsStable = storageSecret === await window.relaykit.getStorageSecret();
+  detail.storageSecretIsStable = storageSecret === (await window.relaykit.getStorageSecret());
 
   // Anything left by a previous run must still be readable, which proves the keychain secret is stable.
   const previous = new IndexedDbStorage("relaykit-app-@alice:localhost", { encryptionSecret: storageSecret });
@@ -76,7 +76,10 @@ async function run(): Promise<void> {
   step("client.start");
   await client.start();
   step("client.conversations.create");
-  const conversation = await client.conversations.create({ participantIds: [bobUserId], title: "RelayKit Electron" });
+  const conversation = await client.conversations.create({
+    participantIds: [bobUserId],
+    title: "RelayKit Electron"
+  });
   const body = `electron-${Date.now()}`;
   step("client.messages.send");
   await client.messages.send(conversation.id, body);
@@ -105,7 +108,8 @@ async function run(): Promise<void> {
   });
   step("restored.media.download");
   const downloaded = await restored.media.download(sent.attachment!);
-  detail.attachmentRoundTrip = downloaded.length === data.length && downloaded.every((byte, index) => byte === data[index]);
+  detail.attachmentRoundTrip =
+    downloaded.length === data.length && downloaded.every((byte, index) => byte === data[index]);
 
   // What sending costs against the real IndexedDB of a browser, which is the number that matters. The tests
   // measure against a JavaScript stand-in, and that one is far slower than the real thing.
@@ -130,8 +134,10 @@ async function run(): Promise<void> {
   const after = await previous.getMessages(conversation.id);
   detail.messagesBeforeRekey = before.length;
   detail.messagesAfterRekey = after.length;
-  detail.rekeyKeptEverything = before.length > 0 && before.length === after.length
-    && before.every((message, index) => message.body === after[index]?.body);
+  detail.rekeyKeptEverything =
+    before.length > 0 &&
+    before.length === after.length &&
+    before.every((message, index) => message.body === after[index]?.body);
   await previous.rekey(storageSecret);
 
   const databases = await relaykitDatabases();
@@ -142,15 +148,20 @@ async function run(): Promise<void> {
   await restored.stop();
 
   const persistedOnLoginFlow = (detail.databasesAfterLoginFlow as string[]).length > 0;
-  const ok = detail.rekeyKeptEverything === true
-    && detail.storageSecretIsStable === true
-    && detail.attachmentRoundTrip === true
-    && detail.storedBodiesAreEncrypted === true
-    && (detail.restoredMessages as number) > 0
-    && persistedOnLoginFlow;
-  report(ok, ok
-    ? "encrypted chat, attachments and encrypted IndexedDB storage work in a Chromium renderer"
-    : "the SDK ran but did not behave as expected", detail);
+  const ok =
+    detail.rekeyKeptEverything === true &&
+    detail.storageSecretIsStable === true &&
+    detail.attachmentRoundTrip === true &&
+    detail.storedBodiesAreEncrypted === true &&
+    (detail.restoredMessages as number) > 0 &&
+    persistedOnLoginFlow;
+  report(
+    ok,
+    ok
+      ? "encrypted chat, attachments and encrypted IndexedDB storage work in a Chromium renderer"
+      : "the SDK ran but did not behave as expected",
+    detail
+  );
 }
 
 run().catch(error => report(false, error instanceof Error ? error.message : String(error)));

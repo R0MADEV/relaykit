@@ -27,7 +27,10 @@ test("looking for a conversation works with no homeserver, like looking for a me
   cutTheNetwork(adapter);
 
   const found = await client.conversations.search("soporte");
-  assert.deepEqual(found.map(item => item.title), ["Soporte nivel 2"]);
+  assert.deepEqual(
+    found.map(item => item.title),
+    ["Soporte nivel 2"]
+  );
   await client.stop();
 });
 
@@ -55,7 +58,11 @@ function brokenAdapter() {
 
 test("somebody nobody ever asked about says so instead of making a name up", async () => {
   const { client } = await startClient();
-  const withoutNetwork = new MessagingClient({ adapter: brokenAdapter(), storage: new InMemoryStorage(), session });
+  const withoutNetwork = new MessagingClient({
+    adapter: brokenAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await withoutNetwork.start();
 
   await assert.rejects(withoutNetwork.users.profile("carol"), /not answering/i);

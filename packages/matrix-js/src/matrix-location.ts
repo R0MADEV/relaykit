@@ -72,10 +72,15 @@ export async function updateMatrixLiveLocation(
 export async function stopMatrixLiveLocation(client: MatrixClient, sharingId: string): Promise<void> {
   const { conversationId, sharedBy } = splitSharingId(sharingId);
   const beacon = await findBeacon(client, conversationId, sharedBy);
-  await client.sendStateEvent(conversationId, M_BEACON_INFO.name as never, {
-    ...(beacon?.content ?? {}),
-    live: false
-  } as never, sharedBy);
+  await client.sendStateEvent(
+    conversationId,
+    M_BEACON_INFO.name as never,
+    {
+      ...(beacon?.content ?? {}),
+      live: false
+    } as never,
+    sharedBy
+  );
 }
 
 export async function listMatrixLiveLocations(

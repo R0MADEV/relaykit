@@ -1,6 +1,4 @@
-import { MatrixError, SecretStorage, type AuthDict, type MatrixClient,
-  AuthType
-} from "matrix-js-sdk";
+import { MatrixError, SecretStorage, type AuthDict, type MatrixClient, AuthType } from "matrix-js-sdk";
 import type { CryptoCallbacks } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key.js";
 import { SdkError } from "@relaykit/core";
@@ -64,7 +62,12 @@ export async function getDeviceVerification(
   };
 }
 
-export function setDeviceVerified(client: MatrixClient, userId: string, deviceId: string, verified: boolean): Promise<void> {
+export function setDeviceVerified(
+  client: MatrixClient,
+  userId: string,
+  deviceId: string,
+  verified: boolean
+): Promise<void> {
   return requireCrypto(client).setDeviceVerified(userId, deviceId, verified);
 }
 

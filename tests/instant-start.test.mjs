@@ -8,7 +8,9 @@ const session = { homeserver: "memory://test", userId: "alice", accessToken: "to
 /** An adapter that takes its time to catch up, which is what a real one does over a network. */
 class SlowAdapter extends InMemoryAdapter {
   releaseSync = () => {};
-  syncing = new Promise(resolve => { this.releaseSync = resolve; });
+  syncing = new Promise(resolve => {
+    this.releaseSync = resolve;
+  });
 
   async start(currentSession, handlers) {
     await super.start(currentSession, handlers);
@@ -50,8 +52,14 @@ test("what was there yesterday is shown before the server has answered", async (
   const listed = await client.conversations.list();
   const messages = await client.messages.list(conversation.id);
 
-  assert.deepEqual(listed.map(item => item.id), [conversation.id]);
-  assert.deepEqual(messages.map(item => item.body), ["lo de ayer"]);
+  assert.deepEqual(
+    listed.map(item => item.id),
+    [conversation.id]
+  );
+  assert.deepEqual(
+    messages.map(item => item.body),
+    ["lo de ayer"]
+  );
   adapter.releaseSync();
   await client.stop();
 });
@@ -66,7 +74,11 @@ test("once the server answers, what it says is what is shown", async () => {
 
   const listed = await client.conversations.list();
 
-  assert.deepEqual(listed.map(item => item.id), [], "the server knows of no conversation, and that is the truth");
+  assert.deepEqual(
+    listed.map(item => item.id),
+    [],
+    "the server knows of no conversation, and that is the truth"
+  );
   assert.notEqual(conversation.id, undefined);
   await client.stop();
 });
@@ -162,7 +174,9 @@ test("starting the usual way still waits, so nothing changes for whoever did not
   const client = new MessagingClient({ adapter, storage, session });
   let finished = false;
 
-  const starting = client.start().then(() => { finished = true; });
+  const starting = client.start().then(() => {
+    finished = true;
+  });
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(finished, false, "it should still be waiting for the server");
 

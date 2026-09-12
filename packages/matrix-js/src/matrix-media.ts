@@ -1,14 +1,16 @@
-import {
-  ClientPrefix,
-  EventType,
-  Method,
-  MsgType,
-  type MatrixClient
-} from "matrix-js-sdk";
+import { ClientPrefix, EventType, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
-import type { ConversationId, FileInput, LinkPreview, MediaRef, Message, ThumbnailInput, MediaLimits} from "@relaykit/core";
+import type {
+  ConversationId,
+  FileInput,
+  LinkPreview,
+  MediaRef,
+  Message,
+  ThumbnailInput,
+  MediaLimits
+} from "@relaykit/core";
 import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
 
 /** What `Attachment.source` carries for the Matrix adapter. */
@@ -45,7 +47,7 @@ export class MatrixMedia {
     const going = this.onTheirWay.get(transactionId);
     if (!going) return false;
     this.onTheirWay.delete(transactionId);
-    return (this.client?.cancelUpload(going as Promise<never>)) ?? false;
+    return this.client?.cancelUpload(going as Promise<never>) ?? false;
   }
 
   /** The client that is doing the uploading, remembered when one starts. */
@@ -78,7 +80,8 @@ export async function sendMatrixAttachment(
     type: isEncrypted ? "application/octet-stream" : file.mimeType,
     includeFilename: !isEncrypted,
     name: file.name,
-    progressHandler: progress => onProgress?.(progress.total > 0 ? Math.min(progress.loaded / progress.total, 0.99) : 0)
+    progressHandler: progress =>
+      onProgress?.(progress.total > 0 ? Math.min(progress.loaded / progress.total, 0.99) : 0)
   });
   if (transactionId) onTheirWay?.set(transactionId, going);
   const upload = await going.finally(() => {
@@ -100,13 +103,15 @@ export async function sendMatrixAttachment(
       ...(thumbnail ? thumbnail.info : {})
     },
     // A voice note says so in three places, which is what other clients look at to draw it instead of listing it.
-    ...(file.voice ? {
-      "org.matrix.msc3245.voice": {},
-      "org.matrix.msc1767.audio": {
-        duration: file.voice.durationMs,
-        ...(file.voice.waveform ? { waveform: [...file.voice.waveform] } : {})
-      }
-    } : {}),
+    ...(file.voice
+      ? {
+          "org.matrix.msc3245.voice": {},
+          "org.matrix.msc1767.audio": {
+            duration: file.voice.durationMs,
+            ...(file.voice.waveform ? { waveform: [...file.voice.waveform] } : {})
+          }
+        }
+      : {}),
     ...(encrypted ? { file: { ...encrypted.info, url: upload.content_uri } } : { url: upload.content_uri })
   };
   // The SDK's message content union cannot be built from a conditional spread; the shape follows the spec.
@@ -167,7 +172,10 @@ export async function previewMatrixLink(client: MatrixClient, url: string): Prom
   };
 }
 
-export async function downloadMatrixAttachment(client: MatrixClient, attachment: MediaRef): Promise<Uint8Array> {
+export async function downloadMatrixAttachment(
+  client: MatrixClient,
+  attachment: MediaRef
+): Promise<Uint8Array> {
   const source = parseSource(attachment.source);
   const { data } = await downloadFromMediaServer(client, source.url);
   const bytes = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
@@ -221,7 +229,8 @@ function parseSource(source: string): MatrixAttachmentSource {
   } catch {
     throw new Error("The attachment source is not valid");
   }
-  const isSource = typeof parsed === "object" && parsed !== null && typeof (parsed as { url?: unknown }).url === "string";
+  const isSource =
+    typeof parsed === "object" && parsed !== null && typeof (parsed as { url?: unknown }).url === "string";
   if (!isSource) throw new Error("The attachment source is not valid");
   return parsed as MatrixAttachmentSource;
 }

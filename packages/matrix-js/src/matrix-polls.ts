@@ -1,4 +1,9 @@
-import { M_POLL_END, M_POLL_RESPONSE, M_POLL_START, type MatrixClient, type Room,
+import {
+  M_POLL_END,
+  M_POLL_RESPONSE,
+  M_POLL_START,
+  type MatrixClient,
+  type Room,
   M_POLL_KIND_UNDISCLOSED,
   M_TEXT,
   RelationType
@@ -67,10 +72,14 @@ export async function voteInMatrixPoll(
   pollId: MessageId,
   answerId: string
 ): Promise<void> {
-  const sent = await client.sendEvent(conversationId, M_POLL_RESPONSE.name as never, {
-    "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
-    [M_POLL_RESPONSE.name]: { answers: [answerId] }
-  } as never);
+  const sent = await client.sendEvent(
+    conversationId,
+    M_POLL_RESPONSE.name as never,
+    {
+      "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
+      [M_POLL_RESPONSE.name]: { answers: [answerId] }
+    } as never
+  );
   // As with asking: if voting comes back, the vote counts. Whoever just voted repaints the tally, and seeing
   // it unchanged looks like the vote was lost.
   await waitUntilTheAnswerArrives(client, conversationId, pollId, sent.event_id);
@@ -100,11 +109,15 @@ export async function closeMatrixPoll(
   conversationId: ConversationId,
   pollId: MessageId
 ): Promise<void> {
-  await client.sendEvent(conversationId, M_POLL_END.name as never, {
-    "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
-    [M_POLL_END.name]: {},
-    [M_TEXT.name]: "The poll has been closed"
-  } as never);
+  await client.sendEvent(
+    conversationId,
+    M_POLL_END.name as never,
+    {
+      "m.relates_to": { rel_type: RelationType.Reference, event_id: pollId },
+      [M_POLL_END.name]: {},
+      [M_TEXT.name]: "The poll has been closed"
+    } as never
+  );
   // And the same on closing: if closing comes back, it is closed.
   const room = await waitForRoom(client, conversationId);
   const deadline = Date.now() + 10000;
@@ -127,18 +140,28 @@ export async function listMatrixPolls(
   return Promise.all(polls.map(poll => describe(client, room, poll)));
 }
 
-async function describe(client: MatrixClient, room: Room, poll: {
-  pollId: string;
-  pollEvent: { question: { text: string }; answers: readonly { id: string; text: string }[] };
-  isEnded: boolean;
-  getResponses: () => Promise<{ getRelations: () => readonly { getSender: () => string | undefined; getContent: () => Record<string, unknown> }[] }>;
-}): Promise<Poll> {
+async function describe(
+  client: MatrixClient,
+  room: Room,
+  poll: {
+    pollId: string;
+    pollEvent: { question: { text: string }; answers: readonly { id: string; text: string }[] };
+    isEnded: boolean;
+    getResponses: () => Promise<{
+      getRelations: () => readonly {
+        getSender: () => string | undefined;
+        getContent: () => Record<string, unknown>;
+      }[];
+    }>;
+  }
+): Promise<Poll> {
   const responses = await poll.getResponses();
   // Only the last vote of each person, which is what the protocol says.
   const lastByPerson = new Map<string, string>();
   for (const response of responses.getRelations()) {
     const sender = response.getSender();
-    const chosen = (response.getContent()[M_POLL_RESPONSE.name] as { answers?: string[] } | undefined)?.answers?.[0];
+    const chosen = (response.getContent()[M_POLL_RESPONSE.name] as { answers?: string[] } | undefined)
+      ?.answers?.[0];
     if (sender && chosen) lastByPerson.set(sender, chosen);
   }
   const chosen = [...lastByPerson.values()];

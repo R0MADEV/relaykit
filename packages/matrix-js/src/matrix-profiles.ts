@@ -1,6 +1,4 @@
-import { MatrixError, type MatrixClient,
-  AuthType
-} from "matrix-js-sdk";
+import { MatrixError, type MatrixClient, AuthType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
 import { downloadFromMediaServer } from "./matrix-media.js";
 import type { AvatarImage, Device, SignOutOptions, User, UserId } from "@relaykit/core";
@@ -53,7 +51,11 @@ export async function getMatrixAvatar(
  * The homeserver's user directory. It only knows about people it has seen, which for a private homeserver is
  * everybody on it, and for a federated one is everybody this account has shared a conversation with.
  */
-export async function searchMatrixUsers(client: MatrixClient, query: string, limit: number): Promise<readonly User[]> {
+export async function searchMatrixUsers(
+  client: MatrixClient,
+  query: string,
+  limit: number
+): Promise<readonly User[]> {
   const { results } = await client.searchUserDirectory({ term: query, limit });
   return results.map(result => ({
     id: result.user_id,
@@ -65,7 +67,10 @@ export async function searchMatrixUsers(client: MatrixClient, query: string, lim
 /** Uploads the picture and points the profile at it, which is two steps in Matrix. */
 export async function setMatrixAvatar(client: MatrixClient, image: AvatarImage): Promise<void> {
   const bytes = image.data.buffer.slice(image.data.byteOffset, image.data.byteOffset + image.data.byteLength);
-  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), { type: image.mimeType, includeFilename: false });
+  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), {
+    type: image.mimeType,
+    includeFilename: false
+  });
   await client.setAvatarUrl(upload.content_uri);
 }
 

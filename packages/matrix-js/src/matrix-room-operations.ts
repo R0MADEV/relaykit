@@ -1,10 +1,23 @@
 import {
-  RelationType, ClientEvent, EventStatus, EventType, MatrixEvent, MsgType, type MatrixClient, type Room,
+  RelationType,
+  ClientEvent,
+  EventStatus,
+  EventType,
+  MatrixEvent,
+  MsgType,
+  type MatrixClient,
+  type Room,
   ContentHelpers,
   LocationAssetType
 } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
-import type { Conversation, ConversationId, CreateConversationInput, Message, MessagePage, SendContent,
+import type {
+  Conversation,
+  ConversationId,
+  CreateConversationInput,
+  Message,
+  MessagePage,
+  SendContent,
   MessageKind
 } from "@relaykit/core";
 import { mapConversation, mapMessage, mapMessages } from "./matrix-mapper.js";
@@ -24,7 +37,10 @@ export function listMatrixConversations(client: MatrixClient): readonly Conversa
   return conversations;
 }
 
-export function createConversation(client: MatrixClient, input: CreateConversationInput): Promise<Conversation> {
+export function createConversation(
+  client: MatrixClient,
+  input: CreateConversationInput
+): Promise<Conversation> {
   return createMatrixConversation(client, input);
 }
 
@@ -51,7 +67,11 @@ export async function loadMoreMessages(
  * Resolves the room, waiting for sync to deliver it if needed. A client that started from its local cache
  * does not know a room created moments ago on another device.
  */
-export function waitForRoom(client: MatrixClient, conversationId: ConversationId, timeoutMs = 10000): Promise<Room> {
+export function waitForRoom(
+  client: MatrixClient,
+  conversationId: ConversationId,
+  timeoutMs = 10000
+): Promise<Room> {
   const known = client.getRoom(conversationId);
   if (known) return Promise.resolve(known);
   return new Promise((resolve, reject) => {
@@ -88,7 +108,11 @@ function isEncryptionNotHereYet(error: unknown): boolean {
   return reason.includes("unconfigured room");
 }
 
-async function waitUntilEncryptionIsKnown(client: MatrixClient, roomId: string, timeoutMs = 10000): Promise<void> {
+async function waitUntilEncryptionIsKnown(
+  client: MatrixClient,
+  roomId: string,
+  timeoutMs = 10000
+): Promise<void> {
   const crypto = client.getCrypto();
   if (!crypto) return;
   const deadline = Date.now() + timeoutMs;
@@ -109,11 +133,16 @@ async function sendOnce(
   // The `sendEvent` overload ties the content to the event type, and here the type is decided at runtime.
   // The shape follows the spec: a sticker carries body, info and url, like an image attachment.
   const sendAsItsOwnType = () => {
-    const sendTyped = client.sendEvent.bind(client) as
-      (roomId: string, type: string, body: unknown, txnId?: string) => Promise<{ event_id: string }>;
+    const sendTyped = client.sendEvent.bind(client) as (
+      roomId: string,
+      type: string,
+      body: unknown,
+      txnId?: string
+    ) => Promise<{ event_id: string }>;
     return sendTyped(conversationId, eventType as string, content, transactionId);
   };
-  const send = () => (eventType ? sendAsItsOwnType() : client.sendMessage(conversationId, content, transactionId));
+  const send = () =>
+    eventType ? sendAsItsOwnType() : client.sendMessage(conversationId, content, transactionId);
   try {
     return await send();
   } catch (error) {
@@ -148,23 +177,27 @@ export function sendMessage(
   // with less than it should is a place some clients cannot draw. It says the kind and the body itself.
   const said = location
     ? ContentHelpers.makeLocationContent(
-      body,
-      `geo:${location.latitude},${location.longitude}`,
-      Date.now(),
-      location.description,
-      LocationAssetType.Self
-    )
+        body,
+        `geo:${location.latitude},${location.longitude}`,
+        Date.now(),
+        location.description,
+        LocationAssetType.Self
+      )
     : {
-      msgtype: messageTypes[kind ?? "action"] && kind ? messageTypes[kind] : MsgType.Text,
-      body
-    };
+        msgtype: messageTypes[kind ?? "action"] && kind ? messageTypes[kind] : MsgType.Text,
+        body
+      };
   const content = {
     ...said,
     ...(formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {}),
-    ...(mentions ? { "m.mentions": {
-      ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),
-      ...(mentions.everyone ? { room: true } : {})
-    } } : {}),
+    ...(mentions
+      ? {
+          "m.mentions": {
+            ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),
+            ...(mentions.everyone ? { room: true } : {})
+          }
+        }
+      : {}),
     ...(relationFor(options.replyToId, options.threadId) ?? {})
   } as RoomMessageEventContent;
   return sendWithTransaction(client, conversationId, content, options.transactionId);
@@ -242,14 +275,16 @@ async function mapSentEvent(
   if (event?.isEncrypted()) await client.decryptEventIfNeeded(event);
   const fromTimeline = event ? mapMessage(event) : undefined;
   if (fromTimeline) return fromTimeline;
-  const local = mapMessage(new MatrixEvent({
-    type: EventType.RoomMessage,
-    event_id: eventId,
-    sender: client.getSafeUserId(),
-    room_id: conversationId,
-    origin_server_ts: Date.now(),
-    content
-  }));
+  const local = mapMessage(
+    new MatrixEvent({
+      type: EventType.RoomMessage,
+      event_id: eventId,
+      sender: client.getSafeUserId(),
+      room_id: conversationId,
+      origin_server_ts: Date.now(),
+      content
+    })
+  );
   if (!local) throw new Error("Matrix did not return the sent message");
   return local;
 }

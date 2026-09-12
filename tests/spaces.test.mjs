@@ -19,8 +19,14 @@ test("conversations can be grouped into a space", async () => {
 
   await client.spaces.add(space.id, conversation.id);
 
-  assert.deepEqual((await client.spaces.list()).map(item => item.title), ["Irontec"]);
-  assert.deepEqual((await client.spaces.conversations(space.id)).map(item => item.id), [conversation.id]);
+  assert.deepEqual(
+    (await client.spaces.list()).map(item => item.title),
+    ["Irontec"]
+  );
+  assert.deepEqual(
+    (await client.spaces.conversations(space.id)).map(item => item.id),
+    [conversation.id]
+  );
   await client.stop();
 });
 
@@ -43,7 +49,10 @@ test("a space is not listed as an ordinary conversation", async () => {
 
   const conversations = await client.conversations.list();
 
-  assert.deepEqual(conversations.map(item => item.id), [conversation.id]);
+  assert.deepEqual(
+    conversations.map(item => item.id),
+    [conversation.id]
+  );
   await client.stop();
 });
 

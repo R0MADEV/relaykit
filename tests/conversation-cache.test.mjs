@@ -17,7 +17,7 @@ class FailingAdapter extends InMemoryAdapter {
 async function startClient(cache) {
   const adapter = new FailingAdapter();
   const storage = new InMemoryStorage();
-  const client = new MessagingClient({ adapter, storage, session, ...cache && { cache } });
+  const client = new MessagingClient({ adapter, storage, session, ...(cache && { cache }) });
   await client.start();
   return { adapter, client, storage };
 }

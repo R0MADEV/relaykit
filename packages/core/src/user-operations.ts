@@ -1,7 +1,14 @@
 import { SdkError } from "./errors.js";
 import type { MessagingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
-import type { AvatarImage, AvatarOptions, ConversationId, SearchUsersOptions, User, UserId } from "./models.js";
+import type {
+  AvatarImage,
+  AvatarOptions,
+  ConversationId,
+  SearchUsersOptions,
+  User,
+  UserId
+} from "./models.js";
 
 export interface UserOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -20,7 +27,10 @@ const peoplePerSearch = 20;
 
 export class UserOperations {
   private readonly profiles = new Map<string, { readonly user: User; readonly askedAt: number }>();
-  private readonly avatars = new Map<string, { readonly image: AvatarImage | undefined; readonly askedAt: number }>();
+  private readonly avatars = new Map<
+    string,
+    { readonly image: AvatarImage | undefined; readonly askedAt: number }
+  >();
   private heldBytes = 0;
 
   constructor(private readonly context: UserOperationsContext) {}
@@ -43,7 +53,7 @@ export class UserOperations {
       if (user.displayName) await this.context.storage?.saveProfiles([user]);
       return user;
     } catch (error) {
-      const kept = (await this.context.storage?.getProfiles() ?? []).find(profile => profile.id === wanted);
+      const kept = ((await this.context.storage?.getProfiles()) ?? []).find(profile => profile.id === wanted);
       if (!kept) throw error;
       return kept;
     }
@@ -181,7 +191,11 @@ export class UserOperations {
  * One shape for everything held about a person, so what forgets it matches what kept it. The separator is a
  * character that cannot appear in a Matrix identifier, which leaves the three parts readable apart.
  */
-function heldKey(userId: UserId, conversationId: ConversationId | undefined, size: number | undefined): string {
+function heldKey(
+  userId: UserId,
+  conversationId: ConversationId | undefined,
+  size: number | undefined
+): string {
   return `${conversationId ?? ""}|${userId}|${size ?? ""}`;
 }
 

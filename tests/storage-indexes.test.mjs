@@ -89,7 +89,10 @@ test("a store made before there were indexes gets them when it is opened again",
   const storage = new IndexedDbStorage(name);
   await storage.saveMessages([message("a1", "one"), message("b1", "two")]);
 
-  assert.deepEqual((await storage.getMessages("one")).map(item => item.id), ["a1"]);
+  assert.deepEqual(
+    (await storage.getMessages("one")).map(item => item.id),
+    ["a1"]
+  );
 });
 
 test("messages written before the indexes existed are still found afterwards", async () => {
@@ -104,5 +107,8 @@ test("messages written before the indexes existed are still found afterwards", a
 
   const storage = new IndexedDbStorage(name);
 
-  assert.deepEqual((await storage.getMessages("one")).map(item => item.id), ["old-1"]);
+  assert.deepEqual(
+    (await storage.getMessages("one")).map(item => item.id),
+    ["old-1"]
+  );
 });

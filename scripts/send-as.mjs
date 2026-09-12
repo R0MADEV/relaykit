@@ -13,7 +13,12 @@ if (!username || !conversationId || !body) {
 
 const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
 try {
-  await client.login({ homeserver, username, password: `${username}-password`, deviceName: "RelayKit sender" });
+  await client.login({
+    homeserver,
+    username,
+    password: `${username}-password`,
+    deviceName: "RelayKit sender"
+  });
   await client.start();
   await client.conversations.join(conversationId).catch(() => undefined);
   await client.messages.send(conversationId, body);

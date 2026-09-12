@@ -30,7 +30,13 @@ export class InMemoryFeatures {
 
   async addReaction(messageId: string, key: string): Promise<Reaction> {
     const senderId = this.requireUserId();
-    const reaction: Reaction = { id: `memory-reaction-${this.nextReactionId++}`, messageId, senderId, key, createdAt: Date.now() };
+    const reaction: Reaction = {
+      id: `memory-reaction-${this.nextReactionId++}`,
+      messageId,
+      senderId,
+      key,
+      createdAt: Date.now()
+    };
     this.reactions.push(reaction);
     this.getHandlers().onReactionAdded?.(reaction);
     return reaction;
@@ -44,11 +50,20 @@ export class InMemoryFeatures {
   }
 
   async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification> {
-    return { userId, deviceId, verified: false, signedByOwner: false, crossSigningVerified: false, locallyVerified: false };
+    return {
+      userId,
+      deviceId,
+      verified: false,
+      signedByOwner: false,
+      crossSigningVerified: false,
+      locallyVerified: false
+    };
   }
 
   async setDeviceVerified(): Promise<void> {}
-  async getCryptoStatus(): Promise<CryptoStatus> { return { crossSigningReady: false, secretStorageReady: false }; }
+  async getCryptoStatus(): Promise<CryptoStatus> {
+    return { crossSigningReady: false, secretStorageReady: false };
+  }
   async getKeyBackupStatus(): Promise<KeyBackupStatus> {
     return { activeVersion: this.recoveryKey ? "memory-backup-1" : null };
   }
@@ -73,6 +88,11 @@ export class InMemoryFeatures {
   }
 
   async markMessageRead(conversationId: ConversationId, messageId: MessageId): Promise<void> {
-    this.getHandlers().onReceiptReceived?.({ conversationId, messageId, userId: this.requireUserId(), readAt: Date.now() });
+    this.getHandlers().onReceiptReceived?.({
+      conversationId,
+      messageId,
+      userId: this.requireUserId(),
+      readAt: Date.now()
+    });
   }
 }

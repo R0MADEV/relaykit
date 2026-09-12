@@ -69,9 +69,7 @@ export class MessageOperations {
       emitUpdated: context.emitMessageUpdated,
       emitError: context.emitError
     };
-    const outboxContext = context.storage
-      ? { ...baseContext, storage: context.storage }
-      : baseContext;
+    const outboxContext = context.storage ? { ...baseContext, storage: context.storage } : baseContext;
     this.outbox = new OutboxOperations(outboxContext, this.receivedMessageIds);
   }
 
@@ -204,11 +202,19 @@ export class MessageOperations {
     return storage ? storage.getMessages(conversationId) : adapter.listMessages(conversationId);
   }
 
-  sendMessage(conversationId: ConversationId, body: string, options: SendMessageOptions = {}): Promise<Message> {
+  sendMessage(
+    conversationId: ConversationId,
+    body: string,
+    options: SendMessageOptions = {}
+  ): Promise<Message> {
     return this.outbox.send(conversationId, body, options);
   }
 
-  async sendFile(conversationId: ConversationId, file: FileInput, options: SendFileOptions = {}): Promise<Message> {
+  async sendFile(
+    conversationId: ConversationId,
+    file: FileInput,
+    options: SendFileOptions = {}
+  ): Promise<Message> {
     await this.refuseWhatIsTooBig(file);
     return this.outbox.sendFile(conversationId, file, options);
   }
@@ -256,14 +262,18 @@ export class MessageOperations {
     const { attachment } = original;
     if (attachment) {
       const data = await this.context.adapter.downloadAttachment(attachment);
-      return this.outbox.sendFile(toConversationId, {
-        name: attachment.name,
-        mimeType: attachment.mimeType,
-        data: new Uint8Array(data),
-        ...(attachment.width !== undefined ? { width: attachment.width } : {}),
-        ...(attachment.height !== undefined ? { height: attachment.height } : {}),
-        ...(attachment.voice ? { voice: attachment.voice } : {})
-      }, {});
+      return this.outbox.sendFile(
+        toConversationId,
+        {
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          data: new Uint8Array(data),
+          ...(attachment.width !== undefined ? { width: attachment.width } : {}),
+          ...(attachment.height !== undefined ? { height: attachment.height } : {}),
+          ...(attachment.voice ? { voice: attachment.voice } : {})
+        },
+        {}
+      );
     }
     if (original.location) {
       return this.outbox.sendLocation(toConversationId, original.location);
@@ -360,7 +370,11 @@ export class MessageOperations {
    * Applications call this every time a conversation is opened. Saying again that the same message was read
    * tells nobody anything, so it does not go out: it would be a request per open on a busy screen.
    */
-  async markRead(conversationId: ConversationId, messageId: MessageId, options: MarkReadOptions = {}): Promise<void> {
+  async markRead(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    options: MarkReadOptions = {}
+  ): Promise<void> {
     this.context.assertStarted();
     // A thread is read on its own: saying so does not say the conversation was read, so none of what is
     // remembered about the conversation applies, and neither does the mark somebody left on it.
@@ -398,7 +412,8 @@ export class MessageOperations {
   }
 
   receiveMessage(message: Message): void {
-    const isOwnEcho = message.transactionId !== undefined && this.receivedMessageIds.has(message.transactionId);
+    const isOwnEcho =
+      message.transactionId !== undefined && this.receivedMessageIds.has(message.transactionId);
     if (isOwnEcho || this.receivedMessageIds.has(message.id)) return;
     this.receivedMessageIds.add(message.id);
     void this.persistAndEmit(message, this.context.emitMessageReceived);

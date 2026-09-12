@@ -17,7 +17,11 @@ const pegatina = {
  * receives it has to be able to tell it apart to draw it that way. In Matrix it is its own event, `m.sticker`.
  */
 async function startClient() {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "pegatinas" });
   return { client, conversation };
@@ -51,8 +55,7 @@ test("a sticker with no image is not a sticker", async () => {
     client.messages.sendSticker(conversation.id, { ...pegatina, data: new Uint8Array() }),
     { code: "INVALID_INPUT" }
   );
-  await assert.rejects(
-    client.messages.sendSticker(conversation.id, { ...pegatina, mimeType: "  " }),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.messages.sendSticker(conversation.id, { ...pegatina, mimeType: "  " }), {
+    code: "INVALID_INPUT"
+  });
 });

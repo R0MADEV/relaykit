@@ -21,7 +21,9 @@ function clientThatUploadsSlowly(stopped) {
     uploadContent: () => {
       // Never finishes on its own, and fails when it is stopped, which is what the real one does.
       let giveUp;
-      const promise = new Promise((_, no) => { giveUp = no; });
+      const promise = new Promise((_, no) => {
+        giveUp = no;
+      });
       promise.catch(() => undefined);
       uploads.set(promise, giveUp);
       return promise;
@@ -42,7 +44,14 @@ test("a file on its way up can be stopped, and the SDK is what stops it", async 
   const media = new MatrixMedia();
   media.remember(client);
   // Started and deliberately not waited for: the point is to stop it while it is going.
-  const going = media.send(client, "!room:localhost", { name: "enorme.bin", mimeType: "application/octet-stream", data: new Uint8Array(10) }, "txn-1", undefined)
+  const going = media
+    .send(
+      client,
+      "!room:localhost",
+      { name: "enorme.bin", mimeType: "application/octet-stream", data: new Uint8Array(10) },
+      "txn-1",
+      undefined
+    )
     .catch(() => undefined);
   await new Promise(resolve => setTimeout(resolve, 20));
 

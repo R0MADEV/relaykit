@@ -20,7 +20,13 @@ async function startClient() {
   let now = 0;
   const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session, now: () => now });
   await client.start();
-  return { adapter, client, at: value => { now = value; } };
+  return {
+    adapter,
+    client,
+    at: value => {
+      now = value;
+    }
+  };
 }
 
 test("painting the same picture twenty times downloads it once", async () => {

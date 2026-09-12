@@ -59,14 +59,22 @@ test("messages are listed by conversation and by pending status", async () => {
   const { storage } = createStorage();
   await storage.saveMessage(message());
   await storage.saveMessage(message({ id: "message-2", body: "otra", status: "failed" }));
-  await storage.saveMessage(message({ id: "message-3", conversationId: "conversation-2", body: "another room" }));
+  await storage.saveMessage(
+    message({ id: "message-3", conversationId: "conversation-2", body: "another room" })
+  );
 
   const inConversation = await storage.getMessages("conversation-1");
   const pending = await storage.getPendingMessages();
 
   assert.deepEqual(inConversation.map(item => item.id).sort(), ["message-1", "message-2"]);
-  assert.deepEqual(pending.map(item => item.body), ["otra"]);
-  assert.deepEqual((await storage.getMessages("conversation-2")).map(item => item.body), ["another room"]);
+  assert.deepEqual(
+    pending.map(item => item.body),
+    ["otra"]
+  );
+  assert.deepEqual(
+    (await storage.getMessages("conversation-2")).map(item => item.body),
+    ["another room"]
+  );
 });
 
 test("a conversation keeps its last message readable", async () => {
@@ -107,15 +115,31 @@ test("outbox attachments survive the round trip and are encrypted at rest", asyn
 
 test("getReadyOutbox only returns operations whose next attempt is due", async () => {
   const { storage } = createStorage();
-  const base = { transactionId: "txn", conversationId: "conversation-1", body: "body", status: "pending", attempts: 0, createdAt: 1 };
+  const base = {
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "body",
+    status: "pending",
+    attempts: 0,
+    createdAt: 1
+  };
   await storage.saveOutboxOperation({ ...base, id: "due", nextAttemptAt: 100 });
   await storage.saveOutboxOperation({ ...base, id: "later", nextAttemptAt: 5000 });
   await storage.saveOutboxOperation({ ...base, id: "exhausted", nextAttemptAt: Number.POSITIVE_INFINITY });
 
-  assert.deepEqual((await storage.getReadyOutbox(1000)).map(item => item.id), ["due"]);
-  assert.deepEqual((await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER)).map(item => item.id).sort(), ["due", "later"]);
+  assert.deepEqual(
+    (await storage.getReadyOutbox(1000)).map(item => item.id),
+    ["due"]
+  );
+  assert.deepEqual((await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER)).map(item => item.id).sort(), [
+    "due",
+    "later"
+  ]);
   await storage.deleteOutboxOperation("due");
-  assert.deepEqual((await storage.getReadyOutbox(1000)).map(item => item.id), []);
+  assert.deepEqual(
+    (await storage.getReadyOutbox(1000)).map(item => item.id),
+    []
+  );
 });
 
 test("an unfinished message is kept encrypted at rest and read back", async () => {
@@ -143,8 +167,14 @@ test("changing the secret keeps everything that was already there", async () => 
   await storage.saveMessage(message());
   await storage.saveDraft("conversation-1", "a medias");
   await storage.saveOutboxOperation({
-    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "en cola",
-    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1,
+    id: "local-1",
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "en cola",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1,
     attachment: { name: "f.bin", mimeType: "application/octet-stream", data: new Uint8Array([1, 2, 3]) }
   });
 
@@ -176,7 +206,10 @@ test("a record nobody can read any more is dropped instead of stopping the chang
   await storage.rekey("another-device-secret");
 
   const readable = await storage.getMessages("conversation-1");
-  assert.deepEqual(readable.map(item => item.id), ["message-1"]);
+  assert.deepEqual(
+    readable.map(item => item.id),
+    ["message-1"]
+  );
 });
 
 test("clear empties conversations, messages and outbox", async () => {
@@ -184,8 +217,14 @@ test("clear empties conversations, messages and outbox", async () => {
   await storage.saveConversation({ id: "conversation-1", participantIds: ["bob"] });
   await storage.saveMessage(message());
   await storage.saveOutboxOperation({
-    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "body",
-    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1
+    id: "local-1",
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "body",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1
   });
 
   await storage.saveDraft("conversation-1", "a medias");
@@ -203,8 +242,14 @@ test("without an encryption secret the content is stored as given", async () => 
   const data = new Uint8Array([7, 8, 9]);
   await storage.saveMessage(message());
   await storage.saveOutboxOperation({
-    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "notes.txt",
-    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1,
+    id: "local-1",
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "notes.txt",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1,
     attachment: { name: "notes.txt", mimeType: "text/plain", data }
   });
 
@@ -246,7 +291,10 @@ test("the client works against IndexedDB and recovers a queued send after a rest
   const messages = await second.messages.list(conversation.id);
 
   assert.deepEqual(messages.map(item => item.body).sort(), ["pendiente", "primero"]);
-  assert.equal(messages.every(item => item.status === "sent"), true);
+  assert.equal(
+    messages.every(item => item.status === "sent"),
+    true
+  );
   assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
 
   await second.logout();
@@ -261,8 +309,14 @@ test("records that cannot be decrypted are skipped instead of breaking every rea
   await original.saveMessage(message());
   await original.saveConversation({ id: "conversation-1", participantIds: ["bob"], lastMessage: message() });
   await original.saveOutboxOperation({
-    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "notes.txt",
-    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1,
+    id: "local-1",
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "notes.txt",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1,
     attachment: { name: "notes.txt", mimeType: "text/plain", data }
   });
 
@@ -288,7 +342,10 @@ test("readable records survive alongside records written with another secret", a
 
   const messages = await storage.getMessages("conversation-1");
 
-  assert.deepEqual(messages.map(item => item.body), ["legible"]);
+  assert.deepEqual(
+    messages.map(item => item.body),
+    ["legible"]
+  );
 });
 
 test("the web client persists locally when the session comes from login, not only from the constructor", async () => {
@@ -301,8 +358,14 @@ test("the web client persists locally when the session comes from login, not onl
   await client.messages.send(conversation.id, "persistido");
 
   const databases = (await indexedDB.databases()).map(database => database.name);
-  assert.ok(databases.includes("relaykit-app-alice"), `expected the store to exist, found ${databases.join(", ")}`);
-  assert.deepEqual((await client.messages.list(conversation.id)).map(message => message.body), ["persistido"]);
+  assert.ok(
+    databases.includes("relaykit-app-alice"),
+    `expected the store to exist, found ${databases.join(", ")}`
+  );
+  assert.deepEqual(
+    (await client.messages.list(conversation.id)).map(message => message.body),
+    ["persistido"]
+  );
   await client.stop();
 });
 
@@ -312,9 +375,20 @@ test("a queued thumbnail is encrypted at rest and restored with the file", async
   const thumbnail = new Uint8Array([9, 9]);
 
   await storage.saveOutboxOperation({
-    id: "local-1", transactionId: "txn", conversationId: "conversation-1", body: "foto.jpg",
-    status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: 1,
-    attachment: { name: "foto.jpg", mimeType: "image/jpeg", data, thumbnail: { mimeType: "image/jpeg", data: thumbnail } }
+    id: "local-1",
+    transactionId: "txn",
+    conversationId: "conversation-1",
+    body: "foto.jpg",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1,
+    attachment: {
+      name: "foto.jpg",
+      mimeType: "image/jpeg",
+      data,
+      thumbnail: { mimeType: "image/jpeg", data: thumbnail }
+    }
   });
 
   const restored = await storage.getOutboxOperation("local-1");

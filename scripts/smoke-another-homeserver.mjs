@@ -11,8 +11,16 @@ import { spawn } from "node:child_process";
 const homeserver = process.env.MATRIX_HOMESERVER_OTHER ?? "http://localhost:8108";
 
 const hasToWork = [
-  "registration", "participants", "live", "matrix", "devices",
-  "verification", "user-verification", "qr", "recovery", "revocation"
+  "registration",
+  "participants",
+  "live",
+  "matrix",
+  "devices",
+  "verification",
+  "user-verification",
+  "qr",
+  "recovery",
+  "revocation"
 ];
 
 /**
@@ -33,8 +41,12 @@ function run(name) {
       stdio: ["ignore", "pipe", "pipe"]
     });
     let said = "";
-    child.stdout.on("data", chunk => { said += chunk; });
-    child.stderr.on("data", chunk => { said += chunk; });
+    child.stdout.on("data", chunk => {
+      said += chunk;
+    });
+    child.stderr.on("data", chunk => {
+      said += chunk;
+    });
     child.on("close", code => resolve({ name, ok: code === 0, said }));
   });
 }
@@ -44,13 +56,21 @@ for (const name of hasToWork) results.push(await run(name));
 
 const broken = results.filter(result => !result.ok);
 for (const result of broken) {
-  const why = result.said.split("\n").filter(line => line.includes("failed")).pop() ?? "no reason given";
+  const why =
+    result.said
+      .split("\n")
+      .filter(line => line.includes("failed"))
+      .pop() ?? "no reason given";
   console.error(`  ${result.name}: ${why.trim()}`);
 }
 
-const differences = Object.entries(knownDifferences).map(([name, why]) => `${name} (${why})`).join("; ");
+const differences = Object.entries(knownDifferences)
+  .map(([name, why]) => `${name} (${why})`)
+  .join("; ");
 if (broken.length > 0) {
-  console.error(`RelayKit another-homeserver smoke check failed: ${broken.length} of ${hasToWork.length} broke`);
+  console.error(
+    `RelayKit another-homeserver smoke check failed: ${broken.length} of ${hasToWork.length} broke`
+  );
   process.exit(1);
 }
 console.log(`RelayKit another-homeserver smoke check passed (${hasToWork.length} against ${homeserver})`);

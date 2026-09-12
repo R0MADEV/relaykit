@@ -6,7 +6,11 @@ import { MessagingClient } from "@relaykit/core";
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
 async function startClient() {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
   return client;
 }

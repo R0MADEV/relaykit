@@ -12,10 +12,7 @@ import {
   type Session,
   type User
 } from "@relaykit/core";
-import {
-  MatrixJsAdapter,
-  type MatrixJsAdapterOptions
-} from "@relaykit/matrix-js";
+import { MatrixJsAdapter, type MatrixJsAdapterOptions } from "@relaykit/matrix-js";
 import { IndexedDbStorage } from "@relaykit/browser-storage";
 
 export interface WebMessagingClientConfig extends Omit<MessagingClientConfig, "adapter"> {
@@ -37,16 +34,20 @@ export class MessagingClient extends CoreMessagingClient {
     // The store is named after the user, so it can only be opened once there is a session. Waiting for one
     // keeps local persistence working when the application logs in instead of restoring a stored session.
     const holder: { session?: Session } = config.session ? { session: config.session } : {};
-    const storage = config.storage ?? (typeof indexedDB === "undefined"
-      ? undefined
-      : new DeferredBrowserStorage(() => createBrowserStorage(
-          matrix,
-          holder.session?.userId,
-          // The device secret first, so signing in again does not leave yesterday's copy unreadable. Where
-          // there is nowhere to keep one, the access token still serves: a local copy that is lost on the next
-          // sign in beats no local copy at all.
-          storageSecret ?? rememberedDeviceSecret() ?? holder.session?.accessToken
-        )));
+    const storage =
+      config.storage ??
+      (typeof indexedDB === "undefined"
+        ? undefined
+        : new DeferredBrowserStorage(() =>
+            createBrowserStorage(
+              matrix,
+              holder.session?.userId,
+              // The device secret first, so signing in again does not leave yesterday's copy unreadable. Where
+              // there is nowhere to keep one, the access token still serves: a local copy that is lost on the next
+              // sign in beats no local copy at all.
+              storageSecret ?? rememberedDeviceSecret() ?? holder.session?.accessToken
+            )
+          ));
     super({
       ...clientConfig,
       adapter: adapter ?? new MatrixJsAdapter(matrix),
@@ -74,7 +75,7 @@ class DeferredBrowserStorage implements MessagingStorage {
   }
 
   async getConversations(): Promise<readonly Conversation[]> {
-    return await this.target?.getConversations() ?? [];
+    return (await this.target?.getConversations()) ?? [];
   }
 
   async getMessage(messageId: MessageId): Promise<Message | undefined> {
@@ -82,15 +83,15 @@ class DeferredBrowserStorage implements MessagingStorage {
   }
 
   async getMessages(conversationId: ConversationId): Promise<readonly Message[]> {
-    return await this.target?.getMessages(conversationId) ?? [];
+    return (await this.target?.getMessages(conversationId)) ?? [];
   }
 
   async getPendingMessages(): Promise<readonly Message[]> {
-    return await this.target?.getPendingMessages() ?? [];
+    return (await this.target?.getPendingMessages()) ?? [];
   }
 
   async getReadyOutbox(now: number): Promise<readonly OutboxOperation[]> {
-    return await this.target?.getReadyOutbox(now) ?? [];
+    return (await this.target?.getReadyOutbox(now)) ?? [];
   }
 
   async getOutboxOperation(operationId: string): Promise<OutboxOperation | undefined> {
@@ -163,7 +164,8 @@ const deviceSecretKey = "relaykit-device-secret";
  */
 function rememberedDeviceSecret(): string | undefined {
   try {
-    const canKeepThings = typeof localStorage?.getItem === "function" && typeof localStorage.setItem === "function";
+    const canKeepThings =
+      typeof localStorage?.getItem === "function" && typeof localStorage.setItem === "function";
     return canKeepThings ? secretForThisDevice() : undefined;
   } catch {
     return undefined;
@@ -205,7 +207,4 @@ function createBrowserStorage(
 // Everything from core except MessagingClient, which the local class above replaces.
 export * from "@relaykit/core";
 export { IndexedDbStorage } from "@relaykit/browser-storage";
-export {
-  MatrixJsAdapter,
-  type MatrixJsAdapterOptions
-} from "@relaykit/matrix-js";
+export { MatrixJsAdapter, type MatrixJsAdapterOptions } from "@relaykit/matrix-js";

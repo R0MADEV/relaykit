@@ -15,7 +15,11 @@ const imagen = {
 };
 
 async function startClient() {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "fotos" });
   return { client, conversation };

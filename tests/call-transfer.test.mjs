@@ -56,7 +56,10 @@ test("a transfer that just arrived is passed on", () => {
 });
 
 test("a transfer from a while ago rings nobody", () => {
-  assert.equal(mapTransfer(transferEvent(5 * 60 * 1000), { roomId: "!room:localhost" }, { caughtUp: true }), undefined);
+  assert.equal(
+    mapTransfer(transferEvent(5 * 60 * 1000), { roomId: "!room:localhost" }, { caughtUp: true }),
+    undefined
+  );
 });
 
 test("anything that is not a transfer is left alone", () => {

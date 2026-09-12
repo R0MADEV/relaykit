@@ -40,7 +40,11 @@ test("a client that stopped because it could not catch up says so, not 'start it
 });
 
 test("whoever never started it is still told to start it", async () => {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
 
   const failure = await client.conversations.list().catch(error => error);
 
@@ -50,7 +54,11 @@ test("whoever never started it is still told to start it", async () => {
 
 test("starting again after a failure forgets what went wrong", async () => {
   const client = await startAndLetItFail();
-  const working = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const working = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
 
   await working.start();
   const conversations = await working.conversations.list();

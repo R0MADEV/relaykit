@@ -83,7 +83,7 @@ async function main() {
   };
 
   window.webContents.on("console-message", (...args) => {
-    const message = typeof args[1] === "string" ? args[1] : args[0]?.message ?? "";
+    const message = typeof args[1] === "string" ? args[1] : (args[0]?.message ?? "");
     const result = readResult(message);
     if (result) finish(result);
     else if (process.env.RELAYKIT_TRACE) console.error(`[renderer] ${message}`);

@@ -1,6 +1,4 @@
-import { MatrixError, createClient, type MatrixClient,
-  AuthType
-} from "matrix-js-sdk";
+import { MatrixError, createClient, type MatrixClient, AuthType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
 import type { LoginCredentials, RegisterCredentials, Session } from "@relaykit/core";
 
@@ -36,16 +34,21 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
     const session = await startRegistration(client, credentials);
     // Asked again here: a homeserver that checks the username only once it has what it asked for says it is
     // taken at this point, and until this was here that came back as an unreadable adapter failure.
-    const response = await client.registerRequest({
-      username: credentials.username,
-      password: credentials.password,
-      auth: { type: AuthType.Dummy, session },
-      ...(credentials.deviceName ? { initial_device_display_name: credentials.deviceName } : {})
-    }).catch(error => {
-      throw whatTheHomeserverMeant(error) ?? error;
-    });
+    const response = await client
+      .registerRequest({
+        username: credentials.username,
+        password: credentials.password,
+        auth: { type: AuthType.Dummy, session },
+        ...(credentials.deviceName ? { initial_device_display_name: credentials.deviceName } : {})
+      })
+      .catch(error => {
+        throw whatTheHomeserverMeant(error) ?? error;
+      });
     if (!response.access_token) {
-      throw new SdkError("REGISTRATION_UNSUPPORTED", "The homeserver did not return a session for the new account");
+      throw new SdkError(
+        "REGISTRATION_UNSUPPORTED",
+        "The homeserver did not return a session for the new account"
+      );
     }
     return {
       homeserver: credentials.homeserver,
@@ -82,7 +85,10 @@ async function startRegistration(client: MatrixClient, credentials: RegisterCred
     }
     return session;
   }
-  throw new SdkError("REGISTRATION_UNSUPPORTED", "The homeserver answered the registration in an unexpected way");
+  throw new SdkError(
+    "REGISTRATION_UNSUPPORTED",
+    "The homeserver answered the registration in an unexpected way"
+  );
 }
 
 export async function loginWithPassword(credentials: LoginCredentials): Promise<Session> {

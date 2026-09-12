@@ -25,12 +25,17 @@ test("a conversation list loads, stays current and keeps the same snapshot while
   const conversation = await client.conversations.create({ participantIds: ["bob"] });
   const list = createConversationList(client);
   let notifications = 0;
-  const unsubscribe = list.subscribe(() => { notifications += 1; });
+  const unsubscribe = list.subscribe(() => {
+    notifications += 1;
+  });
 
   assert.deepEqual(list.get(), []);
   await list.refresh();
 
-  assert.deepEqual(list.get().map(item => item.id), [conversation.id]);
+  assert.deepEqual(
+    list.get().map(item => item.id),
+    [conversation.id]
+  );
   assert.equal(list.get(), list.get(), "the snapshot must be stable while nothing changes");
   const snapshot = list.get();
   await list.refresh();
@@ -54,7 +59,10 @@ test("a message timeline replaces the local echo instead of showing it twice", a
   const sent = await client.messages.send(conversation.id, "hola");
 
   assert.ok(await waitUntil(() => timeline.get().length === 1));
-  assert.deepEqual(timeline.get().map(message => message.body), ["hola"]);
+  assert.deepEqual(
+    timeline.get().map(message => message.body),
+    ["hola"]
+  );
   assert.equal(timeline.get()[0].id, sent.id);
   assert.equal(timeline.get()[0].status, "sent");
   timeline.stop();
@@ -82,7 +90,10 @@ test("a timeline follows incoming messages in order and drops cancelled ones", a
   await new Promise(resolve => setTimeout(resolve, 5));
   adapter.receiveMessage(conversation.id, "bob", "segundo");
   assert.ok(await waitUntil(() => timeline.get().length === 2));
-  assert.deepEqual(timeline.get().map(message => message.body), ["primero", "segundo"]);
+  assert.deepEqual(
+    timeline.get().map(message => message.body),
+    ["primero", "segundo"]
+  );
 
   adapter.failNext = true;
   await assert.rejects(client.messages.send(conversation.id, "fallido"));

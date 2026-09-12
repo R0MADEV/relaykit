@@ -1,7 +1,4 @@
-import {
-  MessagingClient,
-  type Conversation
-} from "@relaykit/web";
+import { MessagingClient, type Conversation } from "@relaykit/web";
 
 const client = new MessagingClient({
   session: {

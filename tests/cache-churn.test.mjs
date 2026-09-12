@@ -115,7 +115,10 @@ test("a message still waiting to be sent is kept however full the cache is", asy
   await client.messages.list(conversation.id);
 
   const kept = await storage.getMessages(conversation.id);
-  assert.ok(kept.some(message => message.body === "esto no ha salido"), "the queued message must survive");
+  assert.ok(
+    kept.some(message => message.body === "esto no ha salido"),
+    "the queued message must survive"
+  );
   await client.stop();
 });
 

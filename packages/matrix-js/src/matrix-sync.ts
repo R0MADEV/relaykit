@@ -1,11 +1,6 @@
 import { ClientEvent, IndexedDBStore, type MatrixClient } from "matrix-js-sdk";
 import type { SlidingSync } from "matrix-js-sdk/lib/sliding-sync.js";
-import type {
-  AdapterHandlers,
-  ConnectionStatus,
-  MatrixJsAdapterOptions,
-  SyncStatus
-} from "./types.js";
+import type { AdapterHandlers, ConnectionStatus, MatrixJsAdapterOptions, SyncStatus } from "./types.js";
 
 export function createBrowserStore(
   options: MatrixJsAdapterOptions,
@@ -27,7 +22,11 @@ export function handleSync(state: string, handlers: AdapterHandlers): void {
   handlers.onSyncChanged?.(syncStatusFor(state));
 }
 
-export function waitForInitialSync(client: MatrixClient, limit: number, slidingSync?: SlidingSync): Promise<void> {
+export function waitForInitialSync(
+  client: MatrixClient,
+  limit: number,
+  slidingSync?: SlidingSync
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const onSync = (state: string) => {
       if (state === "PREPARED" || state === "SYNCING") {
@@ -50,7 +49,11 @@ export function waitForInitialSync(client: MatrixClient, limit: number, slidingS
     client.on(ClientEvent.Sync, onSync);
     // Without thread support the SDK keeps no threads of its own, and what hangs off a message can only be
     // found by asking about that message: a list of threads would be a request per thread.
-    client.startClient({ initialSyncLimit: limit, threadSupport: true, ...(slidingSync ? { slidingSync } : {}) });
+    client.startClient({
+      initialSyncLimit: limit,
+      threadSupport: true,
+      ...(slidingSync ? { slidingSync } : {})
+    });
   });
 }
 

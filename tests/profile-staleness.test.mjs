@@ -29,10 +29,16 @@ test("somebody renaming themselves in a conversation is seen straight away", asy
 
 test("a new picture in a conversation is seen straight away", async () => {
   const { adapter, client, conversation } = await startClient();
-  adapter.setProfile("bob", { displayName: "Bob", avatar: { mimeType: "image/png", data: new Uint8Array([1]) } });
+  adapter.setProfile("bob", {
+    displayName: "Bob",
+    avatar: { mimeType: "image/png", data: new Uint8Array([1]) }
+  });
   assert.equal((await client.users.avatar("bob", { conversationId: conversation.id }))?.data[0], 1);
 
-  adapter.setProfile("bob", { displayName: "Bob", avatar: { mimeType: "image/png", data: new Uint8Array([2]) } });
+  adapter.setProfile("bob", {
+    displayName: "Bob",
+    avatar: { mimeType: "image/png", data: new Uint8Array([2]) }
+  });
   await adapter.renameConversation(conversation.id, "Equipo");
   await settle();
 

@@ -4,7 +4,10 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 // Builds an account big enough to hurt, so the cost of catching up can be measured instead of guessed.
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
-const alice = { username: process.env.MATRIX_USER_A ?? "alice", password: process.env.MATRIX_PASSWORD_A ?? "alice-password" };
+const alice = {
+  username: process.env.MATRIX_USER_A ?? "alice",
+  password: process.env.MATRIX_PASSWORD_A ?? "alice-password"
+};
 const wanted = Number(process.env.SEED_CONVERSATIONS ?? 2000);
 
 process.on("unhandledRejection", error => {
@@ -38,7 +41,9 @@ async function main() {
   await client.stop();
 }
 
-main().then(() => process.exit(0)).catch(error => {
-  console.error(`seeding failed: ${error.message}`);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(`seeding failed: ${error.message}`);
+    process.exit(1);
+  });

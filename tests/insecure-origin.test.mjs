@@ -26,7 +26,11 @@ test("asking for encrypted storage where it cannot exist says why", async () => 
       .catch(error => error);
 
     assert.ok(failure instanceof Error, "it did not fail at all");
-    assert.doesNotMatch(failure.message, /of undefined|undefined \(reading/, `unhelpful message: ${failure.message}`);
+    assert.doesNotMatch(
+      failure.message,
+      /of undefined|undefined \(reading/,
+      `unhelpful message: ${failure.message}`
+    );
     assert.match(failure.message, /segur|secure/i);
   });
 });

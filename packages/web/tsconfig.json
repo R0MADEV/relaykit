@@ -16,7 +16,5 @@
       "path": "../browser-storage"
     }
   ],
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

@@ -13,7 +13,12 @@ async function waitForDevice(client, userId, deviceId) {
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
-  return { client: account.client, userId: account.userId, deviceId: account.deviceId, password: account.password };
+  return {
+    client: account.client,
+    userId: account.userId,
+    deviceId: account.deviceId,
+    password: account.password
+  };
 }
 
 function waitForPhase(client, phase, eventName = "verification.changed", timeoutMs = 45000) {

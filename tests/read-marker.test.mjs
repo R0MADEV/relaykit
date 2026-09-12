@@ -53,7 +53,10 @@ test("what has not been read yet can be counted from where the person left off",
 
   const unread = await client.messages.unreadSince(conversation.id);
 
-  assert.deepEqual(unread.map(message => message.body), ["dos", "tres"]);
+  assert.deepEqual(
+    unread.map(message => message.body),
+    ["dos", "tres"]
+  );
   await client.stop();
 });
 
@@ -64,6 +67,9 @@ test("with nothing read yet everything counts as unread", async () => {
 
   const unread = await client.messages.unreadSince(conversation.id);
 
-  assert.deepEqual(unread.map(message => message.body), ["uno", "dos"]);
+  assert.deepEqual(
+    unread.map(message => message.body),
+    ["uno", "dos"]
+  );
   await client.stop();
 });

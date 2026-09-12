@@ -3,12 +3,27 @@ import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
 // Two people on two different homeservers, which is the point of Matrix and the one thing never tried.
-const local = { homeserver: "http://localhost:8018", username: "alice", password: "alice-password", userId: "@alice:fed1" };
-const remote = { homeserver: "http://localhost:8019", username: "dave", password: "dave-password", userId: "@dave:fed2" };
+const local = {
+  homeserver: "http://localhost:8018",
+  username: "alice",
+  password: "alice-password",
+  userId: "@alice:fed1"
+};
+const remote = {
+  homeserver: "http://localhost:8019",
+  username: "dave",
+  password: "dave-password",
+  userId: "@dave:fed2"
+};
 
 async function createClient({ homeserver, username, password }) {
   const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
-  const session = await client.login({ homeserver, username, password, deviceName: "RelayKit federation smoke" });
+  const session = await client.login({
+    homeserver,
+    username,
+    password,
+    deviceName: "RelayKit federation smoke"
+  });
   await client.start();
   return { client, userId: session.userId };
 }
@@ -36,7 +51,7 @@ async function main() {
   try {
     alice = await createClient(local);
     dave = await createClient(remote);
-    if (alice.userId === local.userId === false) throw new Error(`Unexpected local user ${alice.userId}`);
+    if ((alice.userId === local.userId) === false) throw new Error(`Unexpected local user ${alice.userId}`);
     if (!dave.userId.endsWith(":fed2")) throw new Error(`Dave is not on the other server: ${dave.userId}`);
 
     const conversation = await alice.client.conversations.open(dave.userId);
@@ -51,11 +66,15 @@ async function main() {
     // self-signed certificates that first exchange of keys can take a while. Everything after it is quick.
     const fromDave = `remote-${Date.now()}`;
     await dave.client.messages.send(conversation.id, fromDave);
-    await waitFor(`${alice.userId} to read the first thing said across servers`, async () => {
-      const messages = await alice.client.messages.list(conversation.id);
-      const message = messages.find(item => item.body === fromDave);
-      return message && !message.undecryptable ? message : undefined;
-    }, 360);
+    await waitFor(
+      `${alice.userId} to read the first thing said across servers`,
+      async () => {
+        const messages = await alice.client.messages.list(conversation.id);
+        const message = messages.find(item => item.body === fromDave);
+        return message && !message.undecryptable ? message : undefined;
+      },
+      360
+    );
 
     const fromAlice = `local-${Date.now()}`;
     await alice.client.messages.send(conversation.id, fromAlice);
@@ -85,7 +104,9 @@ async function main() {
     await alice.client.messages.send(community.id, announcement);
     await waitForReadable(dave, community.id, announcement);
 
-    console.log(`RelayKit federation smoke check passed (${alice.userId} and ${dave.userId}, ${both.participantIds.length} participants)`);
+    console.log(
+      `RelayKit federation smoke check passed (${alice.userId} and ${dave.userId}, ${both.participantIds.length} participants)`
+    );
   } finally {
     for (const who of [alice, dave]) await who?.client.logout().catch(() => undefined);
   }

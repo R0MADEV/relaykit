@@ -11,7 +11,10 @@ async function startClient(howMany) {
   await client.start();
   const made = [];
   for (let index = 0; index < howMany; index += 1) {
-    const conversation = await client.conversations.create({ participantIds: ["bob"], title: `Sala ${index}` });
+    const conversation = await client.conversations.create({
+      participantIds: ["bob"],
+      title: `Sala ${index}`
+    });
     adapter.receiveMessage(conversation.id, "bob", `algo ${index}`, { createdAt: 1000 + index });
     made.push(conversation);
   }
@@ -32,7 +35,10 @@ test("the ones it gives are the ones with the most recent activity", async () =>
 
   const shown = await client.conversations.list({ limit: 3 });
 
-  assert.deepEqual(shown.map(item => item.id), [made[9].id, made[8].id, made[7].id]);
+  assert.deepEqual(
+    shown.map(item => item.id),
+    [made[9].id, made[8].id, made[7].id]
+  );
   await client.stop();
 });
 
@@ -51,7 +57,10 @@ test("scrolling on asks for more and keeps the same order", async () => {
   const firstFew = await client.conversations.list({ limit: 4 });
   const more = await client.conversations.list({ limit: 8 });
 
-  assert.deepEqual(more.slice(0, 4).map(item => item.id), firstFew.map(item => item.id));
+  assert.deepEqual(
+    more.slice(0, 4).map(item => item.id),
+    firstFew.map(item => item.id)
+  );
   assert.equal(more.length, 8);
   assert.equal(made.length, 10);
   await client.stop();

@@ -20,7 +20,5 @@
     "noFallthroughCasesInSwitch": true,
     "noEmitOnError": true
   },
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

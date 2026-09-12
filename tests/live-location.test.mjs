@@ -11,7 +11,11 @@ const session = { homeserver: "memory://test", userId: "alice", accessToken: "to
  * is what stops a slip leaving somebody sharing their location for ever.
  */
 async function startClient() {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "vamos" });
   return { client, conversation };
@@ -20,7 +24,10 @@ async function startClient() {
 test("sharing where you are can be started for a while", async () => {
   const { client, conversation } = await startClient();
 
-  const sharing = await client.location.start(conversation.id, { durationMs: 600000, description: "voy para alla" });
+  const sharing = await client.location.start(conversation.id, {
+    durationMs: 600000,
+    description: "voy para alla"
+  });
 
   assert.equal(typeof sharing.id, "string");
   assert.equal(sharing.isLive, true);
@@ -56,9 +63,8 @@ test("it can be stopped early, and then it is no longer live", async () => {
 
   const [visto] = await client.location.list(conversation.id);
   assert.equal(visto.isLive, false);
-  await assert.rejects(
-    client.location.update(sharing.id, { latitude: 43.26, longitude: -2.93 }),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.location.update(sharing.id, { latitude: 43.26, longitude: -2.93 }), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });

@@ -30,7 +30,10 @@ test("many messages can be kept in one go", async () => {
   await storage.saveMessages([message(1), message(2), message(3)]);
 
   const kept = await storage.getMessages("conversation-1");
-  assert.deepEqual(kept.map(item => item.body), ["message 1", "message 2", "message 3"]);
+  assert.deepEqual(
+    kept.map(item => item.body),
+    ["message 1", "message 2", "message 3"]
+  );
 });
 
 test("keeping nothing does nothing", async () => {

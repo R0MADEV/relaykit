@@ -29,13 +29,15 @@ async function run() {
     encrypted: true
   });
   await waitFor("bob to see the invitation", async () =>
-    (await bob.client.conversations.list()).some(item => item.id === conversation.id));
+    (await bob.client.conversations.list()).some(item => item.id === conversation.id)
+  );
   await bob.client.conversations.join(conversation.id);
 
-  const readByBob = body => waitFor(`bob to read "${body}"`, async () => {
-    const messages = await bob.client.messages.list(conversation.id);
-    return messages.find(message => message.body === body && !message.undecryptable);
-  });
+  const readByBob = body =>
+    waitFor(`bob to read "${body}"`, async () => {
+      const messages = await bob.client.messages.list(conversation.id);
+      return messages.find(message => message.body === body && !message.undecryptable);
+    });
 
   // Something said, and then said better.
   const said = await alice.client.messages.send(conversation.id, "lo dije mal");

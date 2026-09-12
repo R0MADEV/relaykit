@@ -31,7 +31,9 @@ export class MessageMutations {
       const known = await this.context.storage?.getMessage(messageId);
       if (!known) throw error;
       this.context.waiting.remember(`edit:${messageId}`, () =>
-        this.context.adapter.editMessage(conversationId, messageId, body).then(message => this.keepAndTell(message))
+        this.context.adapter
+          .editMessage(conversationId, messageId, body)
+          .then(message => this.keepAndTell(message))
       );
       return this.keepAndTell({ ...known, body, editedAt: Date.now() });
     }
@@ -47,7 +49,9 @@ export class MessageMutations {
       const known = await this.context.storage?.getMessage(messageId);
       if (!known) throw error;
       this.context.waiting.remember(`delete:${messageId}`, () =>
-        this.context.adapter.deleteMessage(conversationId, messageId).then(message => this.keepAndTell(message))
+        this.context.adapter
+          .deleteMessage(conversationId, messageId)
+          .then(message => this.keepAndTell(message))
       );
       return this.keepAndTell({ ...known, body: "", deletedAt: Date.now() });
     }

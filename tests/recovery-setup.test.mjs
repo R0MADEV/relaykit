@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { setupRecovery, SecretStorageKeyHolder } = await import("../packages/matrix-js/dist/matrix-security.js");
+const { setupRecovery, SecretStorageKeyHolder } =
+  await import("../packages/matrix-js/dist/matrix-security.js");
 const { MatrixError } = await import("matrix-js-sdk");
 
 /**
@@ -17,8 +18,12 @@ function fakeClient() {
       encodedPrivateKey: "EsT3 Es La CLav3",
       privateKey: new Uint8Array(32)
     }),
-    bootstrapSecretStorage: async () => { crypto.order.push("storage"); },
-    bootstrapCrossSigning: async () => { crypto.order.push("identity"); },
+    bootstrapSecretStorage: async () => {
+      crypto.order.push("storage");
+    },
+    bootstrapCrossSigning: async () => {
+      crypto.order.push("identity");
+    },
     getCrossSigningStatus: async () => ({
       privateKeysCachedLocally: { masterKey: true, selfSigningKey: true, userSigningKey: true }
     }),
@@ -29,13 +34,20 @@ function fakeClient() {
       return identityIsDownloaded;
     }
   };
-  return { getCrypto: () => crypto, getSafeUserId: () => "@alice:localhost", getDeviceId: () => "ESTE", crypto };
+  return {
+    getCrypto: () => crypto,
+    getSafeUserId: () => "@alice:localhost",
+    getDeviceId: () => "ESTE",
+    crypto
+  };
 }
 
 test("setting up recovery does not come back before cross-signing is usable", async () => {
   const client = fakeClient();
 
-  const { recoveryKey } = await setupRecovery(client, new SecretStorageKeyHolder(), { password: "la contrasena" });
+  const { recoveryKey } = await setupRecovery(client, new SecretStorageKeyHolder(), {
+    password: "la contrasena"
+  });
 
   assert.equal(recoveryKey, "EsT3 Es La CLav3");
   assert.equal(await client.crypto.isCrossSigningReady(), true);
@@ -61,7 +73,10 @@ test("the store is made, the identity settled, and only then is the identity put
 function demandingClient() {
   const crypto = {
     uploaded: false,
-    createRecoveryKeyFromPassphrase: async () => ({ encodedPrivateKey: "CLAV3", privateKey: new Uint8Array(32) }),
+    createRecoveryKeyFromPassphrase: async () => ({
+      encodedPrivateKey: "CLAV3",
+      privateKey: new Uint8Array(32)
+    }),
     bootstrapSecretStorage: async () => {},
     bootstrapCrossSigning: async ({ authUploadDeviceSigningKeys }) => {
       await authUploadDeviceSigningKeys(async auth => {
@@ -83,7 +98,11 @@ test("a homeserver that asks to prove who you are is answered, not ignored", asy
 
   await setupRecovery(client, new SecretStorageKeyHolder(), { password: "la contrasena" });
 
-  assert.equal(client.crypto.uploaded, true, "the identity was never uploaded, so nothing can sign this device");
+  assert.equal(
+    client.crypto.uploaded,
+    true,
+    "the identity was never uploaded, so nothing can sign this device"
+  );
 });
 
 test("without a password there is nothing to answer with, and that is said plainly", async () => {

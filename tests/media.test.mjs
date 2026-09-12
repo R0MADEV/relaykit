@@ -30,7 +30,9 @@ test("sendFile delivers a message with attachment metadata that can be downloade
   const { client, conversation } = await startClient();
   const progress = [];
 
-  const message = await client.messages.sendFile(conversation.id, file, { onProgress: value => progress.push(value) });
+  const message = await client.messages.sendFile(conversation.id, file, {
+    onProgress: value => progress.push(value)
+  });
 
   assert.equal(message.status, "sent");
   assert.equal(message.body, "notes.txt");
@@ -50,7 +52,9 @@ test("a failed file send is persisted in the outbox and recovered after a restar
   const first = await startClient(adapter, storage);
   adapter.failuresLeft = 1;
   await assert.rejects(first.client.messages.sendFile(first.conversation.id, file));
-  const failed = (await first.client.messages.list(first.conversation.id)).find(item => item.body === "notes.txt");
+  const failed = (await first.client.messages.list(first.conversation.id)).find(
+    item => item.body === "notes.txt"
+  );
   assert.equal(failed?.status, "failed");
   assert.equal(failed?.attachment?.name, "notes.txt");
   await first.client.stop();
@@ -72,16 +76,25 @@ test("a failed file send is persisted in the outbox and recovered after a restar
 test("sendFile validates the file input", async () => {
   const { client, conversation } = await startClient();
 
-  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, name: " " }), { code: "INVALID_INPUT" });
-  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, mimeType: "" }), { code: "INVALID_INPUT" });
-  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, data: new Uint8Array() }), { code: "INVALID_INPUT" });
+  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, name: " " }), {
+    code: "INVALID_INPUT"
+  });
+  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, mimeType: "" }), {
+    code: "INVALID_INPUT"
+  });
+  await assert.rejects(client.messages.sendFile(conversation.id, { ...file, data: new Uint8Array() }), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });
 
 test("download rejects an unknown attachment", async () => {
   const { client } = await startClient();
 
-  await assert.rejects(client.media.download({ id: "missing", name: "x", mimeType: "text/plain", source: "missing" }), { code: "ADAPTER_ERROR" });
+  await assert.rejects(
+    client.media.download({ id: "missing", name: "x", mimeType: "text/plain", source: "missing" }),
+    { code: "ADAPTER_ERROR" }
+  );
   await client.stop();
 });
 

@@ -1,7 +1,11 @@
+import type { MatrixEvent } from "matrix-js-sdk";
 import {
   MsgType,
   ReceiptType,
-  EventType, MatrixEvent, NotificationCountType, RelationType, type Room,
+  EventType,
+  NotificationCountType,
+  RelationType,
+  type Room,
   M_LOCATION
 } from "matrix-js-sdk";
 import type {
@@ -26,7 +30,9 @@ import { isDirectRoom } from "./matrix-conversations.js";
 import { presenceStates } from "@relaykit/core";
 
 interface MatrixReceiptContent {
-  readonly [eventId: string]: { readonly [ReceiptType.Read]?: { readonly [userId: string]: { readonly ts?: unknown } } };
+  readonly [eventId: string]: {
+    readonly [ReceiptType.Read]?: { readonly [userId: string]: { readonly ts?: unknown } };
+  };
 }
 
 interface MatrixPresenceContent {
@@ -50,7 +56,12 @@ interface MatrixMessageContent {
     readonly h?: unknown;
     readonly thumbnail_url?: unknown;
     readonly thumbnail_file?: { readonly url?: unknown };
-    readonly thumbnail_info?: { readonly mimetype?: unknown; readonly size?: unknown; readonly w?: unknown; readonly h?: unknown };
+    readonly thumbnail_info?: {
+      readonly mimetype?: unknown;
+      readonly size?: unknown;
+      readonly w?: unknown;
+      readonly h?: unknown;
+    };
     /** The colours of the image, blurred, where the clients that paint them put them. */
     readonly "xyz.amorgan.blurhash"?: unknown;
   };
@@ -94,7 +105,9 @@ function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefin
   const fallback = (content.info as { duration?: unknown } | undefined)?.duration;
   const duration = typeof audio.duration === "number" ? audio.duration : fallback;
   if (typeof duration !== "number") return undefined;
-  const waveform = Array.isArray(audio.waveform) ? audio.waveform.filter(value => typeof value === "number") : [];
+  const waveform = Array.isArray(audio.waveform)
+    ? audio.waveform.filter(value => typeof value === "number")
+    : [];
   return { voice: { durationMs: duration, ...(waveform.length > 0 ? { waveform } : {}) } };
 }
 
@@ -106,7 +119,12 @@ function mapLocation(content: MatrixMessageContent): { location: GeoLocation } |
   const uri = typeof asset.uri === "string" ? asset.uri : record["geo_uri"];
   if (typeof uri !== "string" || !uri.startsWith("geo:")) return undefined;
   const [latitude, longitude] = uri.slice(4).split(";")[0]?.split(",").map(Number) ?? [];
-  if (latitude === undefined || longitude === undefined || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+  if (
+    latitude === undefined ||
+    longitude === undefined ||
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude)
+  ) {
     return undefined;
   }
   const description = typeof asset.description === "string" ? asset.description : undefined;
@@ -118,7 +136,8 @@ function mapThumbnail(info: NonNullable<MatrixMessageContent["info"]>): MediaRef
   if (typeof url !== "string") return undefined;
   const thumbnailInfo = info.thumbnail_info ?? {};
   return {
-    mimeType: typeof thumbnailInfo.mimetype === "string" ? thumbnailInfo.mimetype : "application/octet-stream",
+    mimeType:
+      typeof thumbnailInfo.mimetype === "string" ? thumbnailInfo.mimetype : "application/octet-stream",
     ...(typeof thumbnailInfo.size === "number" ? { size: thumbnailInfo.size } : {}),
     ...(typeof thumbnailInfo.w === "number" ? { width: thumbnailInfo.w } : {}),
     ...(typeof thumbnailInfo.h === "number" ? { height: thumbnailInfo.h } : {}),
@@ -151,7 +170,8 @@ function mapUnreadMark(room: Room): { isUnread: boolean } | undefined {
 export function mapConversation(room: Room): Conversation {
   const messages = mapMessages(room.getLiveTimeline().getEvents());
   const lastMessage = messages.at(-1);
-  const members = room.getMembers()
+  const members = room
+    .getMembers()
     .filter(member => member.membership === "join" || member.membership === "invite");
   const conversation: Conversation = {
     id: room.roomId,
@@ -160,7 +180,10 @@ export function mapConversation(room: Room): Conversation {
     participantIds: members.map(member => member.userId),
     invitedIds: members.filter(member => member.membership === "invite").map(member => member.userId),
     // Whoever asked to come in is still at the door, so they are listed apart from the participants.
-    knockingIds: room.getMembers().filter(member => member.membership === "knock").map(member => member.userId),
+    knockingIds: room
+      .getMembers()
+      .filter(member => member.membership === "knock")
+      .map(member => member.userId),
     membership: room.getMyMembership() === "invite" ? "invite" : "join",
     unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total),
     ...(isDirectRoom(room) ? { isDirect: true } : {}),
@@ -254,7 +277,9 @@ function mapHistoryVisibility(room: Room): { historyVisibility: HistoryVisibilit
 }
 
 function mapTopic(room: Room): { topic: string } | undefined {
-  const topic = room.currentState.getStateEvents(EventType.RoomTopic, "")?.getContent<{ topic?: string }>().topic;
+  const topic = room.currentState
+    .getStateEvents(EventType.RoomTopic, "")
+    ?.getContent<{ topic?: string }>().topic;
   return typeof topic === "string" && topic.length > 0 ? { topic } : undefined;
 }
 
@@ -288,7 +313,7 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   const isEdit = event.isRelation(RelationType.Replace);
   const editedBody = content["m.new_content"]?.body;
   const bodyValue = isEdit && typeof editedBody === "string" ? editedBody : content.body;
-  const body = undecryptable ? "" : (typeof bodyValue === "string" ? bodyValue : undefined);
+  const body = undecryptable ? "" : typeof bodyValue === "string" ? bodyValue : undefined;
   const relatedMessageId = relation?.rel_type === RelationType.Thread ? undefined : relation?.event_id;
   const id = relatedMessageId ?? event.getId();
   const senderId = event.getSender();
@@ -307,9 +332,8 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   const isThreaded = relation?.rel_type === RelationType.Thread;
   const threadId = isThreaded ? relation?.event_id : undefined;
   // Inside a thread the reply pointer is only a fallback for clients that do not know about threads.
-  const replyToId = isThreaded && relation?.is_falling_back !== false
-    ? undefined
-    : relation?.["m.in_reply_to"]?.event_id;
+  const replyToId =
+    isThreaded && relation?.is_falling_back !== false ? undefined : relation?.["m.in_reply_to"]?.event_id;
   const message: Message = {
     id,
     conversationId,
@@ -325,7 +349,7 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     ...(threadId ? { threadId } : {}),
     ...(mapFormatted(content) ?? {}),
     ...(mapMentions(content) ?? {}),
-    ...(isSticker ? { kind: "sticker" as const } : mapKind(content.msgtype) ?? {}),
+    ...(isSticker ? { kind: "sticker" as const } : (mapKind(content.msgtype) ?? {})),
     ...(mapLocation(content) ?? {})
   };
 
@@ -340,10 +364,14 @@ function mapFormatted(content: MatrixMessageContent): { formattedBody: string } 
 function mapMentions(content: MatrixMessageContent): { mentions: Mentions } | undefined {
   const raw = content["m.mentions"];
   if (!raw) return undefined;
-  const userIds = Array.isArray(raw.user_ids) ? raw.user_ids.filter((id): id is string => typeof id === "string") : [];
+  const userIds = Array.isArray(raw.user_ids)
+    ? raw.user_ids.filter((id): id is string => typeof id === "string")
+    : [];
   const everyone = raw.room === true;
   if (userIds.length === 0 && !everyone) return undefined;
-  return { mentions: { ...(userIds.length > 0 ? { userIds } : {}), ...(everyone ? { everyone: true } : {}) } };
+  return {
+    mentions: { ...(userIds.length > 0 ? { userIds } : {}), ...(everyone ? { everyone: true } : {}) }
+  };
 }
 
 function mapKind(msgtype: string | undefined): { kind: MessageKind } | undefined {
@@ -374,7 +402,13 @@ export function mapReaction(event: MatrixEvent): Reaction | undefined {
   const id = event.getId();
   const senderId = event.getSender();
 
-  if (relation?.rel_type !== RelationType.Annotation || !relation.event_id || !relation.key || !id || !senderId) {
+  if (
+    relation?.rel_type !== RelationType.Annotation ||
+    !relation.event_id ||
+    !relation.key ||
+    !id ||
+    !senderId
+  ) {
     return undefined;
   }
 

@@ -21,7 +21,15 @@ async function startClient() {
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   const other = await client.conversations.create({ participantIds: ["carol"], title: "Otra" });
-  return { adapter, client, conversation, other, at: value => { now = value; } };
+  return {
+    adapter,
+    client,
+    conversation,
+    other,
+    at: value => {
+      now = value;
+    }
+  };
 }
 
 test("writing a long message does not send one notice per letter", async () => {
@@ -54,7 +62,10 @@ test("stopping is said straight away, because the other side is waiting for it",
   at(50);
   await client.conversations.typing(conversation.id, false);
 
-  assert.deepEqual(adapter.typingCalls.map(call => call.isTyping), [true, false]);
+  assert.deepEqual(
+    adapter.typingCalls.map(call => call.isTyping),
+    [true, false]
+  );
   await client.stop();
 });
 
@@ -76,7 +87,10 @@ test("after stopping, writing again is announced", async () => {
   at(100);
   await client.conversations.typing(conversation.id, true);
 
-  assert.deepEqual(adapter.typingCalls.map(call => call.isTyping), [true, false, true]);
+  assert.deepEqual(
+    adapter.typingCalls.map(call => call.isTyping),
+    [true, false, true]
+  );
   await client.stop();
 });
 
@@ -86,7 +100,10 @@ test("writing in two conversations is announced in both", async () => {
   await client.conversations.typing(conversation.id, true);
   await client.conversations.typing(other.id, true);
 
-  assert.deepEqual(adapter.typingCalls.map(call => call.conversationId), [conversation.id, other.id]);
+  assert.deepEqual(
+    adapter.typingCalls.map(call => call.conversationId),
+    [conversation.id, other.id]
+  );
   await client.stop();
 });
 

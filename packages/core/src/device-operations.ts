@@ -1,7 +1,11 @@
 import { SdkError } from "./errors.js";
 import { notificationLevels } from "./models.js";
 import type { MessagingAdapter } from "./adapter.js";
-import type { Device, DeviceVerification, PushRegistration, SignOutOptions,
+import type {
+  Device,
+  DeviceVerification,
+  PushRegistration,
+  SignOutOptions,
   Notification,
   PendingNotificationsOptions,
   NotificationLevel,

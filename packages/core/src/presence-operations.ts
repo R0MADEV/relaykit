@@ -17,7 +17,10 @@ export class PresenceOperations {
       throw new SdkError("INVALID_INPUT", `Unknown presence: ${update.presence}`);
     }
     if ((update.statusMessage?.length ?? 0) > maxStatusMessageLength) {
-      throw new SdkError("INVALID_INPUT", `A status message can be at most ${maxStatusMessageLength} characters`);
+      throw new SdkError(
+        "INVALID_INPUT",
+        `A status message can be at most ${maxStatusMessageLength} characters`
+      );
     }
     await this.context.adapter.setPresence(update);
   }

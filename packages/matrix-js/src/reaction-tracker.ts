@@ -1,4 +1,5 @@
-import { MatrixEvent, type Room } from "matrix-js-sdk";
+import type { MatrixEvent } from "matrix-js-sdk";
+import { type Room } from "matrix-js-sdk";
 import type { AdapterHandlers, Reaction } from "@relaykit/core";
 import { mapReaction } from "./matrix-mapper.js";
 

@@ -10,7 +10,11 @@ const session = { homeserver: "memory://test", userId: "alice", accessToken: "to
  * be closeable. Whoever votes can change their mind, and only their last vote counts.
  */
 async function startClient() {
-  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new InMemoryAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "decisiones" });
   return { client, conversation };
@@ -25,7 +29,10 @@ test("something can be asked with several answers", async () => {
   });
 
   assert.equal(poll.question, "¿A que hora comemos?");
-  assert.deepEqual(poll.answers.map(answer => answer.text), ["A las 14", "A las 15"]);
+  assert.deepEqual(
+    poll.answers.map(answer => answer.text),
+    ["A las 14", "A las 15"]
+  );
   assert.equal(poll.isClosed, false);
   await client.stop();
 });
@@ -33,14 +40,12 @@ test("something can be asked with several answers", async () => {
 test("a question with no answers is not a poll", async () => {
   const { client, conversation } = await startClient();
 
-  await assert.rejects(
-    client.polls.start(conversation.id, { question: "¿Y bien?", answers: [] }),
-    { code: "INVALID_INPUT" }
-  );
-  await assert.rejects(
-    client.polls.start(conversation.id, { question: "   ", answers: ["si", "no"] }),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.polls.start(conversation.id, { question: "¿Y bien?", answers: [] }), {
+    code: "INVALID_INPUT"
+  });
+  await assert.rejects(client.polls.start(conversation.id, { question: "   ", answers: ["si", "no"] }), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });
 
@@ -71,9 +76,8 @@ test("a poll can be closed, and after that there is no voting", async () => {
 
   const [cerrada] = await client.polls.list(conversation.id);
   assert.equal(cerrada.isClosed, true);
-  await assert.rejects(
-    client.polls.vote(conversation.id, poll.id, poll.answers[0].id),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.polls.vote(conversation.id, poll.id, poll.answers[0].id), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });

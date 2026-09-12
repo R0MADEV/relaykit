@@ -56,5 +56,11 @@ export async function signInAgain(account, deviceName, options = {}) {
     deviceName
   });
   if (options.start !== false) await client.start();
-  return { client, userId: session.userId, deviceId: session.deviceId, username: account.username, password: account.password };
+  return {
+    client,
+    userId: session.userId,
+    deviceId: session.deviceId,
+    username: account.username,
+    password: account.password
+  };
 }

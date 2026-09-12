@@ -47,10 +47,20 @@ test("stop keeps local storage so the session can resume", async () => {
 test("logout reaches the adapter while it is still started so the server session is revoked", async () => {
   const calls = [];
   class RecordingAdapter extends InMemoryAdapter {
-    async stop() { calls.push("stop"); return super.stop(); }
-    async logout() { calls.push("logout"); return super.logout(); }
+    async stop() {
+      calls.push("stop");
+      return super.stop();
+    }
+    async logout() {
+      calls.push("logout");
+      return super.logout();
+    }
   }
-  const client = new MessagingClient({ adapter: new RecordingAdapter(), storage: new InMemoryStorage(), session });
+  const client = new MessagingClient({
+    adapter: new RecordingAdapter(),
+    storage: new InMemoryStorage(),
+    session
+  });
   await client.start();
 
   await client.logout();

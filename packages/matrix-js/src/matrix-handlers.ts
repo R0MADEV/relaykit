@@ -1,5 +1,5 @@
-import {
-  EventType, MatrixEvent, type Room } from "matrix-js-sdk";
+import type { MatrixEvent } from "matrix-js-sdk";
+import { EventType, type Room } from "matrix-js-sdk";
 import type { MCallReplacesEvent } from "matrix-js-sdk/lib/webrtc/callEventTypes.js";
 import type { AdapterHandlers, CallTransfer, Message } from "@relaykit/core";
 import {
@@ -90,7 +90,8 @@ function handleTimelineEvent(
     return;
   }
   if (event.isEncrypted() && !decrypted) {
-    void context.decryptEvent(event)
+    void context
+      .decryptEvent(event)
       .then(() => handleTimelineEvent(event, room, false, handlers, context, true))
       .catch(error => handlers.onError?.(error instanceof Error ? error : new Error(String(error))));
     return;
@@ -121,7 +122,12 @@ function handleTimelineEvent(
   notify(event, message, handlers, context);
 }
 
-function notify(event: MatrixEvent, message: Message, handlers: AdapterHandlers, context: TimelineContext): void {
+function notify(
+  event: MatrixEvent,
+  message: Message,
+  handlers: AdapterHandlers,
+  context: TimelineContext
+): void {
   const isOwnMessage = message.senderId === context.ownUserId();
   if (isOwnMessage) return;
   const { notify: shouldNotify, isMention } = context.notificationFor(event);
@@ -152,13 +158,21 @@ export function handleRedaction(
   }
 }
 
-export function handleReceipt(event: MatrixEvent, roomId: string | undefined, handlers: AdapterHandlers): void {
+export function handleReceipt(
+  event: MatrixEvent,
+  roomId: string | undefined,
+  handlers: AdapterHandlers
+): void {
   for (const receipt of mapReadReceipts(event, roomId)) {
     handlers.onReceiptReceived?.(receipt);
   }
 }
 
-export function handleTyping(event: MatrixEvent, roomId: string | undefined, handlers: AdapterHandlers): void {
+export function handleTyping(
+  event: MatrixEvent,
+  roomId: string | undefined,
+  handlers: AdapterHandlers
+): void {
   const update = mapTyping(event, roomId);
   if (update) {
     handlers.onTypingChanged?.(update);

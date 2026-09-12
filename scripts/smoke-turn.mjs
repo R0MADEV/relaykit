@@ -34,7 +34,9 @@ async function run() {
   // The credentials are made from a shared secret and expire, which is the whole point: a relay that anybody
   // can use for ever is a relay anybody will use for everything.
   if (!(given.ttl > 0)) {
-    throw new Error(`The credentials never expire, so anybody who sees them keeps the relay: ttl=${given.ttl}`);
+    throw new Error(
+      `The credentials never expire, so anybody who sees them keeps the relay: ttl=${given.ttl}`
+    );
   }
 
   await account.client.stop();

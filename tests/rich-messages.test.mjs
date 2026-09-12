@@ -64,13 +64,11 @@ test("a message can be an action or a notice instead of plain talk", async () =>
 test("formatted text and mentions are validated", async () => {
   const { client, conversation } = await startClient();
 
-  await assert.rejects(
-    client.messages.send(conversation.id, "vacio", { formattedBody: "   " }),
-    { code: "INVALID_INPUT" }
-  );
-  await assert.rejects(
-    client.messages.send(conversation.id, "malo", { mentions: { userIds: ["  "] } }),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.messages.send(conversation.id, "vacio", { formattedBody: "   " }), {
+    code: "INVALID_INPUT"
+  });
+  await assert.rejects(client.messages.send(conversation.id, "malo", { mentions: { userIds: ["  "] } }), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });

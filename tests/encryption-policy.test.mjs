@@ -87,11 +87,14 @@ test("a direct conversation does not impose the policy either", async () => {
 test("when the homeserver encrypts by policy, the conversation says so even though nobody asked", async () => {
   const asked = [];
 
-  const conversation = await createMatrixConversation(
-    fakeClient(asked, { theServerEncrypts: true }),
-    { participantIds: ["@bob:localhost"] }
-  );
+  const conversation = await createMatrixConversation(fakeClient(asked, { theServerEncrypts: true }), {
+    participantIds: ["@bob:localhost"]
+  });
 
   assert.equal(encryptionAskedFor(asked[0]), false, "la librería lo pidio, y no debia");
-  assert.equal(conversation.isEncrypted, true, "the server encrypted it and the conversation does not say so");
+  assert.equal(
+    conversation.isEncrypted,
+    true,
+    "the server encrypted it and the conversation does not say so"
+  );
 });

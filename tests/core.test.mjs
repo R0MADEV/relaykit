@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  InMemoryAdapter,
-  InMemoryStorage
-} from "@relaykit/in-memory";
+import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
 import { MessagingClient } from "@relaykit/core";
 
 test("public client creates a conversation and sends a message", async () => {
@@ -64,7 +61,10 @@ test("outbox persists a failed send and retries it", async () => {
   const sent = await client.messages.retry(failed.id);
 
   assert.equal(sent.status, "sent");
-  assert.equal((await client.messages.list(conversation.id)).filter(message => message.body === "retry me").length, 1);
+  assert.equal(
+    (await client.messages.list(conversation.id)).filter(message => message.body === "retry me").length,
+    1
+  );
   await client.stop();
 });
 
@@ -79,15 +79,11 @@ test("public validation rejects invalid conversation and message input", async (
   });
 
   await client.start();
-  await assert.rejects(
-    client.conversations.create({ participantIds: ["bob", "bob"] }),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.conversations.create({ participantIds: ["bob", "bob"] }), {
+    code: "INVALID_INPUT"
+  });
   const conversation = await client.conversations.create({ participantIds: ["bob"] });
-  await assert.rejects(
-    client.messages.send(conversation.id, "   "),
-    { code: "INVALID_INPUT" }
-  );
+  await assert.rejects(client.messages.send(conversation.id, "   "), { code: "INVALID_INPUT" });
   await client.stop();
 });
 
@@ -113,7 +109,10 @@ test("loadMore returns the known timeline and whether older history remains", as
   await client.messages.send(conversation.id, "uno");
 
   const page = await client.messages.loadMore(conversation.id, 10);
-  assert.deepEqual(page.messages.map(message => message.body), ["uno"]);
+  assert.deepEqual(
+    page.messages.map(message => message.body),
+    ["uno"]
+  );
   assert.equal(page.hasMore, true);
   assert.deepEqual(adapter.requestedLimits, [10]);
 
@@ -142,7 +141,10 @@ test("loadMore falls back to the stored timeline when history cannot be fetched"
 
   const page = await client.messages.loadMore(conversation.id, 10);
 
-  assert.deepEqual(page.messages.map(message => message.body), ["guardado"]);
+  assert.deepEqual(
+    page.messages.map(message => message.body),
+    ["guardado"]
+  );
   assert.equal(page.hasMore, false);
   await client.stop();
 });
@@ -163,7 +165,9 @@ test("a message can reply to another one", async () => {
   const listed = await client.messages.list(conversation.id);
   assert.equal(listed.find(message => message.id === reply.id).replyToId, original.id);
   assert.equal(listed.find(message => message.id === original.id).replyToId, undefined);
-  await assert.rejects(client.messages.send(conversation.id, "vacío", { replyTo: "  " }), { code: "INVALID_INPUT" });
+  await assert.rejects(client.messages.send(conversation.id, "vacío", { replyTo: "  " }), {
+    code: "INVALID_INPUT"
+  });
   await client.stop();
 });
 
@@ -221,7 +225,10 @@ test("the local cache keeps only the most recent messages of a conversation", as
 
   assert.equal(listed.length, 5, "what the caller gets back is not trimmed");
   const cached = await storage.getMessages(conversation.id);
-  assert.deepEqual(cached.map(message => message.body), ["tres", "cuatro", "cinco"]);
+  assert.deepEqual(
+    cached.map(message => message.body),
+    ["tres", "cuatro", "cinco"]
+  );
   await client.stop();
 });
 
@@ -255,7 +262,13 @@ test("a message still waiting to be sent is never dropped from the cache", async
   await client.messages.list(conversation.id);
 
   const cached = await storage.getMessages(conversation.id);
-  assert.ok(cached.some(message => message.body === "pendiente"), "the queued message must survive");
-  assert.deepEqual(cached.filter(message => message.status === "sent").map(message => message.body), ["dos", "tres"]);
+  assert.ok(
+    cached.some(message => message.body === "pendiente"),
+    "the queued message must survive"
+  );
+  assert.deepEqual(
+    cached.filter(message => message.status === "sent").map(message => message.body),
+    ["dos", "tres"]
+  );
   await client.stop();
 });

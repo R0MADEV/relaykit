@@ -41,7 +41,11 @@ export class OutboxOperations {
     private readonly receivedMessageIds: RecentIds
   ) {}
 
-  async send(conversationId: ConversationId, body: string, options: SendMessageOptions = {}): Promise<Message> {
+  async send(
+    conversationId: ConversationId,
+    body: string,
+    options: SendMessageOptions = {}
+  ): Promise<Message> {
     this.context.assertStarted();
     if (!body.trim()) {
       throw new SdkError("INVALID_INPUT", "Message body cannot be empty");
@@ -83,7 +87,8 @@ export class OutboxOperations {
       throw new SdkError("INVALID_INPUT", "The longitude must be between -180 and 180");
     }
     const described = location.description?.trim();
-    const body = described && described.length > 0 ? described : `${location.latitude}, ${location.longitude}`;
+    const body =
+      described && described.length > 0 ? described : `${location.latitude}, ${location.longitude}`;
     const localMessage: Message = {
       ...this.createLocalMessage(conversationId, body),
       location: { ...location, ...(described ? { description: described } : {}) }
@@ -109,7 +114,11 @@ export class OutboxOperations {
     return this.sendFile(conversationId, { ...sticker, sticker: true }, {});
   }
 
-  async sendFile(conversationId: ConversationId, file: FileInput, options: SendFileOptions): Promise<Message> {
+  async sendFile(
+    conversationId: ConversationId,
+    file: FileInput,
+    options: SendFileOptions
+  ): Promise<Message> {
     this.context.assertStarted();
     validateFile(file);
     const localMessage = this.createLocalMessage(conversationId, file.name);
@@ -124,7 +133,11 @@ export class OutboxOperations {
       ...(file.blurhash ? { blurhash: file.blurhash } : {}),
       source: ""
     };
-    const localFileMessage: Message = { ...localMessage, attachment, ...(file.sticker ? { kind: "sticker" as const } : {}) };
+    const localFileMessage: Message = {
+      ...localMessage,
+      attachment,
+      ...(file.sticker ? { kind: "sticker" as const } : {})
+    };
     this.pendingFiles.set(localMessage.id, file);
     if (options.onProgress) this.progressHandlers.set(localMessage.id, options.onProgress);
     await this.saveOperation(localFileMessage, file);
@@ -230,7 +243,10 @@ export class OutboxOperations {
     // Writing it would also leave a message stuck in flight after a crash, when what it really is, is waiting.
     this.context.emitUpdated({ ...message, status: "sending" });
     try {
-      const sentMessage = await this.sendContent(message, this.pendingFiles.get(message.id) ?? operation?.attachment);
+      const sentMessage = await this.sendContent(
+        message,
+        this.pendingFiles.get(message.id) ?? operation?.attachment
+      );
       await this.context.storage?.deleteMessage(message.id);
       await this.context.storage?.deleteOutboxOperation(message.id);
       this.receivedMessageIds.add(sentMessage.id);
@@ -261,7 +277,12 @@ export class OutboxOperations {
     if (!file) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The file content of this message is no longer available");
     }
-    return adapter.sendAttachment(message.conversationId, file, message.transactionId, this.progressHandlers.get(message.id));
+    return adapter.sendAttachment(
+      message.conversationId,
+      file,
+      message.transactionId,
+      this.progressHandlers.get(message.id)
+    );
   }
 
   private async restoreMessage(operation: OutboxOperation): Promise<Message | undefined> {
@@ -287,13 +308,17 @@ export class OutboxOperations {
       ...(operation.formattedBody ? { formattedBody: operation.formattedBody } : {}),
       ...(operation.mentions ? { mentions: operation.mentions } : {}),
       ...(operation.kind ? { kind: operation.kind } : {}),
-      ...(attachment ? { attachment: {
-        id: operation.id,
-        name: attachment.name,
-        mimeType: attachment.mimeType,
-        size: attachment.data.byteLength,
-        source: ""
-      } } : {})
+      ...(attachment
+        ? {
+            attachment: {
+              id: operation.id,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              size: attachment.data.byteLength,
+              source: ""
+            }
+          }
+        : {})
     };
   }
 
@@ -345,13 +370,15 @@ export class OutboxOperations {
 
   private async fail(message: Message, error: unknown): Promise<void> {
     await this.saveAndEmit({ ...message, status: "failed" });
-    const retryAfterMs = error instanceof SdkError && error.code === "RATE_LIMITED" ? error.retryAfterMs : undefined;
+    const retryAfterMs =
+      error instanceof SdkError && error.code === "RATE_LIMITED" ? error.retryAfterMs : undefined;
     const operation = await this.findOperation(message.id);
     if (operation) {
       const attempts = operation.attempts + 1;
-      const nextAttemptAt = attempts >= maxAutomaticAttempts
-        ? Number.POSITIVE_INFINITY
-        : Date.now() + (retryAfterMs ?? Math.min(maxBackoffMs, 1000 * 2 ** attempts));
+      const nextAttemptAt =
+        attempts >= maxAutomaticAttempts
+          ? Number.POSITIVE_INFINITY
+          : Date.now() + (retryAfterMs ?? Math.min(maxBackoffMs, 1000 * 2 ** attempts));
       await this.context.storage?.saveOutboxOperation({
         ...operation,
         status: "failed",

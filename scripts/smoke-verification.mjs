@@ -42,7 +42,9 @@ async function main() {
     await first.client.crypto.setupRecovery({ password: owner.password });
     second = await signInAgain(owner, "RelayKit verification smoke (second device)");
     await waitForDevice(second.client, aliceUserId, first.deviceId);
-    const trace = message => { if (process.env.RELAYKIT_TRACE) console.error(`[smoke] ${message}`); };
+    const trace = message => {
+      if (process.env.RELAYKIT_TRACE) console.error(`[smoke] ${message}`);
+    };
     first.client.on("verification.changed", session => trace(`first: ${session.phase}`));
     second.client.on("verification.changed", session => trace(`second: ${session.phase}`));
     first.client.on("error", error => trace(`first error: ${error.message}`));

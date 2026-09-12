@@ -53,11 +53,17 @@ test("a device can be renamed and signed out", async () => {
   adapter.addDevice("ALICE-2", "Movil");
 
   await client.devices.rename("ALICE-2", "Movil de trabajo");
-  assert.equal((await client.devices.list()).find(device => device.id === "ALICE-2").displayName, "Movil de trabajo");
+  assert.equal(
+    (await client.devices.list()).find(device => device.id === "ALICE-2").displayName,
+    "Movil de trabajo"
+  );
 
   await client.devices.signOut(["ALICE-2"], { password: "secreta" });
 
-  assert.deepEqual((await client.devices.list()).map(device => device.id), ["ALICE-1"]);
+  assert.deepEqual(
+    (await client.devices.list()).map(device => device.id),
+    ["ALICE-1"]
+  );
   await assert.rejects(client.devices.signOut([], { password: "secreta" }), { code: "INVALID_INPUT" });
   await client.stop();
 });

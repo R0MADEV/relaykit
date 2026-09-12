@@ -25,7 +25,10 @@ async function startClient() {
 async function fill(client, adapter, howManyConversations, messagesEach) {
   const made = [];
   for (let index = 0; index < howManyConversations; index += 1) {
-    const conversation = await client.conversations.create({ participantIds: ["bob"], title: `Sala ${index}` });
+    const conversation = await client.conversations.create({
+      participantIds: ["bob"],
+      title: `Sala ${index}`
+    });
     for (let message = 0; message < messagesEach; message += 1) {
       adapter.receiveMessage(conversation.id, "bob", `aguja ${index}-${message}`);
     }
@@ -84,7 +87,9 @@ test("the newest matches are the ones that come back", async () => {
   const { adapter, client } = await startClient();
   const [conversation] = await fill(client, adapter, 1, 3);
   // A real conversation does not stamp every message with the same millisecond.
-  const newest = adapter.receiveMessage(conversation.id, "bob", "aguja mas nueva", { createdAt: Date.now() + 5000 });
+  const newest = adapter.receiveMessage(conversation.id, "bob", "aguja mas nueva", {
+    createdAt: Date.now() + 5000
+  });
   await client.messages.list(conversation.id);
 
   const found = await client.messages.search("aguja", { limit: 1 });

@@ -38,10 +38,17 @@ async function loadedAdapter(howMany, messagesEach) {
   await adapter.start({ homeserver: "memory://bench", userId: "alice", accessToken: "token" }, {});
   const conversationIds = [];
   for (let index = 0; index < howMany; index += 1) {
-    const conversation = await adapter.createConversation({ participantIds: ["bob"], title: `Sala ${index}` });
+    const conversation = await adapter.createConversation({
+      participantIds: ["bob"],
+      title: `Sala ${index}`
+    });
     conversationIds.push(conversation.id);
     for (let message = 0; message < messagesEach; message += 1) {
-      adapter.receiveMessage(conversation.id, "bob", `mensaje ${message} de ${conversation.id} con algo de texto`);
+      adapter.receiveMessage(
+        conversation.id,
+        "bob",
+        `mensaje ${message} de ${conversation.id} con algo de texto`
+      );
     }
   }
   return { adapter, conversationIds };
@@ -55,11 +62,13 @@ async function main() {
     for (const id of ids) {
       await storage.saveMessages(Array.from({ length: messagesEach }, (_, index) => message(id, index)));
     }
-    await storage.saveConversations(ids.map(id => ({
-      id,
-      participantIds: ["bob"],
-      lastMessage: message(id, messagesEach - 1)
-    })));
+    await storage.saveConversations(
+      ids.map(id => ({
+        id,
+        participantIds: ["bob"],
+        lastMessage: message(id, messagesEach - 1)
+      }))
+    );
   });
 
   await time("read one conversation", () => storage.getMessages(ids[0]));
@@ -67,7 +76,7 @@ async function main() {
     // What reading one conversation cost before the index: every message of every conversation, decrypted.
     await time("read one conversation, walking them all", async () => {
       const everything = [];
-      for (const id of ids) everything.push(...await storage.getMessages(id));
+      for (const id of ids) everything.push(...(await storage.getMessages(id)));
       return everything.filter(item => item.conversationId === ids[0]);
     });
   }
@@ -109,7 +118,9 @@ async function main() {
   await loaded.stop();
 }
 
-main().then(() => process.exit(0)).catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
