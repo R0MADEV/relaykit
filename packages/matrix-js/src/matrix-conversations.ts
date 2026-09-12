@@ -3,6 +3,30 @@ import { waitForRoom, waitUntilRoomIsUsable } from "./matrix-room-operations.js"
 import type { Conversation, CreateConversationInput } from "@relaykit/core";
 import { mapConversation } from "./matrix-mapper.js";
 
+/**
+ * Which events anybody in the conversation may send, and which take an admin.
+ *
+ * Being on a call is written into the room as state, and a room's defaults let only admins write state. Left
+ * alone, whoever made the conversation could join its conference and nobody else could: the room answered
+ * them with a 403, the SDK gave up in the background, and to everybody else they were never there. So the
+ * two names a call membership is written under are open to everybody, the way saying something is.
+ *
+ * Naming any event here replaces the whole default list, so what the defaults protected is said again in
+ * full — a room where anybody can hand out power or turn off encryption is not a room.
+ */
+const whoMaySayWhat: Record<string, number> = {
+  [EventType.GroupCallMemberPrefix]: 0,
+  [EventType.RTCMembership]: 0,
+  [EventType.RoomAvatar]: 50,
+  [EventType.RoomCanonicalAlias]: 50,
+  [EventType.RoomName]: 50,
+  [EventType.RoomEncryption]: 100,
+  [EventType.RoomHistoryVisibility]: 100,
+  [EventType.RoomPowerLevels]: 100,
+  [EventType.RoomServerAcl]: 100,
+  [EventType.RoomTombstone]: 100
+};
+
 export async function createMatrixConversation(
   client: MatrixClient,
   input: CreateConversationInput
@@ -26,7 +50,8 @@ export async function createMatrixConversation(
           ]
         }
       : {}),
-    ...(input.title ? { name: input.title } : {})
+    ...(input.title ? { name: input.title } : {}),
+    power_level_content_override: { events: whoMaySayWhat }
   };
   const response = await client.createRoom(roomOptions);
   if (input.direct) await markAsDirect(client, response.room_id, input.participantIds);
