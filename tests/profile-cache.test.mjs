@@ -20,7 +20,14 @@ async function startClient() {
   const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session, now: () => now });
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
-  return { adapter, client, conversation, at: value => { now = value; } };
+  return {
+    adapter,
+    client,
+    conversation,
+    at: value => {
+      now = value;
+    }
+  };
 }
 
 test("painting the same name twenty times asks once", async () => {
@@ -70,7 +77,7 @@ test("a name that has been held long enough is asked for again", async () => {
 });
 
 test("changing my own name does not leave the old one being shown", async () => {
-  const { adapter, client } = await startClient();
+  const { client } = await startClient();
   await client.users.profile("alice");
 
   await client.users.setDisplayName("Alicia");

@@ -89,7 +89,10 @@ test("restart recovers an operation interrupted while sending", async () => {
   const messages = await second.messages.list(conversation.id);
 
   assert.deepEqual(adapter.sentBodies, ["interrupted"]);
-  assert.deepEqual(messages.map(message => [message.body, message.status]), [["interrupted", "sent"]]);
+  assert.deepEqual(
+    messages.map(message => [message.body, message.status]),
+    [["interrupted", "sent"]]
+  );
   assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
   await second.stop();
 });
@@ -116,7 +119,10 @@ test("restart recovers an operation whose message record was lost", async () => 
   await second.start();
   const messages = await second.messages.list(conversation.id);
 
-  assert.deepEqual(messages.map(message => [message.body, message.status]), [["orphan", "sent"]]);
+  assert.deepEqual(
+    messages.map(message => [message.body, message.status]),
+    [["orphan", "sent"]]
+  );
   assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
   await second.stop();
 });
@@ -148,7 +154,9 @@ test("concurrent retries of the same message send it once", async () => {
   const failed = await createFailedMessage(client, conversation.id, "once");
 
   let release;
-  adapter.releaseSend = new Promise(resolve => { release = resolve; });
+  adapter.releaseSend = new Promise(resolve => {
+    release = resolve;
+  });
   const retries = Promise.all([client.messages.retry(failed.id), client.messages.retry(failed.id)]);
   release();
   const [left, right] = await retries;
@@ -187,7 +195,10 @@ test("cancel removes a failed message and its outbox operation", async () => {
 
   assert.equal(cancelled.status, "cancelled");
   assert.equal(updates.at(-1)?.status, "cancelled");
-  assert.deepEqual((await client.messages.list(conversation.id)).filter(message => message.body === "never"), []);
+  assert.deepEqual(
+    (await client.messages.list(conversation.id)).filter(message => message.body === "never"),
+    []
+  );
   assert.deepEqual(await storage.getReadyOutbox(Number.MAX_SAFE_INTEGER), []);
   assert.deepEqual(adapter.sentBodies, []);
   await client.stop();
@@ -259,7 +270,7 @@ test("what was queued while offline is sent as soon as the connection comes back
   await client.start();
   const conversation = await client.conversations.create({ participantIds: ["bob"] });
   adapter.failuresLeft = 1;
-  const failed = await createFailedMessage(client, conversation.id, "pendiente");
+  await createFailedMessage(client, conversation.id, "pendiente");
   assert.deepEqual(adapter.sentBodies, []);
 
   adapter.simulateConnection("connected");

@@ -1,16 +1,17 @@
 import { deflateSync } from "node:zlib";
-import { MessagingClient } from "@relaykit/core";
-import { InMemoryStorage } from "@relaykit/in-memory";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { registerAccount } from "./fresh-accounts.mjs";
 
 // Everything a conversation is besides plain text: rich text, mentions, a description, a picture, pinning.
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
-  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
-    username: account.username, password: account.password };
+  return {
+    client: account.client,
+    userId: account.userId,
+    deviceId: account.deviceId,
+    username: account.username,
+    password: account.password
+  };
 }
 
 async function waitFor(description, check, attempts = 120) {
@@ -49,12 +50,14 @@ function pngOf(side) {
     }
     rows.push(row);
   }
-  return new Uint8Array(Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(Buffer.concat(rows))),
-    pngChunk("IEND", Buffer.alloc(0))
-  ]));
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      pngChunk("IHDR", header),
+      pngChunk("IDAT", deflateSync(Buffer.concat(rows))),
+      pngChunk("IEND", Buffer.alloc(0))
+    ])
+  );
 }
 
 function pngChunk(type, body) {
@@ -176,7 +179,9 @@ async function main() {
     const small = await aliceSide.client.users.avatar(aliceSide.userId, { size: 32 });
     if (!small) throw new Error("Asking for a picture at a size gave nothing back");
     if (small.data.byteLength >= whole.data.byteLength) {
-      throw new Error(`A picture asked for small came back at ${small.data.byteLength} of ${whole.data.byteLength} bytes`);
+      throw new Error(
+        `A picture asked for small came back at ${small.data.byteLength} of ${whole.data.byteLength} bytes`
+      );
     }
     const savedByAsking = Math.round(whole.data.byteLength / small.data.byteLength);
 
@@ -247,7 +252,9 @@ async function main() {
     });
     await bobSide.client.conversations.setNotifications(conversation.id, "all");
 
-    console.log(`RelayKit chat smoke check passed (rich text, mention, action, voice note, place, forwarding, new key, description, picture ${savedByAsking}x smaller when asked small, ${whoWasFound.id} found by name, pinning, silence)`);
+    console.log(
+      `RelayKit chat smoke check passed (rich text, mention, action, voice note, place, forwarding, new key, description, picture ${savedByAsking}x smaller when asked small, ${whoWasFound.id} found by name, pinning, silence)`
+    );
   } finally {
     for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
   }

@@ -15,16 +15,26 @@ const { startMatrixPoll } = await import("../packages/matrix-js/dist/matrix-poll
 test("a poll is written with the SDK's own names, so anybody else can read it", async () => {
   let written;
   const client = {
-    sendEvent: async (_room, _type, content) => { written = content; return { event_id: "$1" }; },
+    sendEvent: async (_room, _type, content) => {
+      written = content;
+      return { event_id: "$1" };
+    },
     getRoom: () => ({ getLiveTimeline: () => ({ getEvents: () => [{ getId: () => "$1" }] }) })
   };
 
-  await startMatrixPoll(client, "!room:localhost", { question: "¿Comemos?", answers: ["Sí", "No"] })
-    .catch(() => undefined);
+  await startMatrixPoll(client, "!room:localhost", { question: "¿Comemos?", answers: ["Sí", "No"] }).catch(
+    () => undefined
+  );
 
   const poll = written[M_POLL_START.name];
   assert.equal(poll.kind, M_POLL_KIND_UNDISCLOSED.name, "the kind of poll is not the one the SDK names");
   assert.equal(poll.question[M_TEXT.name], "¿Comemos?", "the question is not where the SDK looks for it");
   assert.equal(poll.answers[0][M_TEXT.name], "Sí", "an answer is not where the SDK looks for it");
-  assert.equal(written[M_TEXT.name], undefined ?? written[M_TEXT.name], "sanity");
+  // A poll also travels as plain text, for whoever is reading with something that does not know what a poll
+  // is. Without this they get an empty message instead of a question.
+  assert.equal(
+    written[M_TEXT.name],
+    "¿Comemos?\n1. Sí\n2. No",
+    "a client that does not know polls has nothing to read"
+  );
 });

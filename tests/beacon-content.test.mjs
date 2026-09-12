@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ContentHelpers, M_BEACON_INFO } from "matrix-js-sdk";
+import { ContentHelpers } from "matrix-js-sdk";
 
 const { startMatrixLiveLocation } = await import("../packages/matrix-js/dist/matrix-location.js");
 
@@ -13,16 +13,27 @@ test("what is sent to start sharing is what the SDK builds", async () => {
   let written;
   const client = {
     getSafeUserId: () => "@alice:localhost",
-    sendStateEvent: async (_room, _type, content) => { written = content; return { event_id: "$1" }; },
+    sendStateEvent: async (_room, _type, content) => {
+      written = content;
+      return { event_id: "$1" };
+    },
     getRoom: () => ({
       currentState: { getStateEvents: () => ({ getContent: () => ({ live: true }), getId: () => "$1" }) }
     })
   };
 
-  await startMatrixLiveLocation(client, "!room:localhost", { durationMs: 600000, description: "En camino" })
-    .catch(() => undefined);
+  await startMatrixLiveLocation(client, "!room:localhost", {
+    durationMs: 600000,
+    description: "En camino"
+  }).catch(() => undefined);
 
-  const theirs = ContentHelpers.makeBeaconInfoContent(600000, true, "En camino", "m.self", written?.["org.matrix.msc3488.ts"]);
+  const theirs = ContentHelpers.makeBeaconInfoContent(
+    600000,
+    true,
+    "En camino",
+    "m.self",
+    written?.["org.matrix.msc3488.ts"]
+  );
   assert.deepEqual(written, theirs, "the shape sent is not the one the SDK builds");
 });
 
@@ -37,7 +48,10 @@ test("a place is sent as the SDK builds it", async () => {
   let written;
   // An ordinary message goes out through `sendMessage`, which is where the shape can be seen.
   const client = {
-    sendMessage: async (_room, content) => { written = content; return { event_id: "$1" }; },
+    sendMessage: async (_room, content) => {
+      written = content;
+      return { event_id: "$1" };
+    },
     getRoom: () => undefined,
     getSafeUserId: () => "@alice:localhost"
   };
@@ -47,7 +61,12 @@ test("a place is sent as the SDK builds it", async () => {
   }).catch(() => undefined);
 
   const theirs = ContentHelpers.makeLocationContent(
-    "Estoy aquí", "geo:43.26,-2.93", written?.["org.matrix.msc3488.ts"], "Bilbao", "m.self");
+    "Estoy aquí",
+    "geo:43.26,-2.93",
+    written?.["org.matrix.msc3488.ts"],
+    "Bilbao",
+    "m.self"
+  );
   for (const [name, value] of Object.entries(theirs)) {
     assert.deepEqual(written?.[name], value, `the place is missing what the SDK puts in ${name}`);
   }

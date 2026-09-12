@@ -1,15 +1,16 @@
-import { MessagingClient } from "@relaykit/core";
-import { InMemoryStorage } from "@relaykit/in-memory";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { registerAccount } from "./fresh-accounts.mjs";
 
 // The things that only exist while somebody is looking: typing, presence and read receipts.
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
-  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
-    username: account.username, password: account.password };
+  return {
+    client: account.client,
+    userId: account.userId,
+    deviceId: account.deviceId,
+    username: account.username,
+    password: account.password
+  };
 }
 
 async function waitFor(description, check, attempts = 120) {
@@ -49,11 +50,15 @@ async function main() {
     // Somebody typing reaches the other side, and so does them stopping.
     await bobSide.client.conversations.typing(conversation.id, true);
     await waitFor("Alice to see Bob typing", () =>
-      typing.some(update => update.conversationId === conversation.id && update.userIds.includes(bobSide.userId))
+      typing.some(
+        update => update.conversationId === conversation.id && update.userIds.includes(bobSide.userId)
+      )
     );
     await bobSide.client.conversations.typing(conversation.id, false);
     await waitFor("Alice to see Bob stop typing", () =>
-      typing.some(update => update.conversationId === conversation.id && !update.userIds.includes(bobSide.userId))
+      typing.some(
+        update => update.conversationId === conversation.id && !update.userIds.includes(bobSide.userId)
+      )
     );
 
     // Reading a message tells the person who sent it, and only once for the same point.
@@ -106,7 +111,9 @@ async function main() {
       return messages.some(message => message.body === whileAway && !message.undecryptable);
     });
 
-    console.log(`RelayKit live smoke check passed (typing, ${receipts.length} receipt(s), presence ${seen.presence}, reopened in ${paintedIn} ms)`);
+    console.log(
+      `RelayKit live smoke check passed (typing, ${receipts.length} receipt(s), presence ${seen.presence}, reopened in ${paintedIn} ms)`
+    );
   } finally {
     for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
   }

@@ -1,14 +1,11 @@
-import { MessagingClient } from "@relaykit/core";
-import { InMemoryStorage } from "@relaykit/in-memory";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { registerAccount } from "./fresh-accounts.mjs";
 
 // Registrar un gateway y que el homeserver le entregue algo no son lo mismo. Aqui hay un gateway de verdad,
 // dentro de la red de Docker, que apunta lo que recibe. Se comprueba que llega lo que tiene que llegar y que
 // NO llega lo que no debe: con `event_id_only`, lo dicho se queda entre los dispositivos.
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 // El homeserver lo alcanza por nombre dentro de la red; esta comprobacion lo lee por el puerto publicado.
-const gatewayFromHomeserver = process.env.PUSH_GATEWAY_URL ?? "http://push-gateway:8080/_matrix/push/v1/notify";
+const gatewayFromHomeserver =
+  process.env.PUSH_GATEWAY_URL ?? "http://push-gateway:8080/_matrix/push/v1/notify";
 const gatewayFromHere = process.env.PUSH_GATEWAY_INSPECT ?? "http://localhost:8090/received";
 
 process.on("unhandledRejection", error => {
@@ -26,8 +23,13 @@ async function whatTheGatewayReceived() {
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
-  return { client: account.client, userId: account.userId, deviceId: account.deviceId,
-    username: account.username, password: account.password };
+  return {
+    client: account.client,
+    userId: account.userId,
+    deviceId: account.deviceId,
+    username: account.username,
+    password: account.password
+  };
 }
 
 async function waitFor(description, check, attempts = 60) {
@@ -82,7 +84,9 @@ async function main() {
       throw new Error("The message reached the gateway, so what is said does not stay between the devices");
     }
 
-    console.log(`RelayKit push smoke check passed (${everything.length} notified, and what was said never left)`);
+    console.log(
+      `RelayKit push smoke check passed (${everything.length} notified, and what was said never left)`
+    );
   } finally {
     for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
   }

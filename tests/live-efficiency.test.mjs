@@ -72,12 +72,14 @@ test("a conversation nobody had seen before is read in", async () => {
 });
 
 test("subscribers are only told when something actually changed", async () => {
-  const { adapter, client } = await startClient();
+  const { client } = await startClient();
   const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Equipo" });
   const list = createConversationList(client);
   await list.refresh();
   let told = 0;
-  list.subscribe(() => { told += 1; });
+  list.subscribe(() => {
+    told += 1;
+  });
 
   // Renaming to the name it already has changes nothing, so nobody should be woken up.
   await client.conversations.rename(conversation.id, "Equipo");

@@ -71,7 +71,7 @@ test("being put on hold by the other side is something the call says", async () 
 test("a call going wrong is told, not left to end without a word", async () => {
   const told = [];
   const call = callThat();
-  const { calls } = await placed(call, reported => told.push(reported));
+  await placed(call, reported => told.push(reported));
   told.length = 0;
 
   call.fire("error", new Error("no_user_media"));
@@ -118,9 +118,13 @@ test("two changes to the same call happen one after the other, not at once", asy
   let muted = false;
   let held = false;
   const call = callThat({
-    setMicrophoneMuted: slowly("silence", () => { muted = true; }),
+    setMicrophoneMuted: slowly("silence", () => {
+      muted = true;
+    }),
     isMicrophoneMuted: () => muted,
-    setRemoteOnHold: slowly("hold", () => { held = true; }),
+    setRemoteOnHold: slowly("hold", () => {
+      held = true;
+    }),
     isRemoteOnHold: () => held
   });
   const { calls } = await placed(call);
@@ -151,7 +155,11 @@ test("two calls can be joined, which is what transferring properly means", async
   };
   const { MatrixCalls: Calls } = await import("../packages/matrix-js/dist/matrix-calls.js");
   const calls = new Calls();
-  calls.watch(client, () => undefined, () => undefined);
+  calls.watch(
+    client,
+    () => undefined,
+    () => undefined
+  );
   await calls.place(client, "!one:localhost", {});
   await calls.place(client, "!two:localhost", {});
 

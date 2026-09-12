@@ -1,8 +1,5 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { MessagingClient } from "@relaykit/core";
-import { InMemoryStorage } from "@relaykit/in-memory";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { registerAccount } from "./fresh-accounts.mjs";
 
 const run = promisify(execFile);
@@ -25,7 +22,9 @@ async function waitFor(description, check, attempts = 120) {
 
 async function homeserverIsUp() {
   try {
-    const response = await fetch(`${homeserver}/_matrix/client/versions`, { signal: AbortSignal.timeout(2000) });
+    const response = await fetch(`${homeserver}/_matrix/client/versions`, {
+      signal: AbortSignal.timeout(2000)
+    });
     return response.ok;
   } catch {
     return false;
@@ -67,8 +66,9 @@ async function main() {
     if (!(failure instanceof Error)) {
       throw new Error("Sending while the homeserver is down should not look like success");
     }
-    const pending = (await aliceDevice.client.messages.list(conversation.id))
-      .find(message => message.body === queued);
+    const pending = (await aliceDevice.client.messages.list(conversation.id)).find(
+      message => message.body === queued
+    );
     if (pending?.status !== "failed") {
       throw new Error(`The queued message is in state ${pending?.status}, not waiting to be sent`);
     }
@@ -82,8 +82,9 @@ async function main() {
       const messages = await bobDevice.client.messages.list(conversation.id);
       return messages.some(message => message.body === queued && !message.undecryptable);
     });
-    const delivered = (await aliceDevice.client.messages.list(conversation.id))
-      .find(message => message.body === queued);
+    const delivered = (await aliceDevice.client.messages.list(conversation.id)).find(
+      message => message.body === queued
+    );
     if (delivered?.status !== "sent") {
       throw new Error(`Alice still sees the message as ${delivered?.status}`);
     }

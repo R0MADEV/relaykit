@@ -1,8 +1,4 @@
-import { MessagingClient } from "@relaykit/core";
-import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
-
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
@@ -25,11 +21,15 @@ async function waitFor(description, check, attempts = 60) {
 }
 
 async function waitForReadable(device, conversationId, body) {
-  const found = await waitFor(`${device.deviceName} to read "${body}"`, async () => {
-    const messages = await device.client.messages.list(conversationId);
-    const message = messages.find(item => item.body === body);
-    return message && !message.undecryptable ? message : undefined;
-  }, 60).catch(async error => {
+  const found = await waitFor(
+    `${device.deviceName} to read "${body}"`,
+    async () => {
+      const messages = await device.client.messages.list(conversationId);
+      const message = messages.find(item => item.body === body);
+      return message && !message.undecryptable ? message : undefined;
+    },
+    60
+  ).catch(async error => {
     const messages = await device.client.messages.list(conversationId);
     const seen = messages.map(item => `${item.undecryptable ? "[cifrado]" : item.body.slice(0, 20)}`);
     throw new Error(`${error.message} | ${device.deviceName} ve ${messages.length}: ${seen.join(" / ")}`);
@@ -68,7 +68,7 @@ async function main() {
     // A message encrypted before the sender has seen somebody join cannot be read by that person.
     const fromBob = `bob-${Date.now()}`;
     await bobDevice.client.messages.send(conversation.id, fromBob);
-    const seenOnLaptop = await waitForReadable(laptop, conversation.id, fromBob);
+    await waitForReadable(laptop, conversation.id, fromBob);
     await waitForReadable(phone, conversation.id, fromBob);
 
     // What one device sends, the other device of the same person must be able to read.

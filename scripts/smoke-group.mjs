@@ -1,8 +1,6 @@
 import { registerAccount } from "./fresh-accounts.mjs";
 
-const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 const people = ["group-a", "group-b", "group-c"];
-
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
@@ -48,10 +46,14 @@ async function main() {
     const everyone = await waitFor("the three participants to be in the conversation", async () => {
       const conversations = await alice.client.conversations.list();
       const current = conversations.find(item => item.id === conversation.id);
-      return current && members.every(member => current.participantIds.includes(member.userId)) ? current : undefined;
+      return current && members.every(member => current.participantIds.includes(member.userId))
+        ? current
+        : undefined;
     });
     if (everyone.participantIds.length < 3) {
-      throw new Error(`The group has ${everyone.participantIds.length} participants: ${everyone.participantIds}`);
+      throw new Error(
+        `The group has ${everyone.participantIds.length} participants: ${everyone.participantIds}`
+      );
     }
 
     // Every member must be able to read what any other member writes.
@@ -84,7 +86,9 @@ async function main() {
     // Who is allowed to do what, and making somebody a moderator.
     const asOwner = await alice.client.conversations.permissions(conversation.id);
     if (!asOwner.canRemove || !asOwner.canRename) {
-      throw new Error(`The person who created the conversation cannot moderate it: ${JSON.stringify(asOwner)}`);
+      throw new Error(
+        `The person who created the conversation cannot moderate it: ${JSON.stringify(asOwner)}`
+      );
     }
     const asMember = await bob.client.conversations.permissions(conversation.id);
     if (asMember.canRemove) {
@@ -156,7 +160,9 @@ async function main() {
     await alice.client.messages.send(conversation.id, stillTalking);
     await waitForMessage(bob, conversation.id, stillTalking);
 
-    console.log(`RelayKit group smoke check passed (3 members, unread ${unreadForCarol}, ${afterLeaving.participantIds.length} left talking)`);
+    console.log(
+      `RelayKit group smoke check passed (3 members, unread ${unreadForCarol}, ${afterLeaving.participantIds.length} left talking)`
+    );
   } finally {
     for (const member of members) await member.client.logout().catch(() => undefined);
   }
