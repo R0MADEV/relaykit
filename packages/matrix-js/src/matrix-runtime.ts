@@ -54,7 +54,7 @@ export class MatrixRuntime {
     // The homeserver refusing this session is not an ordinary error: nobody here asked for it, and there is
     // nothing left to do with this client. The SDK says so once, on its own channel.
     this.client.on(HttpApiEvent.SessionLoggedOut, this.handleSessionEnded);
-    // Las llamadas las crea y las senaliza el SDK; aqui solo se traducen al contrato.
+    // The SDK creates and signals the calls; here they are only turned into the contract.
     this.calls.watch(
       this.client,
       call => handlers.onCallIncoming?.(call),
