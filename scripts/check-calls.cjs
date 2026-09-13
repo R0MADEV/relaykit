@@ -587,6 +587,10 @@ async function holdAConference(alice, bob, address) {
       `Bob was rung for a conference that does not say alice is in it: ${said.bobWasRungByTheRoom}`
     );
   }
+  // And not himself: a screen ringing for a call must not show you already on it.
+  if (said.bobWasRungByTheRoom.includes("@bob:localhost")) {
+    throw new Error("Bob was shown on a call he had not joined");
+  }
 
   for (const page of [bob, carol]) {
     await page.webContents.executeJavaScript(`

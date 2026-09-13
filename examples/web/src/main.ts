@@ -1235,13 +1235,15 @@ class DemoApp {
     // Alone on a call you started is still ringing the others; with anybody else on it, you are talking.
     const others = call.participants.filter(one => one.userId !== this.ownUserId);
     const names = others.map(one => this.nameOf(one.userId)).join(", ");
-    this.element("call-state").textContent = beingRung
-      ? `${this.nameOf(call.callerId)} te llama`
-      : others.length > 0
-        ? `En llamada con ${names}: ${call.state}`
-        : placedByMe
-          ? `Llamando: ${call.state}`
-          : "Solo en la llamada";
+    // Ringing is a call going on without you: there to be joined, whether or not anybody rang you for it.
+    this.element("call-state").textContent =
+      call.state === "ringing"
+        ? `Llamada en curso con ${names || this.nameOf(call.callerId)}`
+        : others.length > 0
+          ? `En llamada con ${names}`
+          : placedByMe
+            ? "Llamando…"
+            : "Solo en la llamada";
 
     this.drawParticipants(call);
 

@@ -71,6 +71,7 @@ export class MatrixConference {
       session.on(MatrixRTCSessionEvent.MembershipsChanged, changed);
       const going: Announced = {
         session,
+        ownUserId: client.getSafeUserId(),
         conversationId: roomId,
         startedAt: Math.min(...session.memberships.map(member => member.createdTs())),
         stopListening: () => session.off(MatrixRTCSessionEvent.MembershipsChanged, changed)
@@ -367,7 +368,10 @@ export class MatrixConference {
    * `ringing` is the honest word — it is going on without this side, and there is something to join.
    */
   private describeAnnounced(callId: string, going: Announced): Call {
-    const participants: CallParticipant[] = newestPerPerson(going.session.memberships).map(member => ({
+    // Not this account, from any device: a screen ringing for a call must not show you already on it. What
+    // an older device of yours left behind is not you, and if your phone really is on it, you know.
+    const others = going.session.memberships.filter(member => member.userId !== going.ownUserId);
+    const participants: CallParticipant[] = newestPerPerson(others).map(member => ({
       userId: member.userId,
       deviceId: member.deviceId,
       isMicrophoneMuted: false,
@@ -486,6 +490,7 @@ interface Joined {
 /** A conference the room says is going on, that this side has not entered. */
 interface Announced {
   readonly session: MatrixRTCSession;
+  readonly ownUserId: UserId;
   readonly conversationId: ConversationId;
   readonly startedAt: number;
   readonly stopListening: () => void;
