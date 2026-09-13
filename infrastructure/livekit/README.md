@@ -89,6 +89,17 @@ Y tres cosas que no son obstáculos pero conviene saber:
   dónde se lleva la conferencia, y Synapse responde `404`. Es ruido en el log, no un fallo: cae al
   `.well-known`, que es lo que lee `matrix-rtc.ts`.
 
+## Lo que el homeserver de producción tiene que tener
+
+- **`max_event_delay_duration` configurado en Synapse** (por ejemplo `24h`). Es lo que enciende los *delayed
+  events*, y sin ellos quien cierre la pestaña o se quede sin batería sigue en la llamada cuatro horas para
+  todos los demás. No es opcional: el check `dying` de `npm run check:calls` mata la pestaña de alice en mitad
+  de una llamada y exige que bob la vea irse en segundos (unos 20 en el entorno de desarrollo), y solo pasa
+  con esto activo.
+- El servicio de tokens anunciado en `.well-known/matrix/client` bajo `org.matrix.msc4143.rtc_foci`.
+- Salas con los dos tipos de membresía de llamada abiertos a sus miembros (las nuevas nacen así; las antiguas
+  las abre el primer administrador que llame).
+
 ## Solo para desarrollo
 
 El secreto está en el fichero, no hay TLS y se confía en el homeserver por HTTP. En producción hacen falta

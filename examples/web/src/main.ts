@@ -117,6 +117,11 @@ class DemoApp {
     this.select("username").addEventListener("change", () => {
       this.input("password").value = `${this.select("username").value}-password`;
     });
+    // Closing or reloading the page in the middle of a call: a last word to the others, as far as the browser
+    // lets one be said. The homeserver's delayed events take the membership down anyway if this does not land.
+    window.addEventListener("pagehide", () => {
+      if (this.call) void this.client.calls.hangUp(this.call.id).catch(() => undefined);
+    });
     // The way out. The session is forgotten here and on the homeserver, and the page starts over.
     this.element("sign-out").addEventListener("click", () => {
       localStorage.removeItem(rememberedSession);

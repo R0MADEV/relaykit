@@ -705,12 +705,57 @@ async function holdAConference(alice, bob, address) {
 }
 
 /**
+ * A tab that dies in the middle of a call. Nobody hangs up, nothing is sent: the browser is simply gone, the
+ * way it is when somebody closes it or reloads it or the machine sleeps. Everybody else must see them leave
+ * anyway, and soon. That is the homeserver's delayed events doing what the SDK asked of them when it joined
+ * — "take my membership down in eight seconds unless I say otherwise" — and without them the dead stay on
+ * the call for four hours and everybody's screen keeps drawing them.
+ */
+async function dyingLeavesTheCall(alice, bob, conversationId) {
+  await alice.webContents.executeJavaScript(`document.getElementById("call").click(); true;`);
+  await waitFor(
+    bob,
+    "bob's screen to ring before alice dies",
+    `!document.getElementById("call-panel").hidden && !document.getElementById("answer").hidden`
+  );
+  await bob.webContents.executeJavaScript(`document.getElementById("answer").click(); true;`);
+  await waitFor(
+    bob,
+    "bob and alice to be on the call together",
+    `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.some(call => call.conversationId === ${JSON.stringify(conversationId)} && call.state === "connected" && call.participants.length === 2))
+  `
+  );
+
+  // Gone, without a word.
+  const died = Date.now();
+  alice.destroy();
+
+  detail.deadLeftWithin = await waitFor(
+    bob,
+    "alice to be gone from bob's call after her tab died",
+    `
+    window.relaykitDemo.client.calls.list().then(calls => {
+      const call = calls.find(one => one.conversationId === ${JSON.stringify(conversationId)});
+      return call && call.participants.length === 1 && call.participants[0].userId === "@bob:localhost" && "yes";
+    })
+  `,
+    90
+  ).then(() => `${Math.round((Date.now() - died) / 1000)}s`);
+
+  await bob.webContents.executeJavaScript(`document.getElementById("hang-up").click(); true;`);
+  await waitFor(bob, "bob's call panel to go away", `document.getElementById("call-panel").hidden`);
+}
+
+/**
  * Every run signs in as a new device and, left like this, never signs out: hundreds of dead devices per
  * account, each with Olm sessions and one-time keys nobody will use again, until keys sent between the live
  * ones start going astray. A device that is done says so.
  */
 async function signOut(...pages) {
   for (const page of pages) {
+    if (page.isDestroyed()) continue;
     await page.webContents.executeJavaScript(
       `window.relaykitDemo.client.logout().then(() => true, () => true)`
     );
@@ -806,7 +851,9 @@ async function run() {
       await chooseDevicesAndUseThem(alice, bob, conversationId);
     },
     camera: () => turnTheCameraOnMidCall(alice, bob),
-    conference: () => holdAConference(alice, bob, address)
+    conference: () => holdAConference(alice, bob, address),
+    // Last, because alice does not come back from it.
+    dying: () => dyingLeavesTheCall(alice, bob, conversationId)
   };
   const unknown = (only ?? []).filter(name => !(name in steps));
   if (unknown.length > 0) {

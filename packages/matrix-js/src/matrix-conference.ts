@@ -368,10 +368,8 @@ export class MatrixConference {
    * `ringing` is the honest word — it is going on without this side, and there is something to join.
    */
   private describeAnnounced(callId: string, going: Announced): Call {
-    // Not this account, from any device: a screen ringing for a call must not show you already on it. What
-    // an older device of yours left behind is not you, and if your phone really is on it, you know.
-    const others = going.session.memberships.filter(member => member.userId !== going.ownUserId);
-    const participants: CallParticipant[] = newestPerPerson(others).map(member => ({
+    const people = peopleOnARingingCall(going.session.memberships, going.ownUserId);
+    const participants: CallParticipant[] = people.map(member => ({
       userId: member.userId,
       deviceId: member.deviceId,
       isMicrophoneMuted: false,
@@ -443,6 +441,17 @@ export function newestPerPerson<T extends SaidToBeOnTheCall>(memberships: readon
   return [...newest.values()].sort(
     (one, other) => (arrived.get(one.userId) ?? 0) - (arrived.get(other.userId) ?? 0)
   );
+}
+
+/**
+ * Who a screen ringing for a call shows: everybody but this account. What an older device of yours left
+ * behind is not you, and while it rings you are not on it — and if your phone really is, you know.
+ */
+export function peopleOnARingingCall<T extends SaidToBeOnTheCall>(
+  memberships: readonly T[],
+  ownUserId: string
+): T[] {
+  return newestPerPerson(memberships.filter(member => member.userId !== ownUserId));
 }
 
 /** Whether a membership is this very device's, which is the one that must not ring for itself. */
