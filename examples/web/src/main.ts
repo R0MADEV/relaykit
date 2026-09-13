@@ -1394,11 +1394,15 @@ function buildClient(): MessagingClient {
  * demo was opened with can say it instead: `?conference=http://localhost:8091`.
  */
 function whereConferencesAreCarried(): { conferenceServiceUrl?: string } {
-  const said = new URLSearchParams(location.search).get("conference");
-  if (said) return { conferenceServiceUrl: said };
-  // On a development machine it is next door, on the port `infrastructure/livekit` publishes it on.
+  // Where conferences are carried is where this client sends its Matrix OpenID token, and what is set here
+  // wins over what the homeserver advertises. Taken from the address anywhere, a link somebody else wrote
+  // would point that token at a server of their choosing, so the override stays what it was meant to be: a
+  // convenience for a machine with no `.well-known` to ask.
   const isADevelopmentMachine = ["localhost", "127.0.0.1"].includes(location.hostname);
-  return isADevelopmentMachine ? { conferenceServiceUrl: "http://localhost:8091" } : {};
+  if (!isADevelopmentMachine) return {};
+  const said = new URLSearchParams(location.search).get("conference");
+  // On a development machine it is next door, on the port `infrastructure/livekit` publishes it on.
+  return { conferenceServiceUrl: said ?? "http://localhost:8091" };
 }
 
 function readRememberedSession(): Session | undefined {
