@@ -1,4 +1,6 @@
 import { ClientPrefix, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
+import "./matrix-proposals.js";
+import type { EncryptedFile, FileInfo } from "matrix-js-sdk/lib/@types/media.js";
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
@@ -104,8 +106,7 @@ export async function sendMatrixAttachment(
   });
   const thumbnail = file.thumbnail ? await uploadThumbnail(client, file.thumbnail, isEncrypted) : undefined;
   onProgress?.(1);
-  const content = {
-    msgtype: msgTypeFor(file.mimeType),
+  const said: SentFile = {
     body: file.name,
     info: {
       mimetype: file.mimeType,
@@ -116,30 +117,40 @@ export async function sendMatrixAttachment(
       // Where every client that paints it puts it, which is what makes it useful.
       ...(file.blurhash ? { "xyz.amorgan.blurhash": file.blurhash } : {}),
       ...(thumbnail ? thumbnail.info : {})
-    },
-    // A voice note says so in three places, which is what other clients look at to draw it instead of listing it.
-    ...(file.voice
-      ? {
-          "org.matrix.msc3245.voice": {},
-          "org.matrix.msc1767.audio": {
-            duration: file.voice.durationMs,
-            ...(file.voice.waveform ? { waveform: [...file.voice.waveform] } : {})
-          }
-        }
-      : {}),
-    ...(encrypted ? { file: { ...encrypted.info, url: upload.content_uri } } : { url: upload.content_uri })
+    }
   };
-  // TypeScript cannot build a member of a discriminated union when the discriminant is decided at runtime,
-  // and msgtype here follows the file's type. The alternative is writing the same object out four times, one
-  // per kind, which is four places for the shape to drift. One step, not through unknown: what is built does
-  // belong to the union, and only the compiler cannot see which member it is.
-  return sendWithTransaction(
-    client,
-    conversationId,
-    content as RoomMessageEventContent,
-    transactionId,
-    file.sticker === true
-  );
+  // A voice note says so in three places, which is what other clients look at to draw it instead of listing it.
+  if (file.voice) {
+    said["org.matrix.msc3245.voice"] = {};
+    said["org.matrix.msc1767.audio"] = {
+      duration: file.voice.durationMs,
+      ...(file.voice.waveform ? { waveform: [...file.voice.waveform] } : {})
+    };
+  }
+  // Written out rather than spread: what encrypts describes the same thing as the SDK does, but says the
+  // hashes and the version may be missing where the SDK says they are always there. They always are — so
+  // this is where the two descriptions are reconciled, in the open, instead of by assertion.
+  if (encrypted) {
+    said.file = {
+      url: upload.content_uri,
+      key: encrypted.info.key,
+      iv: encrypted.info.iv,
+      hashes: encrypted.info.hashes ?? {},
+      v: encrypted.info.v ?? "v2"
+    };
+  } else {
+    said.url = upload.content_uri;
+  }
+
+  // Each kind goes out by name: a member of a union told apart by `msgtype` cannot be built from a value
+  // worked out while the program runs, so naming it is what lets the compiler check what is sent.
+  const sent = (content: RoomMessageEventContent) =>
+    sendWithTransaction(client, conversationId, content, transactionId, file.sticker === true);
+  const kind = msgTypeFor(file.mimeType);
+  if (kind === MsgType.Image) return sent({ ...said, msgtype: MsgType.Image });
+  if (kind === MsgType.Video) return sent({ ...said, msgtype: MsgType.Video });
+  if (kind === MsgType.Audio) return sent({ ...said, msgtype: MsgType.Audio });
+  return sent({ ...said, msgtype: MsgType.File });
 }
 
 /** A thumbnail is uploaded the same way as the file, and encrypted whenever the file is. */
@@ -253,6 +264,22 @@ function parseSource(source: string): MatrixAttachmentSource {
 function isAttachmentSource(value: unknown): value is MatrixAttachmentSource {
   if (typeof value !== "object" || value === null) return false;
   return "url" in value && typeof value.url === "string";
+}
+
+/**
+ * Everything a sent file carries besides which kind of file it is.
+ *
+ * `m.relates_to` is named though a file never carries one: the SDK's content is told apart by which kind of
+ * relation it has, so a shape that never mentions relations matches none of them.
+ */
+interface SentFile {
+  body: string;
+  info: FileInfo;
+  url?: string;
+  file?: EncryptedFile;
+  "org.matrix.msc3245.voice"?: Record<string, never>;
+  "org.matrix.msc1767.audio"?: { duration: number; waveform?: number[] };
+  "m.relates_to"?: Record<string, unknown>;
 }
 
 function msgTypeFor(mimeType: string): MsgType {
