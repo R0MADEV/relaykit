@@ -367,7 +367,7 @@ export class MatrixConference {
    * `ringing` is the honest word — it is going on without this side, and there is something to join.
    */
   private describeAnnounced(callId: string, going: Announced): Call {
-    const participants: CallParticipant[] = going.session.memberships.map(member => ({
+    const participants: CallParticipant[] = newestPerPerson(going.session.memberships).map(member => ({
       userId: member.userId,
       deviceId: member.deviceId,
       isMicrophoneMuted: false,
@@ -411,6 +411,34 @@ type MediaEngine = Awaited<ReturnType<typeof loadTheMediaEngine>>;
  */
 function encryptionWorker(): Worker {
   return new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" });
+}
+
+/** What a membership says that a ringing screen needs: who, from which device, since when. */
+export interface SaidToBeOnTheCall {
+  readonly userId: string;
+  readonly deviceId: string;
+  createdTs(): number;
+}
+
+/**
+ * The room says one entry per device, and a device that died without leaving stays said for hours. A screen
+ * ringing for a call draws people, not the devices they have lost along the way: one per person, from
+ * whichever of their devices spoke last, in the order the people arrived. Once inside, who is really
+ * connected is known from the SFU and none of this is used.
+ */
+export function newestPerPerson<T extends SaidToBeOnTheCall>(memberships: readonly T[]): T[] {
+  const newest = new Map<string, T>();
+  // When each person first turned up, whichever device it was: that is the order a screen lists them in,
+  // and it must not change because somebody opened a second device later.
+  const arrived = new Map<string, number>();
+  for (const member of memberships) {
+    const known = newest.get(member.userId);
+    if (!known || member.createdTs() > known.createdTs()) newest.set(member.userId, member);
+    arrived.set(member.userId, Math.min(arrived.get(member.userId) ?? Infinity, member.createdTs()));
+  }
+  return [...newest.values()].sort(
+    (one, other) => (arrived.get(one.userId) ?? 0) - (arrived.get(other.userId) ?? 0)
+  );
 }
 
 /** Whether a membership is this very device's, which is the one that must not ring for itself. */

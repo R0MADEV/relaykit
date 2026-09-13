@@ -107,3 +107,11 @@ listeners:
         compress: false
 tls_certificate_path: "/data/tls.crt"
 tls_private_key_path: "/data/tls.key"
+
+# Delayed events (MSC4140): what lets a client schedule "take my call membership down in a few seconds unless I
+# say otherwise". Without it, whoever closes the tab or crashes stays shown on the call for the four hours the
+# membership lasts, and everybody else's screen keeps drawing them.
+experimental_features:
+  msc4140_enabled: true
+# Newer Synapse switches delayed events on by being told how far ahead one may be scheduled, not by the flag.
+max_event_delay_duration: 24h

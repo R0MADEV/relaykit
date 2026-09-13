@@ -69,6 +69,14 @@ smoke, igual que pasó con la federación.
   primera versión escribió `{events: {…}}` a secas — sin `users`, sin `state_default` — dejando a la propia
   administradora sin poderes y la sala bloqueada. La ventana pide ahora ese evento también.
 
+- **Los clientes que mueren sin colgar se quedan en la llamada 4 horas**, que es lo que dura su membresía,
+  y a los demás les suena una llamada con cajas de dispositivos que ya no existen. El SDK sabe evitarlo con
+  *delayed events* (MSC4140): deja programado "retira mi membresía en unos segundos salvo que yo lo renueve",
+  y cuando el cliente desaparece, desaparece de la llamada. Synapse lo trae apagado; el entorno de desarrollo
+  lo enciende en `dev.yaml` con `max_event_delay_duration` (en esta versión, la bandera experimental sola no
+  basta). Mientras suena, la librería enseña además **una caja por persona** y no por dispositivo, con el
+  más reciente de cada una; una vez dentro, manda quién está conectado de verdad al SFU.
+
 Y tres cosas que no son obstáculos pero conviene saber:
 
 - **La sala que ve el SFU es un hash**, no el identificador de Matrix. El servicio no le cuenta a la pieza que
