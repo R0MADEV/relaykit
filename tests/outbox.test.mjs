@@ -367,3 +367,30 @@ test("retrying or cancelling something that was never sent says which message is
   }
   await client.stop();
 });
+
+/**
+ * The transaction is what makes sending twice send once, and a file is the case where it matters most: the
+ * bytes went up already, and doing it again would put the same picture in the conversation twice.
+ */
+test("a file sent twice under one transaction is one file", async () => {
+  const adapter = new InMemoryAdapter();
+  await adapter.start(session, {});
+  const conversation = await adapter.createConversation({ participantIds: ["bob"] });
+  const file = { name: "foto.png", mimeType: "image/png", data: new Uint8Array([1, 2, 3]) };
+
+  const first = await adapter.media.sendAttachment(conversation.id, file, "txn-file");
+  const second = await adapter.media.sendAttachment(conversation.id, file, "txn-file");
+
+  assert.equal(second.id, first.id);
+  const timeline = await adapter.listMessages(conversation.id);
+  assert.equal(timeline.filter(message => message.transactionId === "txn-file").length, 1);
+});
+
+test("editing or deleting a message that is not there says so", async () => {
+  const adapter = new InMemoryAdapter();
+  await adapter.start(session, {});
+  const conversation = await adapter.createConversation({ participantIds: ["bob"] });
+
+  await assert.rejects(adapter.editMessage(conversation.id, "no-existe", "otra cosa"), /does not exist/i);
+  await assert.rejects(adapter.deleteMessage(conversation.id, "no-existe"), /does not exist/i);
+});
