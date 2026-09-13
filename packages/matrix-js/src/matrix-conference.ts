@@ -152,7 +152,10 @@ export class MatrixConference {
 
     const going: Joined = {
       room: new engine.Room({
-        adaptiveStream: true,
+        // Off on purpose. Adaptive stream delivers video only to tracks the engine itself has attached to
+        // an element it can see, and nothing here attaches anything: the stream is handed over and the
+        // application draws it. Left on, everybody else's picture arrives as one frame and then black.
+        adaptiveStream: false,
         dynacast: true,
         e2ee: { keyProvider: keys, worker: encryptionWorker() }
       }),

@@ -628,8 +628,15 @@ async function holdAConference(alice, bob, address) {
       const shown = document.getElementById("conference-proof") ?? Object.assign(document.createElement("video"), { id: "conference-proof", muted: true, autoplay: true, playsInline: true });
       document.body.append(shown);
       shown.srcObject = new MediaStream([picture]);
-      const gaveUp = setTimeout(() => resolve(false), 1500);
-      shown.requestVideoFrameCallback((_now, frame) => { clearTimeout(gaveUp); resolve({ width: frame.width, height: frame.height, presented: frame.presentedFrames }); });
+      // Several frames and not one: one frame arrived and then black is exactly what a paused track looks
+      // like, and it looked like a pass once.
+      const gaveUp = setTimeout(() => resolve(false), 4000);
+      const onFrame = (_now, frame) => {
+        if (frame.presentedFrames < 5) { shown.requestVideoFrameCallback(onFrame); return; }
+        clearTimeout(gaveUp);
+        resolve({ width: frame.width, height: frame.height, presented: frame.presentedFrames });
+      };
+      shown.requestVideoFrameCallback(onFrame);
       shown.play().catch(() => undefined);
     }))
   `
