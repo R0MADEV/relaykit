@@ -668,8 +668,22 @@ async function holdAConference(alice, bob, address) {
   );
 
   await leaveNothingGoingOn([alice, bob, carol]);
+  await signOut(carol);
   carol.destroy();
   detail.conference = said;
+}
+
+/**
+ * Every run signs in as a new device and, left like this, never signs out: hundreds of dead devices per
+ * account, each with Olm sessions and one-time keys nobody will use again, until keys sent between the live
+ * ones start going astray. A device that is done says so.
+ */
+async function signOut(...pages) {
+  for (const page of pages) {
+    await page.webContents.executeJavaScript(
+      `window.relaykitDemo.client.logout().then(() => true, () => true)`
+    );
+  }
 }
 
 async function run() {
@@ -771,6 +785,7 @@ async function run() {
   }
   for (const name of only ?? Object.keys(steps)) await steps[name]();
 
+  await signOut(alice, bob);
   server.close();
   report(
     true,
