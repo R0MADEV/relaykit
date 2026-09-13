@@ -13,6 +13,8 @@ export {
   callStates,
   presenceStates,
   maxStatusMessageLength,
+  fewestPollAnswers,
+  longestLocationShareMs,
   verificationMethods
 } from "./models.js";
 export { createConversationList, createMessageTimeline, type LiveCollection } from "./live.js";

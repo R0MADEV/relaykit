@@ -1,4 +1,5 @@
 import { SdkError } from "./errors.js";
+import { fewestPollAnswers } from "./models.js";
 import type { MessagingAdapter } from "./adapter.js";
 import type { ConversationId, MessageId, Poll, StartPollInput } from "./models.js";
 
@@ -6,9 +7,6 @@ export interface PollOperationsContext {
   readonly adapter: MessagingAdapter;
   readonly assertStarted: () => void;
 }
-
-/** At least two: a poll with a single answer asks nothing. */
-const fewestAnswers = 2;
 
 export class PollOperations {
   constructor(private readonly context: PollOperationsContext) {}
@@ -20,8 +18,8 @@ export class PollOperations {
       throw new SdkError("INVALID_INPUT", "A poll needs something to ask");
     }
     const answers = input.answers.map(answer => answer.trim()).filter(answer => answer.length > 0);
-    if (answers.length < fewestAnswers) {
-      throw new SdkError("INVALID_INPUT", `A poll needs at least ${fewestAnswers} answers to choose from`);
+    if (answers.length < fewestPollAnswers) {
+      throw new SdkError("INVALID_INPUT", `A poll needs at least ${fewestPollAnswers} answers to choose from`);
     }
     const maxSelections = input.maxSelections ?? 1;
     if (maxSelections < 1 || maxSelections > answers.length) {

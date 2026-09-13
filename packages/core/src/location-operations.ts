@@ -1,4 +1,5 @@
 import { SdkError } from "./errors.js";
+import { longestLocationShareMs } from "./models.js";
 import type { MessagingAdapter } from "./adapter.js";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "./models.js";
 
@@ -6,9 +7,6 @@ export interface LocationOperationsContext {
   readonly adapter: MessagingAdapter;
   readonly assertStarted: () => void;
 }
-
-/** A whole day is already too much for something usually shared for the length of a journey. */
-const longestShareMs = 24 * 60 * 60 * 1000;
 
 export class LocationOperations {
   constructor(private readonly context: LocationOperationsContext) {}
@@ -22,7 +20,7 @@ export class LocationOperations {
     if (!Number.isFinite(input.durationMs) || input.durationMs <= 0) {
       throw new SdkError("INVALID_INPUT", "Sharing where somebody is needs to say for how long");
     }
-    if (input.durationMs > longestShareMs) {
+    if (input.durationMs > longestLocationShareMs) {
       throw new SdkError("INVALID_INPUT", "Sharing where somebody is cannot last longer than a day");
     }
     return this.context.adapter.startLiveLocation(conversationId, input);

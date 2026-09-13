@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient } from "@relaykit/core";
+import { MessagingClient, longestLocationShareMs } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -66,5 +66,22 @@ test("it can be stopped early, and then it is no longer live", async () => {
   await assert.rejects(client.location.update(sharing.id, { latitude: 43.26, longitude: -2.93 }), {
     code: "INVALID_INPUT"
   });
+  await client.stop();
+});
+
+/**
+ * What makes live location safe is that it ends on its own, so there is a longest while it can run for.
+ * Whoever draws the picker has to offer that and no more, which means being able to ask for it.
+ */
+test("the longest somebody can keep telling where they are is said out loud, and enforced", async () => {
+  const { client, conversation } = await startClient();
+  assert.equal(longestLocationShareMs, 24 * 60 * 60 * 1000);
+
+  await assert.rejects(client.location.start(conversation.id, { durationMs: longestLocationShareMs + 1 }), {
+    code: "INVALID_INPUT"
+  });
+
+  const sharing = await client.location.start(conversation.id, { durationMs: longestLocationShareMs });
+  assert.equal(sharing.isLive, true);
   await client.stop();
 });

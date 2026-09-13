@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient } from "@relaykit/core";
+import { MessagingClient, fewestPollAnswers } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -79,5 +79,25 @@ test("a poll can be closed, and after that there is no voting", async () => {
   await assert.rejects(client.polls.vote(conversation.id, poll.id, poll.answers[0].id), {
     code: "INVALID_INPUT"
   });
+  await client.stop();
+});
+
+/**
+ * The limit is the library's, so it is the library that has to say what it is. A form that offers somewhere
+ * to type the answers cannot know how many are enough without being told, and guessing means the number
+ * lives in two places and drifts.
+ */
+test("how few answers a poll can have is said out loud, and enforced", async () => {
+  const { client, conversation } = await startClient();
+  assert.equal(fewestPollAnswers, 2);
+
+  const tooFew = Array.from({ length: fewestPollAnswers - 1 }, (_, at) => `respuesta ${at}`);
+  await assert.rejects(client.polls.start(conversation.id, { question: "¿cuándo?", answers: tooFew }), {
+    code: "INVALID_INPUT"
+  });
+
+  const enough = Array.from({ length: fewestPollAnswers }, (_, at) => `respuesta ${at}`);
+  const poll = await client.polls.start(conversation.id, { question: "¿cuándo?", answers: enough });
+  assert.equal(poll.answers.length, fewestPollAnswers);
   await client.stop();
 });

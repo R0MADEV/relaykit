@@ -1,3 +1,15 @@
+/**
+ * At least two: a poll with a single answer asks nothing. Said here rather than kept inside the library
+ * because a form that offers somewhere to type the answers has to know how many are enough.
+ */
+export const fewestPollAnswers = 2;
+
+/**
+ * A whole day is already too much for something usually shared for the length of a journey. Said here for
+ * the same reason: whoever draws the picker has to offer this and no more.
+ */
+export const longestLocationShareMs = 24 * 60 * 60 * 1000;
+
 import type { ConversationId, MessageId, UserId } from "./ids.js";
 import type { MediaRef } from "./messages.js";
 
