@@ -134,14 +134,8 @@ async function waitUntilEncryptionIsKnown(
 async function sendOnce(
   client: MatrixClient,
   conversationId: string,
-  content: SentContent,
-  transactionId: string | undefined,
-  asSticker = false
+  send: () => Promise<{ event_id: string }>
 ): Promise<{ event_id: string }> {
-  const send = () =>
-    asSticker
-      ? client.sendEvent(conversationId, EventType.Sticker, content as StickerEventContent, transactionId)
-      : client.sendMessage(conversationId, content as RoomMessageEventContent, transactionId);
   try {
     return await send();
   } catch (error) {
@@ -288,8 +282,13 @@ export async function sendWithTransaction(
   conversationId: ConversationId,
   content: SentContent,
   transactionId: string | undefined,
-  /** A sticker is not a message: it is its own event type, which is how whoever gets it knows to draw it. */
-  asSticker = false
+  /**
+   * How this goes out. Handed in rather than worked out here from a flag beside the content: a flag and the
+   * thing it describes are two places to say one thing, and nothing keeps them agreeing. Whoever built the
+   * content is the only one who knows what it is, so they say it once, by choosing this.
+   */
+  send: () => Promise<{ event_id: string }> = () =>
+    client.sendMessage(conversationId, content as RoomMessageEventContent, transactionId)
 ): Promise<Message> {
   // The room may not be in the local store yet, right after creating it, and sending does not need it.
   const room = client.getRoom(conversationId);
@@ -302,7 +301,7 @@ export async function sendWithTransaction(
   const pending = room && transactionId ? room.getEventForTxnId(transactionId) : undefined;
   const eventId = pending
     ? await resolvePendingEvent(client, room!, pending)
-    : (await sendOnce(client, conversationId, content, transactionId, asSticker)).event_id;
+    : (await sendOnce(client, conversationId, send)).event_id;
   const message = await mapSentEvent(client, conversationId, eventId, content);
   return transactionId ? { ...message, transactionId } : message;
 }

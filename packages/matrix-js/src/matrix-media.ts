@@ -1,6 +1,7 @@
-import { ClientPrefix, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
+import { ClientPrefix, EventType, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
 import "./matrix-proposals.js";
 import type { EncryptedFile, FileInfo } from "matrix-js-sdk/lib/@types/media.js";
+import type { StickerEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
@@ -145,7 +146,25 @@ export async function sendMatrixAttachment(
   // Each kind goes out by name: a member of a union told apart by `msgtype` cannot be built from a value
   // worked out while the program runs, so naming it is what lets the compiler check what is sent.
   const sent = (content: RoomMessageEventContent) =>
-    sendWithTransaction(client, conversationId, content, transactionId, file.sticker === true);
+    sendWithTransaction(
+      client,
+      conversationId,
+      content,
+      transactionId,
+      // A sticker is not a message: it goes under its own event type, which is how whoever receives it
+      // knows to draw it on its own rather than list it as a file. The SDK's sticker content has a `url`
+      // and no `file`, so it cannot describe an encrypted one — and a sticker sent into an encrypted
+      // conversation is exactly that. This is the one thing here the compiler is told rather than shown.
+      file.sticker === true
+        ? () =>
+            client.sendEvent(
+              conversationId,
+              EventType.Sticker,
+              content as unknown as StickerEventContent,
+              transactionId
+            )
+        : undefined
+    );
   const kind = msgTypeFor(file.mimeType);
   if (kind === MsgType.Image) return sent({ ...said, msgtype: MsgType.Image });
   if (kind === MsgType.Video) return sent({ ...said, msgtype: MsgType.Video });
