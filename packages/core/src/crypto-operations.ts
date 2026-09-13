@@ -1,5 +1,5 @@
 import { SdkError } from "./errors.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
 import type {
   CryptoStatus,
   KeyBackupRestoreSummary,
@@ -18,18 +18,18 @@ export class CryptoOperations {
 
   async status(): Promise<CryptoStatus> {
     this.context.assertStarted();
-    return this.context.adapter.getCryptoStatus();
+    return this.crypto.getCryptoStatus();
   }
 
   async backupStatus(): Promise<KeyBackupStatus> {
     this.context.assertStarted();
-    return this.context.adapter.getKeyBackupStatus();
+    return this.crypto.getKeyBackupStatus();
   }
 
   async setupRecovery(options: RecoverySetupOptions = {}): Promise<RecoverySetup> {
     this.context.assertStarted();
     try {
-      return await this.context.adapter.setupRecovery(options);
+      return await this.crypto.setupRecovery(options);
     } catch (error) {
       throw adapterError("Recovery could not be set up", error);
     }
@@ -41,10 +41,17 @@ export class CryptoOperations {
       throw new SdkError("INVALID_INPUT", "Recovery key cannot be empty");
     }
     try {
-      return await this.context.adapter.recover(recoveryKey.trim());
+      return await this.crypto.recover(recoveryKey.trim());
     } catch (error) {
       throw adapterError("The recovery key could not restore the backup", error);
     }
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get crypto(): CryptoAdapter {
+    const crypto = this.context.adapter.crypto;
+    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    return crypto;
   }
 }
 

@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import { longestLocationShareMs } from "./models.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, LocationAdapter } from "./adapter.js";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "./models.js";
 
 export interface LocationOperationsContext {
@@ -23,23 +23,30 @@ export class LocationOperations {
     if (input.durationMs > longestLocationShareMs) {
       throw new SdkError("INVALID_INPUT", "Sharing where somebody is cannot last longer than a day");
     }
-    return this.context.adapter.startLiveLocation(conversationId, input);
+    return this.location.startLiveLocation(conversationId, input);
   }
 
   async update(sharingId: string, position: GeoLocation): Promise<void> {
     this.context.assertStarted();
     requirePlace(position);
-    await this.context.adapter.updateLiveLocation(sharingId, position);
+    await this.location.updateLiveLocation(sharingId, position);
   }
 
   async stop(sharingId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.stopLiveLocation(sharingId);
+    await this.location.stopLiveLocation(sharingId);
   }
 
-  list(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
+  async list(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
     this.context.assertStarted();
-    return this.context.adapter.listLiveLocations(conversationId);
+    return this.location.listLiveLocations(conversationId);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get location(): LocationAdapter {
+    const location = this.context.adapter.location;
+    if (!location) throw new SdkError("NOT_SUPPORTED", "Telling where somebody is live is not something this homeserver does");
+    return location;
   }
 }
 

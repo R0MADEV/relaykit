@@ -108,6 +108,135 @@ export interface CallingAdapter {
   listCalls(): Promise<readonly Call[]>;
 }
 
+/**
+ * Polls: the question, its answers and the votes. Closing one is final.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface PollsAdapter {
+  /** A poll: the question, its answers and the votes. Closing it is final. */
+  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;
+  voteInPoll(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>;
+  closePoll(conversationId: ConversationId, pollId: MessageId): Promise<void>;
+  listPolls(conversationId: ConversationId): Promise<readonly Poll[]>;
+}
+
+/**
+ * Telling where somebody is while they say so, which always ends on its own.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface LocationAdapter {
+  /** Telling where somebody is while they move, for a while that ends on its own. */
+  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation>;
+  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void>;
+  stopLiveLocation(sharingId: string): Promise<void>;
+  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]>;
+}
+
+/**
+ * Grouping conversations, for organising them by team or by project.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface SpacesAdapter {
+  listSpaces(): Promise<readonly Space[]>;
+  createSpace(input: CreateSpaceInput): Promise<Space>;
+  addToSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void>;
+  removeFromSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void>;
+  listSpaceConversations(spaceId: ConversationId): Promise<readonly Conversation[]>;
+}
+
+/**
+ * Carrying files: sending them, fetching them back, and what the homeserver will take.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface MediaAdapter {
+  sendAttachment(
+    conversationId: ConversationId,
+    file: FileInput,
+    transactionId?: string,
+    onProgress?: (fraction: number) => void
+  ): Promise<Message>;
+  downloadAttachment(media: MediaRef): Promise<Uint8Array>;
+  /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
+  previewLink(url: string): Promise<LinkPreview>;
+  /** What the homeserver will take, so nothing is sent that it is going to refuse. */
+  mediaLimits(): Promise<MediaLimits>;
+  /** Stops a file on its way up. Says whether there was one to stop. */
+  stopSendingFile(transactionId: string): Promise<boolean>;
+}
+
+/**
+ * Being told while the application is not running, and the words worth being told about.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface PushAdapter {
+  registerPush(registration: PushRegistration): Promise<void>;
+  listPushRegistrations(): Promise<readonly PushRegistration[]>;
+  unregisterPush(deviceToken: string): Promise<void>;
+  watchForKeyword(word: string): Promise<void>;
+  stopWatchingForKeyword(word: string): Promise<void>;
+  listKeywords(): Promise<readonly string[]>;
+}
+
+/**
+ * The other devices this account is signed in on.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface DevicesAdapter {
+  listDevices(): Promise<readonly Device[]>;
+  renameDevice(deviceId: string, displayName: string): Promise<void>;
+  signOutDevices(deviceIds: readonly string[], options: SignOutOptions): Promise<void>;
+}
+
+/**
+ * A small answer to a message that is not a message of its own.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface ReactionsAdapter {
+  addReaction(conversationId: ConversationId, messageId: MessageId, key: string): Promise<Reaction>;
+  removeReaction(conversationId: ConversationId, reactionId: string): Promise<void>;
+}
+
+/**
+ * Keys, backups and proving a device is who it says it is.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an adapter that cannot do this leaves it
+ * out, and saying so by not being there beats a method that exists in order to refuse.
+ */
+export interface CryptoAdapter {
+  rotateConversationKeys(conversationId: ConversationId): Promise<void>;
+  getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined>;
+  setDeviceVerified(userId: string, deviceId: string, verified: boolean): Promise<void>;
+  getCryptoStatus(): Promise<CryptoStatus>;
+  getKeyBackupStatus(): Promise<KeyBackupStatus>;
+  setupRecovery(options: RecoverySetupOptions): Promise<RecoverySetup>;
+  recover(recoveryKey: string): Promise<KeyBackupRestoreSummary>;
+  requestVerification(
+    userId: string,
+    deviceId?: string,
+    options?: VerificationRequestOptions
+  ): Promise<VerificationSession>;
+  acceptVerification(sessionId: string): Promise<VerificationSession>;
+  getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined>;
+  scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession>;
+  cancelVerification(sessionId: string): Promise<VerificationSession>;
+  confirmVerification(sessionId: string): Promise<VerificationSession>;
+  rejectVerification(sessionId: string): Promise<VerificationSession>;
+}
+
 export interface MessagingAdapter {
   login(credentials: LoginCredentials): Promise<Session>;
   register(credentials: RegisterCredentials): Promise<Session>;
@@ -140,7 +269,6 @@ export interface MessagingAdapter {
   searchMessages(query: string): Promise<readonly Message[]>;
   getPermissions(conversationId: ConversationId): Promise<ConversationPermissions>;
   setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void>;
-  rotateConversationKeys(conversationId: ConversationId): Promise<void>;
   upgradeConversation(conversationId: ConversationId): Promise<Conversation>;
   setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation>;
   publishConversation(conversationId: ConversationId, listed: boolean): Promise<void>;
@@ -158,39 +286,27 @@ export interface MessagingAdapter {
   pinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
   unpinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
   listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]>;
-  listSpaces(): Promise<readonly Space[]>;
-  createSpace(input: CreateSpaceInput): Promise<Space>;
-  addToSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void>;
-  removeFromSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void>;
-  listSpaceConversations(spaceId: ConversationId): Promise<readonly Conversation[]>;
-  sendAttachment(
-    conversationId: ConversationId,
-    file: FileInput,
-    transactionId?: string,
-    onProgress?: (fraction: number) => void
-  ): Promise<Message>;
-  downloadAttachment(media: MediaRef): Promise<Uint8Array>;
-  /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
-  previewLink(url: string): Promise<LinkPreview>;
-  /** What the homeserver will take, so nothing is sent that it is going to refuse. */
-  mediaLimits(): Promise<MediaLimits>;
-  /** Stops a file on its way up. Says whether there was one to stop. */
-  stopSendingFile(transactionId: string): Promise<boolean>;
   /**
    * Conferences, when there are any. Absent when the protocol or the homeserver cannot hold one, which is
    * a thing an application has to be able to find out without asking and being refused.
    */
   readonly calling?: CallingAdapter;
-  /** A poll: the question, its answers and the votes. Closing it is final. */
-  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;
-  voteInPoll(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>;
-  closePoll(conversationId: ConversationId, pollId: MessageId): Promise<void>;
-  listPolls(conversationId: ConversationId): Promise<readonly Poll[]>;
-  /** Telling where somebody is while they move, for a while that ends on its own. */
-  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation>;
-  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void>;
-  stopLiveLocation(sharingId: string): Promise<void>;
-  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]>;
+  /** Polls: the question, its answers and the votes. Closing one is final. Absent when this adapter cannot. */
+  readonly polls?: PollsAdapter;
+  /** Telling where somebody is while they say so, which always ends on its own. Absent when this adapter cannot. */
+  readonly location?: LocationAdapter;
+  /** Grouping conversations, for organising them by team or by project. Absent when this adapter cannot. */
+  readonly spaces?: SpacesAdapter;
+  /** Carrying files: sending them, fetching them back, and what the homeserver will take. Absent when this adapter cannot. */
+  readonly media?: MediaAdapter;
+  /** Being told while the application is not running, and the words worth being told about. Absent when this adapter cannot. */
+  readonly push?: PushAdapter;
+  /** The other devices this account is signed in on. Absent when this adapter cannot. */
+  readonly devices?: DevicesAdapter;
+  /** A small answer to a message that is not a message of its own. Absent when this adapter cannot. */
+  readonly reactions?: ReactionsAdapter;
+  /** Keys, backups and proving a device is who it says it is. Absent when this adapter cannot. */
+  readonly crypto?: CryptoAdapter;
   getProfile(userId: UserId, conversationId?: ConversationId): Promise<User>;
   /** A size in pixels asks the server for a picture already that big, instead of the original. */
   getAvatar(userId: UserId, conversationId?: ConversationId, size?: number): Promise<AvatarImage | undefined>;
@@ -198,15 +314,6 @@ export interface MessagingAdapter {
   searchUsers(query: string, limit: number): Promise<readonly User[]>;
   setDisplayName(displayName: string): Promise<void>;
   setAvatar(image: AvatarImage): Promise<void>;
-  watchForKeyword(word: string): Promise<void>;
-  stopWatchingForKeyword(word: string): Promise<void>;
-  listKeywords(): Promise<readonly string[]>;
-  registerPush(registration: PushRegistration): Promise<void>;
-  listPushRegistrations(): Promise<readonly PushRegistration[]>;
-  unregisterPush(deviceToken: string): Promise<void>;
-  listDevices(): Promise<readonly Device[]>;
-  renameDevice(deviceId: string, displayName: string): Promise<void>;
-  signOutDevices(deviceIds: readonly string[], options: SignOutOptions): Promise<void>;
   editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message>;
   deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message>;
   markMessageRead(
@@ -227,23 +334,4 @@ export interface MessagingAdapter {
   getNotificationLevel(): Promise<NotificationLevel>;
   setNotificationLevel(level: NotificationLevel): Promise<void>;
   getReadReceipts(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]>;
-  addReaction(conversationId: ConversationId, messageId: MessageId, key: string): Promise<Reaction>;
-  removeReaction(conversationId: ConversationId, reactionId: string): Promise<void>;
-  getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined>;
-  setDeviceVerified(userId: string, deviceId: string, verified: boolean): Promise<void>;
-  getCryptoStatus(): Promise<CryptoStatus>;
-  getKeyBackupStatus(): Promise<KeyBackupStatus>;
-  setupRecovery(options: RecoverySetupOptions): Promise<RecoverySetup>;
-  recover(recoveryKey: string): Promise<KeyBackupRestoreSummary>;
-  requestVerification(
-    userId: string,
-    deviceId?: string,
-    options?: VerificationRequestOptions
-  ): Promise<VerificationSession>;
-  acceptVerification(sessionId: string): Promise<VerificationSession>;
-  getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined>;
-  scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession>;
-  cancelVerification(sessionId: string): Promise<VerificationSession>;
-  confirmVerification(sessionId: string): Promise<VerificationSession>;
-  rejectVerification(sessionId: string): Promise<VerificationSession>;
 }

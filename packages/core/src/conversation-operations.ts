@@ -1,4 +1,4 @@
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   AvatarImage,
@@ -362,7 +362,7 @@ export class ConversationOperations {
     if (!conversationId.trim()) {
       throw new SdkError("INVALID_INPUT", "A conversation is required");
     }
-    await this.context.adapter.rotateConversationKeys(conversationId.trim());
+    await this.crypto.rotateConversationKeys(conversationId.trim());
   }
 
   /** A name people can type instead of the identifier. It has to look like `#something:server`. */
@@ -468,6 +468,13 @@ export class ConversationOperations {
   /** Who was writing is only true while the client runs, so it does not survive stopping it. */
   forget(): void {
     this.typingSince.clear();
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get crypto(): CryptoAdapter {
+    const crypto = this.context.adapter.crypto;
+    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    return crypto;
   }
 }
 

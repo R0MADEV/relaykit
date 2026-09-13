@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import { notificationLevels } from "./models.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, CryptoAdapter, DevicesAdapter, PushAdapter } from "./adapter.js";
 import type {
   Device,
   DeviceVerification,
@@ -25,18 +25,18 @@ export class DeviceOperations {
 
   async verification(userId: string, deviceId: string): Promise<DeviceVerification | undefined> {
     this.context.assertStarted();
-    return this.context.adapter.getDeviceVerification(userId, deviceId);
+    return this.crypto.getDeviceVerification(userId, deviceId);
   }
 
   async verify(userId: string, deviceId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.setDeviceVerified(userId, deviceId, true);
+    await this.crypto.setDeviceVerified(userId, deviceId, true);
   }
 
   /** Every session open on this account, so a person can see where they are signed in. */
   async list(): Promise<readonly Device[]> {
     this.context.assertStarted();
-    return this.context.adapter.listDevices();
+    return this.devices.listDevices();
   }
 
   /** Stops trusting a device, which is what somebody does when a device is lost or was never theirs. */
@@ -45,7 +45,7 @@ export class DeviceOperations {
     if (!userId.trim() || !deviceId.trim()) {
       throw new SdkError("INVALID_INPUT", "A person and a device are required");
     }
-    await this.context.adapter.setDeviceVerified(userId.trim(), deviceId.trim(), false);
+    await this.crypto.setDeviceVerified(userId.trim(), deviceId.trim(), false);
   }
 
   /** A word worth interrupting for, the way being named is. */
@@ -54,17 +54,17 @@ export class DeviceOperations {
     if (!word.trim()) {
       throw new SdkError("INVALID_INPUT", "A word is required, or everything would interrupt");
     }
-    await this.context.adapter.watchForKeyword(word.trim());
+    await this.push.watchForKeyword(word.trim());
   }
 
   async stopWatchingFor(word: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.stopWatchingForKeyword(word.trim());
+    await this.push.stopWatchingForKeyword(word.trim());
   }
 
   async keywords(): Promise<readonly string[]> {
     this.context.assertStarted();
-    return this.context.adapter.listKeywords();
+    return this.push.listKeywords();
   }
 
   /**
@@ -129,7 +129,7 @@ export class DeviceOperations {
     if (!registration.appId.trim() || !registration.appName.trim()) {
       throw new SdkError("INVALID_INPUT", "An application id and name are required");
     }
-    await this.context.adapter.registerPush({
+    await this.push.registerPush({
       ...registration,
       gatewayUrl: registration.gatewayUrl.trim(),
       deviceToken: registration.deviceToken.trim()
@@ -138,12 +138,12 @@ export class DeviceOperations {
 
   async pushRegistrations(): Promise<readonly PushRegistration[]> {
     this.context.assertStarted();
-    return this.context.adapter.listPushRegistrations();
+    return this.push.listPushRegistrations();
   }
 
   async unregisterPush(deviceToken: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.unregisterPush(deviceToken.trim());
+    await this.push.unregisterPush(deviceToken.trim());
   }
 
   async rename(deviceId: string, displayName: string): Promise<void> {
@@ -151,7 +151,7 @@ export class DeviceOperations {
     if (!deviceId.trim() || !displayName.trim()) {
       throw new SdkError("INVALID_INPUT", "A device and a name are required");
     }
-    await this.context.adapter.renameDevice(deviceId.trim(), displayName.trim());
+    await this.devices.renameDevice(deviceId.trim(), displayName.trim());
   }
 
   async signOut(deviceIds: readonly string[], options: SignOutOptions = {}): Promise<void> {
@@ -160,6 +160,27 @@ export class DeviceOperations {
     if (wanted.length === 0) {
       throw new SdkError("INVALID_INPUT", "At least one device is required");
     }
-    await this.context.adapter.signOutDevices(wanted, options);
+    await this.devices.signOutDevices(wanted, options);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get crypto(): CryptoAdapter {
+    const crypto = this.context.adapter.crypto;
+    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    return crypto;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get devices(): DevicesAdapter {
+    const devices = this.context.adapter.devices;
+    if (!devices) throw new SdkError("NOT_SUPPORTED", "Other devices are not something this homeserver knows about");
+    return devices;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get push(): PushAdapter {
+    const push = this.context.adapter.push;
+    if (!push) throw new SdkError("NOT_SUPPORTED", "Being pushed to is not something this homeserver does");
+    return push;
   }
 }

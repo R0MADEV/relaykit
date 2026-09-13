@@ -1,5 +1,5 @@
 import { SdkError } from "./errors.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { LinkPreview, MediaLimits, MediaRef } from "./models.js";
 
 export interface MediaOperationsContext {
@@ -25,7 +25,7 @@ export class MediaOperations {
    */
   async limits(): Promise<MediaLimits> {
     this.context.assertStarted();
-    this.known ??= await this.context.adapter.mediaLimits();
+    this.known ??= await this.media.mediaLimits();
     return this.known;
   }
 
@@ -44,7 +44,7 @@ export class MediaOperations {
     // A copy, so whoever asked cannot change what everybody else will be given afterwards.
     if (kept) return Uint8Array.from(kept);
     try {
-      const bytes = await this.context.adapter.downloadAttachment(media);
+      const bytes = await this.media.downloadAttachment(media);
       this.keep(media.source, bytes);
       return bytes;
     } catch (error) {
@@ -67,7 +67,7 @@ export class MediaOperations {
     const now = this.context.now();
     const known = this.previews.get(wanted);
     if (known && now - known.askedAt < previewFreshMs) return known.preview;
-    const preview = await this.context.adapter.previewLink(wanted);
+    const preview = await this.media.previewLink(wanted);
     this.previews.set(wanted, { preview, askedAt: now });
     return preview;
   }
@@ -90,6 +90,13 @@ export class MediaOperations {
       this.cache.delete(oldest);
       this.cachedBytes -= dropped.byteLength;
     }
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get media(): MediaAdapter {
+    const media = this.context.adapter.media;
+    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    return media;
   }
 }
 

@@ -1,6 +1,14 @@
 import type {
   AdapterHandlers,
   CallingAdapter,
+  CryptoAdapter,
+  DevicesAdapter,
+  LocationAdapter,
+  MediaAdapter,
+  PollsAdapter,
+  PushAdapter,
+  ReactionsAdapter,
+  SpacesAdapter,
   MessagingAdapter,
   MarkReadOptions,
   Notification,
@@ -446,16 +454,16 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.messages.filter(message => pinned.has(message.id));
   }
 
-  private readonly spaces: Space[] = [];
+  private readonly spacesHeld: Space[] = [];
   private readonly spaceChildren = new Map<ConversationId, Set<ConversationId>>();
 
   async listSpaces(): Promise<readonly Space[]> {
-    return this.spaces;
+    return this.spacesHeld;
   }
 
   async createSpace(input: CreateSpaceInput): Promise<Space> {
     const space: Space = { id: `memory-space-${this.nextConversationId++}`, title: input.title };
-    this.spaces.push(space);
+    this.spacesHeld.push(space);
     return space;
   }
 
@@ -758,6 +766,15 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   /** Conferences, which this double always holds. */
   readonly calling: CallingAdapter = this.callsGoingOn;
+  /** Everything else this double does, which is all of it. */
+  readonly polls: PollsAdapter = this;
+  readonly location: LocationAdapter = this;
+  readonly spaces: SpacesAdapter = this;
+  readonly media: MediaAdapter = this;
+  readonly push: PushAdapter = this;
+  readonly devices: DevicesAdapter = this;
+  readonly reactions: ReactionsAdapter = this;
+  readonly crypto: CryptoAdapter = this;
 
   /** Test helper: somebody else starts a call in this conversation, which rings here to be joined. */
   startConferenceAs(conversationId: ConversationId, userId: UserId): Call {

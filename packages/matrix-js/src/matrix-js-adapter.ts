@@ -47,7 +47,15 @@ import type {
   LiveLocation,
   ShareLocationInput,
   GeoLocation,
-  CallingAdapter
+  CallingAdapter,
+  CryptoAdapter,
+  DevicesAdapter,
+  LocationAdapter,
+  MediaAdapter,
+  PollsAdapter,
+  PushAdapter,
+  ReactionsAdapter,
+  SpacesAdapter
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
@@ -143,7 +151,7 @@ import { withTranslatedErrors } from "./matrix-errors.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
   /** Files on their way up, so one can be stopped while it is going. */
-  private readonly media = new MatrixMedia();
+  private readonly files = new MatrixMedia();
 
   private readonly runtime: MatrixRuntime;
 
@@ -412,8 +420,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
     onProgress?: (fraction: number) => void
   ): Promise<Message> {
     return this.reaching(conversationId, () => {
-      this.media.remember(this.runtime.getClient());
-      return this.media.send(this.runtime.getClient(), conversationId, file, transactionId, onProgress);
+      this.files.remember(this.runtime.getClient());
+      return this.files.send(this.runtime.getClient(), conversationId, file, transactionId, onProgress);
     });
   }
 
@@ -545,6 +553,16 @@ export class MatrixJsAdapter implements MessagingAdapter {
    * Conferences. Always offered by this adapter: whether the homeserver can actually hold one is not known
    * until it is asked where they are carried, and that refusal says which homeserver and why.
    */
+  /** Everything Matrix does beyond the core, which is all of it. */
+  readonly polls: PollsAdapter = this;
+  readonly location: LocationAdapter = this;
+  readonly spaces: SpacesAdapter = this;
+  readonly media: MediaAdapter = this;
+  readonly push: PushAdapter = this;
+  readonly devices: DevicesAdapter = this;
+  readonly reactions: ReactionsAdapter = this;
+  readonly crypto: CryptoAdapter = this;
+
   readonly calling: CallingAdapter = {
     /** Starting a call is entering it first, and having the room ring everybody else in it. */
     placeCall: (conversationId, options) =>
@@ -584,7 +602,7 @@ export class MatrixJsAdapter implements MessagingAdapter {
   };
 
   async stopSendingFile(transactionId: string): Promise<boolean> {
-    return this.media.stopSending(transactionId);
+    return this.files.stopSending(transactionId);
   }
 
   async mediaLimits(): Promise<MediaLimits> {

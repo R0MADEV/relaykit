@@ -1,5 +1,5 @@
 import { SdkError } from "./errors.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, SpacesAdapter } from "./adapter.js";
 import type { Conversation, ConversationId, CreateSpaceInput, Space } from "./models.js";
 
 export interface SpaceOperationsContext {
@@ -13,7 +13,7 @@ export class SpaceOperations {
 
   async list(): Promise<readonly Space[]> {
     this.context.assertStarted();
-    return this.context.adapter.listSpaces();
+    return this.spaces.listSpaces();
   }
 
   async create(input: CreateSpaceInput): Promise<Space> {
@@ -21,21 +21,28 @@ export class SpaceOperations {
     if (!input.title.trim()) {
       throw new SdkError("INVALID_INPUT", "A space needs a name");
     }
-    return this.context.adapter.createSpace({ title: input.title.trim() });
+    return this.spaces.createSpace({ title: input.title.trim() });
   }
 
   async add(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.addToSpace(spaceId, conversationId);
+    await this.spaces.addToSpace(spaceId, conversationId);
   }
 
   async remove(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.removeFromSpace(spaceId, conversationId);
+    await this.spaces.removeFromSpace(spaceId, conversationId);
   }
 
   async conversations(spaceId: ConversationId): Promise<readonly Conversation[]> {
     this.context.assertStarted();
-    return this.context.adapter.listSpaceConversations(spaceId);
+    return this.spaces.listSpaceConversations(spaceId);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get spaces(): SpacesAdapter {
+    const spaces = this.context.adapter.spaces;
+    if (!spaces) throw new SdkError("NOT_SUPPORTED", "Spaces are not something this homeserver has");
+    return spaces;
   }
 }

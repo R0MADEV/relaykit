@@ -13,7 +13,7 @@ export function byOldestFirst(left: Message, right: Message): number {
   return left.createdAt - right.createdAt || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 import { OutboxOperations, type OutboxOperationsContext } from "./outbox-operations.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
@@ -261,7 +261,7 @@ export class MessageOperations {
     }
     const { attachment } = original;
     if (attachment) {
-      const data = await this.context.adapter.downloadAttachment(attachment);
+      const data = await this.media.downloadAttachment(attachment);
       return this.outbox.sendFile(
         toConversationId,
         {
@@ -476,5 +476,12 @@ export class MessageOperations {
     for (const message of stored) messages.set(message.id, message);
     for (const message of remote) messages.set(message.id, message);
     return [...messages.values()].sort(byOldestFirst);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get media(): MediaAdapter {
+    const media = this.context.adapter.media;
+    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    return media;
   }
 }

@@ -1,4 +1,4 @@
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, ReactionsAdapter } from "./adapter.js";
 import type { ConversationId, MessageId, Reaction, Session } from "./models.js";
 import type { PendingActions } from "./pending-actions.js";
 import { SdkError } from "./errors.js";
@@ -22,14 +22,16 @@ export class ReactionOperations {
     if (!key.trim()) {
       throw new SdkError("INVALID_INPUT", "Reaction key cannot be empty");
     }
-    const { adapter } = this.context;
+    // Asked for before trying, because what follows treats a failure as this side being offline and keeps it
+    // to send later. Something the homeserver does not do would wait in that queue for ever.
+    const reactions = this.reactions;
     try {
-      const reaction = await adapter.addReaction(conversationId, messageId, key);
+      const reaction = await reactions.addReaction(conversationId, messageId, key);
       this.context.waiting.forget(reactionTarget(messageId, key));
       return reaction;
     } catch {
       this.context.waiting.remember(reactionTarget(messageId, key), () =>
-        adapter.addReaction(conversationId, messageId, key)
+        reactions.addReaction(conversationId, messageId, key)
       );
       return {
         id: `local-reaction-${messageId}-${key}`,
@@ -43,15 +45,22 @@ export class ReactionOperations {
 
   async remove(conversationId: ConversationId, reactionId: string): Promise<void> {
     this.context.assertStarted();
-    const { adapter } = this.context;
+    const reactions = this.reactions;
     try {
-      await adapter.removeReaction(conversationId, reactionId);
+      await reactions.removeReaction(conversationId, reactionId);
       this.context.waiting.forget(`reaction-gone:${reactionId}`);
     } catch {
       this.context.waiting.remember(`reaction-gone:${reactionId}`, () =>
-        adapter.removeReaction(conversationId, reactionId)
+        reactions.removeReaction(conversationId, reactionId)
       );
     }
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get reactions(): ReactionsAdapter {
+    const reactions = this.context.adapter.reactions;
+    if (!reactions) throw new SdkError("NOT_SUPPORTED", "Reactions are not something this homeserver has");
+    return reactions;
   }
 }
 

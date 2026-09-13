@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import { fewestPollAnswers } from "./models.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, PollsAdapter } from "./adapter.js";
 import type { ConversationId, MessageId, Poll, StartPollInput } from "./models.js";
 
 export interface PollOperationsContext {
@@ -25,7 +25,7 @@ export class PollOperations {
     if (maxSelections < 1 || maxSelections > answers.length) {
       throw new SdkError("INVALID_INPUT", "How many answers can be chosen has to fit the answers there are");
     }
-    return this.context.adapter.startPoll(conversationId, { ...input, question, answers, maxSelections });
+    return this.polls.startPoll(conversationId, { ...input, question, answers, maxSelections });
   }
 
   /**
@@ -37,7 +37,7 @@ export class PollOperations {
     if (!answerId.trim()) {
       throw new SdkError("INVALID_INPUT", "A vote needs an answer to choose");
     }
-    const poll = (await this.context.adapter.listPolls(conversationId)).find(item => item.id === pollId);
+    const poll = (await this.polls.listPolls(conversationId)).find(item => item.id === pollId);
     if (!poll) {
       throw new SdkError("MESSAGE_NOT_FOUND", "That poll is not in this conversation");
     }
@@ -47,17 +47,24 @@ export class PollOperations {
     if (!poll.answers.some(answer => answer.id === answerId)) {
       throw new SdkError("INVALID_INPUT", "That answer is not one of the answers of this poll");
     }
-    await this.context.adapter.voteInPoll(conversationId, pollId, answerId);
+    await this.polls.voteInPoll(conversationId, pollId, answerId);
   }
 
   /** Closing is final: the result stays as it stood at that moment. */
   async close(conversationId: ConversationId, pollId: MessageId): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.closePoll(conversationId, pollId);
+    await this.polls.closePoll(conversationId, pollId);
   }
 
-  list(conversationId: ConversationId): Promise<readonly Poll[]> {
+  async list(conversationId: ConversationId): Promise<readonly Poll[]> {
     this.context.assertStarted();
-    return this.context.adapter.listPolls(conversationId);
+    return this.polls.listPolls(conversationId);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get polls(): PollsAdapter {
+    const polls = this.context.adapter.polls;
+    if (!polls) throw new SdkError("NOT_SUPPORTED", "Polls are not something this homeserver holds");
+    return polls;
   }
 }

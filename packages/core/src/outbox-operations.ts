@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import type { RecentIds } from "./recent-ids.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
@@ -187,7 +187,7 @@ export class OutboxOperations {
     // A file still going up is the one case worth stopping in the middle: it has not been said to anybody
     // yet, and what is left of it is the upload, which is the part that costs somebody their connection.
     const wasStopped = this.inFlight.has(message.id)
-      ? await this.context.adapter.stopSendingFile(message.id).catch(() => false)
+      ? await this.media.stopSendingFile(message.id).catch(() => false)
       : false;
     const isBeingDelivered = message.status === "sent" || (this.inFlight.has(message.id) && !wasStopped);
     if (isBeingDelivered) {
@@ -279,7 +279,7 @@ export class OutboxOperations {
     if (!file) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The file content of this message is no longer available");
     }
-    return adapter.sendAttachment(
+    return this.media.sendAttachment(
       message.conversationId,
       file,
       message.transactionId,
@@ -421,6 +421,13 @@ export class OutboxOperations {
   private async saveAndEmit(message: Message): Promise<void> {
     await this.context.storage?.saveMessage(message);
     this.context.emitUpdated(message);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get media(): MediaAdapter {
+    const media = this.context.adapter.media;
+    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    return media;
   }
 }
 
