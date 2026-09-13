@@ -23,10 +23,8 @@ import type {
   AvatarImage,
   ConversationPermissions,
   ConversationRole,
-  CreateSpaceInput,
   NotificationLevel,
   SendContent,
-  Space,
   MediaRef,
   ReadReceipt,
   ThumbnailInput,
@@ -60,6 +58,7 @@ import { SdkError } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
 import { InMemoryPeople } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
+import { InMemorySpaces } from "./in-memory-spaces.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
 
@@ -90,6 +89,10 @@ export class InMemoryAdapter implements MessagingAdapter {
     () => this.handlers
   );
   private readonly verification = new InMemoryVerification(() => this.handlers);
+  private readonly spacesIn = new InMemorySpaces({
+    conversations: () => this.conversations,
+    nextId: () => this.nextConversationId++
+  });
   private readonly people = new InMemoryPeople({
     requireUserId: () => this.requireUserId(),
     deviceId: () => this.currentDeviceId,
@@ -447,34 +450,6 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.messages.filter(message => pinned.has(message.id));
   }
 
-  private readonly spacesHeld: Space[] = [];
-  private readonly spaceChildren = new Map<ConversationId, Set<ConversationId>>();
-
-  async listSpaces(): Promise<readonly Space[]> {
-    return this.spacesHeld;
-  }
-
-  async createSpace(input: CreateSpaceInput): Promise<Space> {
-    const space: Space = { id: `memory-space-${this.nextConversationId++}`, title: input.title };
-    this.spacesHeld.push(space);
-    return space;
-  }
-
-  async addToSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
-    const children = this.spaceChildren.get(spaceId) ?? new Set<ConversationId>();
-    children.add(conversationId);
-    this.spaceChildren.set(spaceId, children);
-  }
-
-  async removeFromSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
-    this.spaceChildren.get(spaceId)?.delete(conversationId);
-  }
-
-  async listSpaceConversations(spaceId: ConversationId): Promise<readonly Conversation[]> {
-    const children = this.spaceChildren.get(spaceId) ?? new Set<ConversationId>();
-    return this.conversations.filter(conversation => children.has(conversation.id));
-  }
-
   async searchMessages(query: string): Promise<readonly Message[]> {
     const needle = query.toLowerCase();
     return this.messages.filter(message => message.body.toLowerCase().includes(needle));
@@ -694,7 +669,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** Everything else this double does, which is all of it. */
   readonly polls: PollsAdapter = this.shares;
   readonly location: LocationAdapter = this.shares;
-  readonly spaces: SpacesAdapter = this;
+  readonly spaces: SpacesAdapter = this.spacesIn;
   readonly media: MediaAdapter = this;
   readonly push: PushAdapter = this.people;
   readonly devices: DevicesAdapter = this.people;
