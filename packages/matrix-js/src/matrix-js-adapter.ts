@@ -121,6 +121,7 @@ import {
 import { withTranslatedErrors } from "./matrix-errors.js";
 import { MatrixCrypto } from "./matrix-crypto.js";
 import { MatrixShares } from "./matrix-shares.js";
+import { listMatrixPastCalls } from "./matrix-call-history.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
   /** Files on their way up, so one can be stopped while it is going. */
@@ -526,7 +527,11 @@ export class MatrixJsAdapter implements MessagingAdapter {
     useCamera: async deviceId => {
       await this.run(() => this.runtime.conference.useCamera(deviceId));
     },
-    listCalls: async () => this.runtime.conference.list()
+    listCalls: async () => this.runtime.conference.list(),
+    listPastCalls: (conversationId, limit) =>
+      this.reaching(conversationId, () =>
+        listMatrixPastCalls(this.runtime.getClient(), conversationId, limit)
+      )
   };
 
   async stopSendingFile(transactionId: string): Promise<boolean> {

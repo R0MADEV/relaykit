@@ -97,6 +97,7 @@ export type {
   Call,
   CallParticipant,
   CallQuality,
+  PastCall,
   CallSpeaking,
   CallState,
   LinkPreview,

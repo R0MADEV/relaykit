@@ -100,3 +100,19 @@ export interface PlaceCallOptions {
   /** A call with video needs room on the screen, so whoever draws it has to be told beforehand. */
   readonly video?: boolean;
 }
+
+/**
+ * A call that is over.
+ *
+ * Read from the conversation rather than remembered by whoever was watching: joining a call is written into
+ * the room and leaving takes it back out, and both stay there. So the same history is had from any device,
+ * including one that was not running while the call happened.
+ */
+export interface PastCall {
+  readonly id: string;
+  readonly conversationId: ConversationId;
+  readonly startedAt: number;
+  readonly endedAt: number;
+  /** Everybody who was on it at any point, in the order they arrived. One alone means nobody else came. */
+  readonly participantIds: readonly UserId[];
+}

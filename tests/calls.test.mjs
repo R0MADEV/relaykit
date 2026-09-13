@@ -201,3 +201,35 @@ test("a call nobody ever joined still says when it ended", async () => {
   assert.equal(typeof ended[0].endedAt, "number");
   await client.stop();
 });
+
+/**
+ * What a room list draws under every past call: how long it lasted and who was on it. Read from the
+ * conversation rather than remembered here, so opening the application somewhere else shows the same.
+ */
+test("calls that are over can be asked for, newest first", async () => {
+  const { client, conversation } = await startClient();
+  const first = await client.calls.place(conversation.id);
+  await client.calls.hangUp(first.id);
+  const second = await client.calls.place(conversation.id);
+  await client.calls.hangUp(second.id);
+
+  const past = await client.calls.history(conversation.id);
+
+  assert.equal(past.length, 2);
+  assert.equal(past[0].id, second.id, "the most recent one comes first");
+  assert.equal(past[0].conversationId, conversation.id);
+  assert.ok(past[0].endedAt >= past[0].startedAt);
+  assert.deepEqual(past[0].participantIds, ["alice"]);
+  await client.stop();
+});
+
+test("a call still going on is not part of what is over", async () => {
+  const { client, conversation } = await startClient();
+  const going = await client.calls.place(conversation.id);
+
+  assert.deepEqual(await client.calls.history(conversation.id), []);
+
+  await client.calls.hangUp(going.id);
+  assert.equal((await client.calls.history(conversation.id)).length, 1);
+  await client.stop();
+});

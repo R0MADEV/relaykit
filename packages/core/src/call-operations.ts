@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import type { CallingAdapter, MessagingAdapter } from "./adapter.js";
-import type { Call, CallQuality, ConversationId, PlaceCallOptions } from "./models.js";
+import type { Call, CallQuality, ConversationId, PastCall, PlaceCallOptions } from "./models.js";
 
 export interface CallOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -102,6 +102,15 @@ export class CallOperations {
       throw new SdkError("NOT_SUPPORTED", "Conferences are not something this homeserver holds");
     }
     return calling;
+  }
+
+  /** What is over in this conversation, most recent first. Asked of the conversation, not remembered here. */
+  async history(conversationId: ConversationId, limit = 20): Promise<readonly PastCall[]> {
+    this.context.assertStarted();
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new SdkError("INVALID_INPUT", "How many past calls to fetch has to be a whole number above zero");
+    }
+    return this.calling.listPastCalls(this.requireConversation(conversationId), limit);
   }
 
   private requireConversation(conversationId: ConversationId): ConversationId {

@@ -16,6 +16,7 @@ import type {
   CallSpeaking,
   LinkPreview,
   MediaLimits,
+  PastCall,
   PlaceCallOptions,
   LiveLocation,
   ShareLocationInput,
@@ -106,6 +107,8 @@ export interface CallingAdapter {
   useMicrophone(deviceId: string): Promise<void>;
   useCamera(deviceId: string): Promise<void>;
   listCalls(): Promise<readonly Call[]>;
+  /** The calls of a conversation that are over, most recent first. */
+  listPastCalls(conversationId: ConversationId, limit: number): Promise<readonly PastCall[]>;
 }
 
 /**

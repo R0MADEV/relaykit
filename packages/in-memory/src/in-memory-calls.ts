@@ -1,6 +1,7 @@
 import { SdkError } from "@relaykit/core";
 import type {
   AdapterHandlers,
+  PastCall,
   CallingAdapter,
   Call,
   CallParticipant,
@@ -41,6 +42,8 @@ export class InMemoryCalls implements CallingAdapter {
   private readonly calls = new Map<string, Call>();
   /** Calls this side walked out of, which go on without it and stop being painted here. */
   private readonly left = new Set<string>();
+  /** What is over, oldest first. A double keeps them; a homeserver reads them back out of the room. */
+  private readonly over: PastCall[] = [];
   private chosenMicrophone: string | undefined;
   private chosenCamera: string | undefined;
 
@@ -135,8 +138,10 @@ export class InMemoryCalls implements CallingAdapter {
       });
       return;
     }
+    const endedAt = Date.now();
     this.calls.delete(callId);
-    this.context.handlers().onCallChanged?.({ ...call, state: "ended", endedAt: Date.now() });
+    this.remember(call, endedAt);
+    this.context.handlers().onCallChanged?.({ ...call, state: "ended", endedAt });
   }
 
   /** Not picking up: the call goes on without this side, which stops being told about it. */
@@ -169,6 +174,24 @@ export class InMemoryCalls implements CallingAdapter {
 
   async useCamera(deviceId: string): Promise<void> {
     this.chosenCamera = deviceId;
+  }
+
+  /** Written down the moment it stops, which is the only time everybody who was on it is still known. */
+  private remember(call: Call, endedAt: number): void {
+    this.over.push({
+      id: call.id,
+      conversationId: call.conversationId,
+      startedAt: call.startedAt,
+      endedAt,
+      participantIds: call.participants.map(participant => participant.userId)
+    });
+  }
+
+  async listPastCalls(conversationId: ConversationId, limit: number): Promise<readonly PastCall[]> {
+    return this.over
+      .filter(call => call.conversationId === conversationId)
+      .slice(-limit)
+      .reverse();
   }
 
   private change(callId: string, change: Partial<Call>): void {
@@ -209,13 +232,15 @@ export class InMemoryCalls implements CallingAdapter {
   end(callId: string): void {
     const call = this.calls.get(callId);
     if (!call) return;
+    const endedAt = Date.now();
     this.calls.delete(callId);
     this.left.delete(callId);
+    this.remember(call, endedAt);
     this.context.handlers().onCallChanged?.({
       ...call,
       participants: nobodyYet,
       state: "ended",
-      endedAt: Date.now()
+      endedAt
     });
   }
 

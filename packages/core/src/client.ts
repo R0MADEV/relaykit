@@ -28,6 +28,7 @@ import type {
   LinkPreview,
   MediaLimits,
   LiveLocation,
+  PastCall,
   PlaceCallOptions,
   MarkReadOptions,
   ShareLocationInput,
@@ -290,7 +291,9 @@ export class MessagingClient {
     quality: (callId: string): Promise<CallQuality> => this.callOperations.quality(callId),
     useMicrophone: (deviceId: string): Promise<void> => this.callOperations.useMicrophone(deviceId),
     useCamera: (deviceId: string): Promise<void> => this.callOperations.useCamera(deviceId),
-    list: (): Promise<readonly Call[]> => this.callOperations.list()
+    list: (): Promise<readonly Call[]> => this.callOperations.list(),
+    history: (conversationId: ConversationId, limit?: number): Promise<readonly PastCall[]> =>
+      this.callOperations.history(conversationId, limit)
   };
   /** Asking the conversation something and counting the votes. */
   readonly polls = {

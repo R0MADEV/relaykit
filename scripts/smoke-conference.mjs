@@ -148,13 +148,35 @@ async function run() {
     return said.length === 0;
   }, "Alice left the conference and the room still says she is on it");
 
+  // And now the point of keeping that trail: what is over is read back out of the room, by somebody who was
+  // not even watching while it happened. This is the only way a history is the same on every device.
+  const { listMatrixPastCalls } = await import("../packages/matrix-js/dist/matrix-call-history.js");
+  const over = await waitUntil(async () => {
+    const found = await listMatrixPastCalls(matrix, conversation.id, 10);
+    return found.length > 0 ? found : undefined;
+  }, "the call that just ended left nothing in the room to read it back from");
+  const [lastOne] = over;
+  if (lastOne.conversationId !== conversation.id) {
+    throw new Error(`The call that came back belongs to another conversation: ${lastOne.conversationId}`);
+  }
+  if (!(lastOne.endedAt > lastOne.startedAt)) {
+    throw new Error(`A call cannot end before it started: ${lastOne.startedAt} to ${lastOne.endedAt}`);
+  }
+  if (!lastOne.participantIds.includes(alice.userId)) {
+    throw new Error(`Whoever was on the call is not in it: ${lastOne.participantIds.join(", ")}`);
+  }
+  const lasted = lastOne.endedAt - lastOne.startedAt;
+
   // Stopping the session and not only the client: it keeps itself alive to keep the membership alive,
   // and a check that passes and never exits is a check that hangs whatever runs it.
   await session.stop();
   matrix.stopClient();
   await alice.client.stop();
   await bob.client.stop();
-  console.log(`RelayKit conference smoke check passed (${ticket.url}, seen by ${bob.userId})`);
+  console.log(
+    `RelayKit conference smoke check passed (${ticket.url}, seen by ${bob.userId}, ` +
+      `the call read back out of the room as ${lasted} ms with ${lastOne.participantIds.length} on it)`
+  );
 }
 
 run().catch(error => {
