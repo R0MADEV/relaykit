@@ -9,6 +9,12 @@ import type {
   UserId
 } from "@relaykit/core";
 
+/** What is known about somebody: how they go by, and the picture they go by it with. */
+export interface HeldProfile {
+  readonly displayName?: string;
+  readonly avatar?: AvatarImage;
+}
+
 /** What the people of the double need from the adapter around them, and nothing else of it. */
 export interface InMemoryPeopleContext {
   readonly requireUserId: () => UserId;
@@ -24,7 +30,7 @@ export interface InMemoryPeopleContext {
  * conversation's wins when there is one. None of this touches the timeline.
  */
 export class InMemoryPeople implements DevicesAdapter, PushAdapter {
-  private readonly profiles = new Map<UserId, { displayName?: string; avatar?: AvatarImage }>();
+  private readonly profiles = new Map<UserId, HeldProfile>();
   private readonly names = new Map<string, string>();
   private readonly devices = new Map<string, Device>();
   private readonly pushRegistrations = new Map<string, PushRegistration>();
@@ -33,7 +39,7 @@ export class InMemoryPeople implements DevicesAdapter, PushAdapter {
   constructor(private readonly context: InMemoryPeopleContext) {}
 
   /** Test helper: what somebody goes by everywhere, and the picture they go by it with. */
-  setProfile(userId: UserId, profile: { displayName?: string; avatar?: AvatarImage }): void {
+  setProfile(userId: UserId, profile: HeldProfile): void {
     this.profiles.set(userId, profile);
   }
 

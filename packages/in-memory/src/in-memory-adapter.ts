@@ -51,11 +51,24 @@ import type {
 import { SdkError } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
 import { InMemoryCrypto } from "./in-memory-crypto.js";
-import { InMemoryPeople } from "./in-memory-people.js";
+import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemorySpaces } from "./in-memory-spaces.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
+
+/** Somebody waiting at the door of a conversation, and why they say they should be let in. */
+interface Knock {
+  readonly userId: UserId;
+  readonly reason?: string;
+}
+
+/** A message somebody said was worth the homeserver's attention, and what they said about it. */
+interface Report {
+  readonly conversationId: ConversationId;
+  readonly messageId: MessageId;
+  readonly reason: string;
+}
 
 export interface InMemoryAdapterOptions {
   readonly conversations?: readonly Conversation[];
@@ -72,8 +85,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private nextConversationId = 1;
   private nextAttachmentId = 1;
   private readonly unreadCounts = new Map<ConversationId, number>();
-  private readonly knocks = new Map<ConversationId, { userId: UserId; reason?: string }[]>();
-  private readonly reported: { conversationId: ConversationId; messageId: MessageId; reason: string }[] = [];
+  private readonly knocks = new Map<ConversationId, Knock[]>();
+  private readonly reported: Report[] = [];
   private readonly published = new Set<ConversationId>();
 
   private readonly receipts: ReadReceipt[] = [];
@@ -314,7 +327,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: what has been reported to whoever runs the server. */
-  reports(): readonly { conversationId: ConversationId; messageId: MessageId; reason: string }[] {
+  reports(): readonly Report[] {
     return this.reported;
   }
 
@@ -341,7 +354,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: who has asked to come in to a conversation and is still waiting. */
-  knocksOn(conversationId: ConversationId): readonly { userId: UserId; reason?: string }[] {
+  knocksOn(conversationId: ConversationId): readonly Knock[] {
     return this.knocks.get(conversationId) ?? [];
   }
 
@@ -598,7 +611,7 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   /** Test helper: adds another session of this account. */
   /** Test helper: what somebody goes by everywhere, and the picture they go by it with. */
-  setProfile(userId: UserId, profile: { displayName?: string; avatar?: AvatarImage }): void {
+  setProfile(userId: UserId, profile: HeldProfile): void {
     this.people.setProfile(userId, profile);
   }
 
