@@ -18,6 +18,8 @@ import { PollOperations } from "./poll-operations.js";
 import { LocationOperations } from "./location-operations.js";
 import { CallOperations } from "./call-operations.js";
 import type { MessagingClientConfig } from "./client-config.js";
+import type { AdapterHandlers, MessagingAdapter } from "./adapter.js";
+import type { MessagingStorage } from "./storage.js";
 import type {
   AvatarImage,
   AvatarOptions,
@@ -344,14 +346,17 @@ export class MessagingClient {
     const storage = config.storage
       ? forgivingStorage(config.storage, error => this.emitError(error))
       : undefined;
+    const getSession = (): Session | undefined => this.session;
+    const now = config.now ?? ((): number => Date.now());
     const base = {
       adapter,
       assertStarted: () => this.lifecycle.assertStarted(),
       emitError: (error: unknown) => this.emitError(error)
     };
+    const storageContext = storage ? { storage } : {};
     const messageContext: MessageOperationsContext = {
       ...base,
-      getSession: () => this.session,
+      getSession,
       emitMessageUpdated: message => this.events.emit("message.updated", message),
       emitMessageReceived: message => this.events.emit("message.received", message),
       // Built after this one, so it is reached when it is needed rather than when this is put together.
@@ -359,10 +364,9 @@ export class MessagingClient {
       whatTheHomeserverTakes: () => this.mediaOperations.limits(),
       cachedMessagesPerConversation: config.cache?.messagesPerConversation ?? defaultCachedMessages,
       rememberedMessages: config.cache?.seenMessages ?? defaultRememberedMessages,
-      ...(storage ? { storage } : {})
+      ...storageContext
     };
     this.messageOperations = new MessageOperations(messageContext);
-    const storageContext = storage ? { storage } : {};
     this.messageMutations = new MessageMutations({
       ...base,
       ...storageContext,
@@ -372,44 +376,81 @@ export class MessagingClient {
     this.conversationOperations = new ConversationOperations({
       ...base,
       ...storageContext,
-      getSession: () => this.session,
+      getSession,
+      now,
       emitUpdated: conversation => this.events.emit("conversation.updated", conversation),
-      now: config.now ?? (() => Date.now()),
       isCaughtUp: () => this.lifecycle.isCaughtUp(),
       ...(config.cache?.conversations !== undefined
         ? { cachedConversations: config.cache.conversations }
         : {})
     });
-    this.reactionOperations = new ReactionOperations({
-      ...base,
-      getSession: () => this.session,
-      waiting: this.waiting
-    });
-    this.deviceOperations = new DeviceOperations(base);
-    this.cryptoOperations = new CryptoOperations(base);
-    this.presenceOperations = new PresenceOperations(base);
+    this.reactionOperations = new ReactionOperations({ ...base, getSession, waiting: this.waiting });
     this.verificationOperations = new VerificationOperations({
       ...base,
-      getSession: () => this.session,
+      getSession,
       openDirect: (userId: string) => this.conversationOperations.open(userId)
     });
     this.mediaOperations = new MediaOperations({
       ...base,
-      cachedBytes: config.cache?.downloadedBytes ?? 32 * 1024 * 1024,
-      now: config.now ?? (() => Date.now())
+      now,
+      cachedBytes: config.cache?.downloadedBytes ?? 32 * 1024 * 1024
     });
-    this.pollOperations = new PollOperations(base);
-    this.locationOperations = new LocationOperations(base);
-    this.callOperations = new CallOperations(base);
     this.userOperations = new UserOperations({
       ...base,
       ...storageContext,
-      now: config.now ?? (() => Date.now()),
+      now,
       cachedAvatarBytes: config.cache?.avatarBytes ?? 8 * 1024 * 1024
     });
+    // The rest ask for nothing of their own.
+    this.deviceOperations = new DeviceOperations(base);
+    this.cryptoOperations = new CryptoOperations(base);
+    this.presenceOperations = new PresenceOperations(base);
+    this.pollOperations = new PollOperations(base);
+    this.locationOperations = new LocationOperations(base);
+    this.callOperations = new CallOperations(base);
     this.spaceOperations = new SpaceOperations(base);
     this.session = config.session;
-    this.lifecycle = new ClientLifecycle({
+    this.lifecycle = this.lifecycleFor(adapter, storage);
+  }
+
+  /** Everything the adapter says while it runs, and the one place each of those goes. */
+  private handlersFor(storage: MessagingStorage | undefined): AdapterHandlers {
+    return {
+      onConversationUpdated: conversation => {
+        // A member may have renamed themselves, and what was held about this conversation would say otherwise.
+        this.userOperations.forgetConversation(conversation.id);
+        // Keeping it, not only announcing it: otherwise anything read from the local store goes stale.
+        void storage?.saveConversation(conversation);
+        this.events.emit("conversation.updated", conversation);
+      },
+      onMessageReceived: message => this.messageOperations.receiveMessage(message),
+      onMessageUpdated: message => this.messageOperations.updateMessage(message),
+      onReactionAdded: reaction => this.events.emit("reaction.added", reaction),
+      onReactionRemoved: reaction => this.events.emit("reaction.removed", reaction),
+      onTypingChanged: update => this.events.emit("typing.changed", update),
+      onReceiptReceived: receipt => this.events.emit("receipt.received", receipt),
+      onPresenceChanged: presence => this.events.emit("presence.changed", presence),
+      onNotification: notification => this.events.emit("notification", notification),
+      onCallIncoming: call => this.events.emit("call.incoming", call),
+      onCallChanged: call => this.events.emit("call.changed", call),
+      onCallSpeaking: speaking => this.events.emit("call.speaking", speaking),
+      onSessionEnded: () => {
+        // Stopping first, so whatever the application does when told finds a client that is honestly stopped
+        // rather than one that still looks alive and fails on the next thing it is asked.
+        void this.lifecycle.sessionEnded().finally(() => this.events.emit("session.ended", undefined));
+      },
+      onVerificationRequested: verification => this.events.emit("verification.requested", verification),
+      onVerificationChanged: verification => this.events.emit("verification.changed", verification),
+      onError: error => this.emitError(error)
+    };
+  }
+
+  /** Signing in and out, starting, stopping, and putting back what was held while it was away. */
+  private lifecycleFor(
+    adapter: MessagingAdapter,
+    storage: MessagingStorage | undefined
+  ): ClientLifecycle {
+    return new ClientLifecycle({
       adapter,
       getSession: () => this.session,
       setSession: session => {
@@ -431,34 +472,7 @@ export class MessagingClient {
         this.messageOperations.forget();
         this.userOperations.forget();
       },
-      handlers: {
-        onConversationUpdated: conversation => {
-          // A member may have renamed themselves, and what was held about this conversation would say otherwise.
-          this.userOperations.forgetConversation(conversation.id);
-          // Keeping it, not only announcing it: otherwise anything read from the local store goes stale.
-          void storage?.saveConversation(conversation);
-          this.events.emit("conversation.updated", conversation);
-        },
-        onMessageReceived: message => this.messageOperations.receiveMessage(message),
-        onMessageUpdated: message => this.messageOperations.updateMessage(message),
-        onReactionAdded: reaction => this.events.emit("reaction.added", reaction),
-        onReactionRemoved: reaction => this.events.emit("reaction.removed", reaction),
-        onTypingChanged: update => this.events.emit("typing.changed", update),
-        onReceiptReceived: receipt => this.events.emit("receipt.received", receipt),
-        onPresenceChanged: presence => this.events.emit("presence.changed", presence),
-        onNotification: notification => this.events.emit("notification", notification),
-        onCallIncoming: call => this.events.emit("call.incoming", call),
-        onCallChanged: call => this.events.emit("call.changed", call),
-        onCallSpeaking: speaking => this.events.emit("call.speaking", speaking),
-        onSessionEnded: () => {
-          // Stopping first, so whatever the application does when told finds a client that is honestly stopped
-          // rather than one that still looks alive and fails on the next thing it is asked.
-          void this.lifecycle.sessionEnded().finally(() => this.events.emit("session.ended", undefined));
-        },
-        onVerificationRequested: verification => this.events.emit("verification.requested", verification),
-        onVerificationChanged: verification => this.events.emit("verification.changed", verification),
-        onError: error => this.emitError(error)
-      },
+      handlers: this.handlersFor(storage),
       emitConnection: status => this.events.emit("connection.changed", status),
       emitSync: status => this.events.emit("sync.changed", status),
       emitError: error => this.emitError(error)
