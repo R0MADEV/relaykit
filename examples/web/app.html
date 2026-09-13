@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deitu</title>
+    <link rel="stylesheet" href="/src/app/app.css" />
+  </head>
+  <body>
+    <!--
+      The shell: a list of what can be talked in, whatever is open, and a thread beside it when one is.
+      Nothing here decides anything — every screen of the design is laid out so the shape can be seen
+      before any of it is wired to the library.
+    -->
+    <div class="shell" data-view="chat">
+      <!-- What is going on above everything, when a call is. -->
+      <div class="call-bar" id="call-bar" hidden>
+        <span class="live-dot"></span>
+        <strong id="call-bar-title">Sala · Post-mortem incidencia voz</strong>
+        <span class="mono" id="call-bar-time">00:26</span>
+        <span class="mono faint">LIVEKIT</span>
+        <div class="spacer"></div>
+        <button class="button accent" id="call-bar-back">Volver a la sala</button>
+        <button class="icon-button danger" id="call-bar-leave" aria-label="Salir de la sala">✕</button>
+      </div>
+
+      <div class="body">
+        <aside class="sidebar">
+          <div class="sidebar-top">
+            <label class="search">
+              <input id="search" type="search" placeholder="Buscar en mensajes" />
+              <span class="search-icon" aria-hidden="true">⌕</span>
+            </label>
+            <div class="new">
+              <button class="icon-button accent" id="new-button" aria-label="Nuevo">+</button>
+              <div class="menu" id="new-menu" hidden>
+                <button data-opens="create-channel"><span aria-hidden="true">▭</span> Crear canal</button>
+                <button data-opens="new-message">
+                  <span aria-hidden="true">◍</span> Iniciar mensaje nuevo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <nav class="lists" id="lists">
+            <p class="list-label">Canales <button class="add" aria-label="Añadir canal">+</button></p>
+            <ul id="channels"></ul>
+            <p class="list-label">
+              Mensajes directos <button class="add" aria-label="Nuevo mensaje">+</button>
+            </p>
+            <ul id="directs"></ul>
+          </nav>
+        </aside>
+
+        <!-- What is open: a channel, a direct message, or the rooms. -->
+        <main class="main" id="chat-view">
+          <header class="head">
+            <div>
+              <h1 id="open-title"># incidencias-voz</h1>
+              <p class="head-under">
+                <span id="open-topic">Guardias y cortes de servicio</span>
+                <span class="mono faint" id="open-address">#incidencias-voz:matrix.un.es</span>
+              </p>
+            </div>
+            <div class="head-actions">
+              <span class="pill" id="open-people"><span aria-hidden="true">◍</span> 18</span>
+              <button class="button accent" id="open-room">
+                <span aria-hidden="true">▭</span> Abrir sala
+              </button>
+              <button class="icon-button" aria-label="Buscar aquí">⌕</button>
+            </div>
+          </header>
+
+          <div class="banner" id="room-banner">
+            <span class="live-dot"></span>
+            <strong>Sala activa en este canal</strong>
+            <span class="mono faint">3 participantes</span>
+            <div class="spacer"></div>
+            <button class="button accent small">Unirse</button>
+          </div>
+
+          <div class="timeline" id="timeline"></div>
+
+          <form class="composer" id="composer">
+            <div class="tools">
+              <button type="button" aria-label="Negrita"><b>B</b></button>
+              <button type="button" aria-label="Cursiva"><i>I</i></button>
+              <button type="button" aria-label="Código">&lt;/&gt;</button>
+              <button type="button" aria-label="Enlace">🔗</button>
+              <button type="button" aria-label="Mencionar">@</button>
+              <button type="button" aria-label="Responder">↩</button>
+            </div>
+            <div class="write">
+              <input id="write" placeholder="Escribe en #incidencias-voz…" />
+              <button class="icon-button accent" type="submit" aria-label="Enviar">→</button>
+            </div>
+          </form>
+
+          <p class="foot mono">Matrix · cifrado extremo a extremo</p>
+        </main>
+
+        <!-- A thread, when one is open. -->
+        <section class="thread" id="thread" hidden>
+          <header class="thread-head">
+            <div>
+              <h2>Hilo</h2>
+              <p class="mono faint" id="thread-where">#incidencias-voz</p>
+            </div>
+            <button class="icon-button" id="thread-close" aria-label="Cerrar hilo">✕</button>
+          </header>
+          <div class="thread-body" id="thread-body"></div>
+          <form class="thread-write">
+            <input placeholder="Responder en el hilo…" />
+            <button class="icon-button accent" type="submit" aria-label="Responder">→</button>
+          </form>
+        </section>
+
+        <!-- The rooms: what is going on now, and what is over. -->
+        <main class="main rooms" id="rooms-view" hidden>
+          <header class="head">
+            <div>
+              <h1 id="room-title">Sala · Post-mortem incidencia voz</h1>
+              <p class="head-under"><span class="mono faint">MATRIX + LIVEKIT</span></p>
+            </div>
+            <div class="head-actions">
+              <button class="button" data-opens="invite"><span aria-hidden="true">◍</span> Invitar</button>
+              <button class="button" id="minimise">Minimizar</button>
+            </div>
+          </header>
+          <div class="grid" id="grid"></div>
+          <div class="call-controls">
+            <button class="round" aria-label="Silenciar micrófono">
+              <span aria-hidden="true">🎙</span><small>Silenciar</small>
+            </button>
+            <button class="round" aria-label="Cámara">
+              <span aria-hidden="true">📷</span><small>Cámara</small>
+            </button>
+            <button class="round" aria-label="Compartir pantalla">
+              <span aria-hidden="true">▣</span><small>Compartir</small>
+            </button>
+            <button class="round" aria-label="Chat">
+              <span aria-hidden="true">▭</span><small>Chat</small>
+            </button>
+            <button class="round" aria-label="Participantes">
+              <span aria-hidden="true">◍</span><small>Participantes</small>
+            </button>
+            <button class="round leave" aria-label="Salir">
+              <span aria-hidden="true">✆</span><small>Salir</small>
+            </button>
+          </div>
+        </main>
+
+        <!-- A room made and waiting for somebody. -->
+        <main class="main lobby" id="lobby-view" hidden>
+          <section class="card lobby-card">
+            <p class="label">Sala creada por ti</p>
+            <div class="lobby-head">
+              <h2>Sala de Eve Deitu</h2>
+              <button class="button accent">Entrar</button>
+            </div>
+            <p class="status"><span class="live-dot"></span> Sala activa · esperando invitados</p>
+            <p class="tags">
+              <span class="tag">Solo invitados</span><span class="tag quiet">Anfitrión · Eve Deitu</span>
+            </p>
+            <p class="list-label">En la sala</p>
+            <ul class="in-room">
+              <li>
+                <span class="avatar" data-there="here">ED</span> Eve Deitu
+                <span class="mono faint">anfitrión</span>
+              </li>
+            </ul>
+            <div class="lobby-actions">
+              <button class="button" data-opens="invite">
+                <span aria-hidden="true">◍</span> Invitar usuarios
+              </button>
+              <button class="button" id="copy-link">
+                <span aria-hidden="true">⧉</span> Copiar enlace de invitación
+              </button>
+            </div>
+            <input class="link mono" id="invite-link" readonly value="deitu.un.es/sala/n1" />
+            <p class="mono faint">Abierta ahora · solo tú dentro</p>
+          </section>
+        </main>
+      </div>
+
+      <!-- A call left running while something else is looked at. -->
+      <div class="mini" id="mini" hidden>
+        <p class="mini-icon" aria-hidden="true">▭</p>
+        <p class="mini-title">Post-mortem incidencia voz</p>
+        <p class="mono faint"><span id="mini-time">00:26</span> · 3 en sala</p>
+        <div class="mini-actions">
+          <button class="button accent small" id="mini-open">Ampliar</button>
+          <button class="icon-button" aria-label="Silenciar">🎙</button>
+          <button class="icon-button danger" aria-label="Salir">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="modal" id="create-channel">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">▭</span>
+          <div>
+            <h2>Crear canal</h2>
+            <p class="faint">Un canal para un tema del equipo</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Nombre del canal</span>
+          <span class="prefixed"><span class="prefix">#</span><input placeholder="guardias-verano" /></span>
+        </label>
+        <p class="label">Visibilidad</p>
+        <div class="choices">
+          <label class="choice chosen">
+            <input type="radio" name="visibility" value="public" checked />
+            <strong><span aria-hidden="true">⊕</span> Público</strong>
+            <small>Cualquiera de la organización puede entrar</small>
+          </label>
+          <label class="choice">
+            <input type="radio" name="visibility" value="private" />
+            <strong><span aria-hidden="true">🔒</span> Privado</strong>
+            <small>Solo por invitación</small>
+          </label>
+        </div>
+        <p class="label">Añadir usuarios</p>
+        <ul class="people" id="create-people"></ul>
+        <footer class="modal-foot">
+          <span class="mono faint">Puedes invitar después</span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="create">Crear canal</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="invite">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Invitar usuarios</h2>
+            <p class="faint">Se les avisa por chat con el enlace de la sala</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <p class="label">Usuarios</p>
+        <ul class="people" id="invite-people"></ul>
+        <footer class="modal-foot">
+          <span class="mono faint" id="invite-count">0 invitaciones</span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="invite">Enviar invitación</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="new-message">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Iniciar mensaje nuevo</h2>
+            <p class="faint">Con una persona o con varias</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <p class="label">Usuarios</p>
+        <ul class="people" id="new-message-people"></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="start">Empezar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/app/app.ts"></script>
+  </body>
+</html>
