@@ -195,7 +195,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.unreadCounts.set(conversationId, (this.unreadCounts.get(conversationId) ?? 0) + 1);
     const appended = this.appendMessage(message);
     const ownUserId = this.currentUserId;
-    const level = this.conversations.find(item => item.id === conversationId)?.notifications;
+    const level = this.findConversation(conversationId)?.notifications;
     const namesMe = ownUserId !== undefined && body.toLowerCase().includes(ownUserId.toLowerCase());
     // A silenced conversation says nothing, and one set to mentions only speaks when it names you.
     if (level === "none" || (level === "mentions" && !namesMe)) return appended;
@@ -233,14 +233,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     conversationId: ConversationId,
     _via: readonly string[] = []
   ): Promise<Conversation> {
-    const conversation = this.conversations.find(item => item.id === conversationId);
-    if (!conversation) {
-      throw new Error("The conversation does not exist");
-    }
-    const joinedConversation: Conversation = { ...conversation, membership: "join" };
-    const index = this.conversations.indexOf(conversation);
-    this.conversations[index] = joinedConversation;
-    return joinedConversation;
+    return this.replaceConversation({ ...this.requireConversation(conversationId), membership: "join" });
   }
 
   async leaveConversation(conversationId: ConversationId): Promise<void> {
@@ -372,8 +365,12 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.replaceConversation({ ...this.requireConversation(conversationId), title });
   }
 
+  private findConversation(conversationId: ConversationId): Conversation | undefined {
+    return this.conversations.find(item => item.id === conversationId);
+  }
+
   private requireConversation(conversationId: ConversationId): Conversation {
-    const conversation = this.conversations.find(item => item.id === conversationId);
+    const conversation = this.findConversation(conversationId);
     if (!conversation) throw new Error("The conversation does not exist");
     return conversation;
   }
@@ -432,7 +429,7 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   /** What is pinned travels with the conversation, so it is still known with no homeserver to ask. */
   private tellAboutPinned(conversationId: ConversationId): void {
-    const conversation = this.conversations.find(item => item.id === conversationId);
+    const conversation = this.findConversation(conversationId);
     if (!conversation) return;
     this.replaceConversation({ ...conversation, pinnedIds: [...(this.pinned.get(conversationId) ?? [])] });
   }
@@ -1067,16 +1064,8 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   private appendMessage(message: Message): Message {
     this.messages.push(message);
-    const conversation = this.conversations.find(item => item.id === message.conversationId);
-    if (conversation) {
-      const updatedConversation: Conversation = { ...conversation, lastMessage: message };
-      const index = this.conversations.indexOf(conversation);
-      this.conversations[index] = updatedConversation;
-      this.handlers.onConversationUpdated?.({
-        ...updatedConversation,
-        unreadCount: this.unreadCounts.get(message.conversationId) ?? 0
-      });
-    }
+    const conversation = this.findConversation(message.conversationId);
+    if (conversation) this.replaceConversation({ ...conversation, lastMessage: message });
     this.handlers.onMessageReceived?.(message);
     return message;
   }
@@ -1157,15 +1146,10 @@ export class InMemoryAdapter implements MessagingAdapter {
       return;
     }
     this.unreadCounts.set(conversationId, 0);
-    const conversation = this.conversations.find(item => item.id === conversationId);
+    const conversation = this.findConversation(conversationId);
     // Where the person left off is remembered, not only that the counter went back to zero.
     if (conversation) {
-      const updated = this.replaceConversation({
-        ...conversation,
-        lastReadMessageId: messageId,
-        unreadCount: 0
-      });
-      this.handlers.onConversationUpdated?.(updated);
+      this.replaceConversation({ ...conversation, lastReadMessageId: messageId, unreadCount: 0 });
     }
     return this.features.markMessageRead(conversationId, messageId);
   }

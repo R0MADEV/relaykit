@@ -312,3 +312,30 @@ test("what the conversation reports as changed is kept, not only announced", asy
   assert.equal(stored?.title, "Equipo de guardia");
   await client.stop();
 });
+
+test("joining a conversation hands it back with its unread count, as every other path does", async () => {
+  const adapter = new InMemoryAdapter();
+  await adapter.start(session, {});
+  const conversation = await adapter.createConversation({ participantIds: ["bob"] });
+  adapter.receiveMessage(conversation.id, "bob", "hola");
+
+  const joined = await adapter.joinConversation(conversation.id);
+
+  assert.equal(joined.membership, "join");
+  assert.equal(joined.unreadCount, 1);
+});
+
+test("joining a conversation tells the list it was joined", async () => {
+  const adapter = new InMemoryAdapter();
+  const updates = [];
+  await adapter.start(session, { onConversationUpdated: item => updates.push(item) });
+  const conversation = await adapter.createConversation({ participantIds: ["bob"] });
+  updates.length = 0;
+
+  await adapter.joinConversation(conversation.id);
+
+  assert.deepEqual(
+    updates.map(item => item.membership),
+    ["join"]
+  );
+});

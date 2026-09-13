@@ -82,3 +82,16 @@ test("asking for nothing waiting is not a request", async () => {
   await assert.rejects(client.push.pending({ limit: 0 }), { code: "INVALID_INPUT" });
   await client.stop();
 });
+
+test("marking a conversation read tells the list once", async () => {
+  const adapter = new InMemoryAdapter();
+  const updates = [];
+  await adapter.start(session, { onConversationUpdated: item => updates.push(item) });
+  const conversation = await adapter.createConversation({ participantIds: ["bob"] });
+  const sent = await adapter.sendMessage(conversation.id, "hola");
+  updates.length = 0;
+
+  await adapter.markMessageRead(conversation.id, sent.id);
+
+  assert.equal(updates.length, 1);
+});
