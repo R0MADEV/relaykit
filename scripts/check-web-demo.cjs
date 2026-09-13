@@ -414,7 +414,7 @@ async function run() {
     "the message to be waiting on screen",
     `
     [...document.querySelectorAll("#timeline .message")].some(item =>
-      item.textContent.includes(${JSON.stringify(whileOffline)}) && !item.textContent.includes("· sent"))
+      item.textContent.includes(${JSON.stringify(whileOffline)}) && item.dataset.status !== "sent")
   `,
     30
   ).catch(async error => {
@@ -439,7 +439,7 @@ async function run() {
     "the message to go out once the network is back",
     `
     [...document.querySelectorAll("#timeline .message")].some(item =>
-      item.textContent.includes(${JSON.stringify(whileOffline)}) && item.textContent.includes("· sent"))
+      item.textContent.includes(${JSON.stringify(whileOffline)}) && item.dataset.status === "sent")
   `,
     120
   );

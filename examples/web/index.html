@@ -122,7 +122,102 @@
         gap: 4px;
       }
 
-      /* ---- top bar: signing in, and who you are ---- */
+      /* ---- signing in ---- */
+      #welcome {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(ellipse at top, #3b3f6b 0%, var(--bg-main) 55%);
+      }
+      body[data-signed-in] #welcome {
+        display: none;
+      }
+      #login-form {
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        background: var(--bg-side);
+        border-radius: 10px;
+        padding: 28px 28px 22px;
+        display: grid;
+        gap: 14px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      }
+      #login-form h2 {
+        margin: 0 0 4px;
+        font-size: 22px;
+        text-align: center;
+        color: var(--text-strong);
+      }
+      #login-form button[type="submit"] {
+        background: var(--accent);
+        padding: 11px;
+        font-size: 15px;
+        margin-top: 4px;
+      }
+      #login-form button[type="submit"]:hover {
+        background: var(--accent-hover);
+      }
+      button.quiet {
+        background: transparent;
+        color: var(--muted);
+      }
+      button.quiet:hover {
+        background: var(--bg-hover);
+        color: var(--text-strong);
+      }
+
+      /* ---- avatars: initials on a disc, until there is a face ---- */
+      .avatar {
+        display: inline-grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--tone, linear-gradient(135deg, #5865f2, #3ba55d));
+        color: #fff;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+        text-transform: uppercase;
+      }
+
+      /* ---- menus: one word, and what it hides underneath ---- */
+      details.more,
+      #attach,
+      #settings {
+        position: relative;
+      }
+      details > summary {
+        list-style: none;
+        cursor: pointer;
+        user-select: none;
+      }
+      details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .menu {
+        position: absolute;
+        z-index: 5;
+        min-width: 220px;
+        background: #111214;
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        display: grid;
+        gap: 2px;
+      }
+      .menu button {
+        text-align: left;
+        background: transparent;
+        color: var(--text);
+        width: 100%;
+      }
+      .menu button:hover {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      /* ---- top bar: the brand, and how the connection is ---- */
       header {
         display: flex;
         gap: 10px;
@@ -203,6 +298,10 @@
         vertical-align: 1px;
       }
 
+      #status {
+        margin-left: auto;
+      }
+
       /* ---- the two columns ---- */
       #app {
         flex: 1;
@@ -261,14 +360,11 @@
         color: var(--text-strong);
       }
       /* Somebody's face, for as long as there is not one: a coloured disc in the place it will take. */
-      #conversations li::before {
-        content: "";
+      #conversations li .avatar {
         grid-row: 1 / span 2;
         width: 34px;
         height: 34px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #5865f2, #3ba55d);
-        opacity: 0.85;
+        font-size: 13px;
       }
       #conversations .name {
         font-weight: 600;
@@ -297,13 +393,47 @@
         min-width: 20px;
         text-align: center;
       }
-      /* Yourself, bottom-left, and what you speak and are seen with. It is the account's, not one call's. */
-      #devices {
+      /* Yourself, bottom-left. */
+      #me {
         background: #232428;
-        padding: 10px 12px;
-        display: grid;
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
         gap: 8px;
         border-top: 1px solid var(--bg-deep);
+      }
+      #who-am-i {
+        flex: 1;
+        min-width: 0;
+        font-size: 13.5px;
+        color: var(--text-strong);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #me button,
+      #me summary {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      #me button:hover,
+      #me summary:hover {
+        background: var(--bg-hover);
+        color: var(--text-strong);
+      }
+      #settings .menu {
+        bottom: 40px;
+        right: 0;
+        min-width: 260px;
+        gap: 10px;
+        padding: 12px;
       }
       #devices select {
         font-size: 12.5px;
@@ -327,7 +457,7 @@
       }
       #conversation-actions {
         display: flex;
-        flex-wrap: wrap;
+        align-items: center;
         gap: 6px;
         padding: 10px 16px;
         border-bottom: 1px solid var(--bg-deep);
@@ -354,9 +484,30 @@
       #join-call:hover {
         background: var(--green-hover) !important;
       }
-      #leave {
+      details.more {
         margin-left: auto;
+      }
+      details.more > summary {
+        color: var(--muted);
+        font-size: 13px;
+        padding: 5px 10px;
+        border-radius: 4px;
+      }
+      details.more > summary:hover,
+      details.more[open] > summary {
+        background: var(--bg-hover);
+        color: var(--text-strong);
+      }
+      details.more .menu {
+        right: 0;
+        top: 34px;
+      }
+      #leave {
         color: var(--red) !important;
+      }
+      #leave:hover {
+        background: var(--red) !important;
+        color: #fff !important;
       }
       #empty {
         margin: auto;
@@ -385,9 +536,9 @@
       }
       #participants {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 380px));
+        justify-content: center;
         gap: 10px;
-        justify-items: stretch;
       }
       #participants:empty {
         display: none;
@@ -490,29 +641,40 @@
       }
       .message {
         position: relative;
-        padding: 6px 16px 6px 62px;
-        min-height: 42px;
-        border-left: 3px solid transparent;
+        padding: 2px 16px 2px 68px;
+        margin-top: 12px;
+      }
+      .message.continued {
+        margin-top: 0;
       }
       .message:hover {
         background: var(--bg-hover);
       }
-      .message::before {
-        content: "";
+      .message .avatar {
         position: absolute;
         left: 16px;
-        top: 6px;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #5865f2, #eb459e);
-        opacity: 0.9;
+        top: 2px;
+        width: 40px;
+        height: 40px;
+        font-size: 15px;
       }
-      .message.own::before {
-        background: linear-gradient(135deg, #3ba55d, #5865f2);
+      .message.continued .avatar,
+      .message.continued .author {
+        display: none;
       }
-      .message.own {
-        border-left-color: var(--own);
+      .author {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        line-height: 1.3;
+      }
+      .author .who {
+        font-weight: 600;
+        color: var(--text-strong);
+      }
+      .author time {
+        font-size: 12px;
+        color: var(--muted);
       }
       .message .meta {
         font-size: 12px;
@@ -630,13 +792,41 @@
         font-size: 13px;
         min-height: 1.2em;
       }
-      #message-form {
+      #composer {
         display: flex;
-        gap: 8px;
+        align-items: center;
         background: var(--bg-raised);
         border-radius: 8px;
-        padding: 6px 6px 6px 14px;
+        padding: 6px 6px 6px 8px;
+      }
+      #attach > summary {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--muted);
+        color: var(--bg-raised);
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      #attach > summary:hover {
+        background: var(--text-strong);
+      }
+      #attach .menu {
+        bottom: 44px;
+        left: 0;
+        min-width: 320px;
+        padding: 12px;
+        gap: 10px;
+      }
+      #message-form {
+        flex: 1;
+        display: flex;
+        gap: 8px;
         align-items: center;
+        padding-left: 8px;
       }
       #message {
         flex: 1;
@@ -694,24 +884,32 @@
   <body>
     <header>
       <h1>RelayKit</h1>
-      <form id="login-form">
-        <input id="homeserver" value="http://localhost:8008" aria-label="Homeserver" />
-        <select id="username" aria-label="Usuario">
-          <option value="alice">alice</option>
-          <option value="bob">bob</option>
-          <!-- A third person, because a call with three in it takes three. -->
-          <option value="carol">carol</option>
-        </select>
-        <input id="password" type="password" value="alice-password" aria-label="Contraseña" required />
-        <button type="submit">Conectar</button>
-        <button id="register" type="button">Crear cuenta</button>
-      </form>
-      <button id="rename-me" type="button">Mi nombre</button>
-      <!-- Two windows of the same demo on one machine look identical, and whoever is testing cannot tell
-           which is which. -->
-      <strong id="who-am-i"></strong>
       <p id="status">Desconectado</p>
     </header>
+    <!-- Signing in, on its own in the middle of the page: it is the only thing there is to do until it is done. -->
+    <section id="welcome">
+      <form id="login-form">
+        <h2>Entrar</h2>
+        <label
+          >Homeserver <input id="homeserver" value="http://localhost:8008" aria-label="Homeserver"
+        /></label>
+        <label
+          >Usuario
+          <select id="username" aria-label="Usuario">
+            <option value="alice">alice</option>
+            <option value="bob">bob</option>
+            <!-- A third person, because a call with three in it takes three. -->
+            <option value="carol">carol</option>
+          </select></label
+        >
+        <label
+          >Contraseña
+          <input id="password" type="password" value="alice-password" aria-label="Contraseña" required
+        /></label>
+        <button type="submit">Conectar</button>
+        <button id="register" type="button" class="quiet">Crear cuenta</button>
+      </form>
+    </section>
     <div id="app" hidden>
       <aside>
         <form id="open-form">
@@ -727,38 +925,54 @@
           <button type="submit">Buscar</button>
         </form>
         <ol id="conversations"></ol>
-        <!-- Which microphone and camera to use. It belongs to the account, not to one call, so it is here and
-             not inside the panel: it can be chosen before there is anybody to call. -->
-        <div id="devices">
-          <label
-            >Micrófono
-            <select id="microphone"></select
-          ></label>
-          <label
-            >Cámara
-            <select id="camera"></select
-          ></label>
+        <!-- Yourself. Two windows of the same demo on one machine look identical, and whoever is testing
+             cannot tell which is which, so who you are is always on screen. -->
+        <div id="me">
+          <span id="me-avatar" class="avatar"></span>
+          <strong id="who-am-i"></strong>
+          <button id="rename-me" type="button" title="Cambiar mi nombre">✎</button>
+          <details id="settings">
+            <summary title="Micrófono y cámara">⚙</summary>
+            <!-- Which microphone and camera to use. It belongs to the account, not to one call: it can be
+                 chosen before there is anybody to call. -->
+            <div id="devices" class="menu">
+              <label
+                >Micrófono
+                <select id="microphone"></select
+              ></label>
+              <label
+                >Cámara
+                <select id="camera"></select
+              ></label>
+            </div>
+          </details>
+          <button id="sign-out" type="button" title="Cerrar sesión">⏻</button>
         </div>
       </aside>
       <main>
         <p id="topic-text" hidden></p>
         <div id="conversation-actions" hidden>
-          <button id="call" type="button">Llamar</button>
-          <button id="video-call" type="button">Videollamada</button>
+          <button id="call" type="button">📞 Llamar</button>
+          <button id="video-call" type="button">🎥 Videollamada</button>
           <button id="join-call" type="button">Entrar</button>
-          <button id="invite" type="button">Invitar</button>
-          <button id="rename" type="button">Renombrar</button>
-          <button id="favourite" type="button">Favorita</button>
-          <button id="topic" type="button">Descripción</button>
-          <button id="mute" type="button">Silenciar</button>
-          <button id="pinned" type="button">Fijados</button>
-          <button id="place" type="button">Sitio</button>
-          <button id="poll" type="button">Encuesta</button>
-          <button id="live-location" type="button">Compartir ubicación</button>
-          <button id="door" type="button">Puerta</button>
-          <button id="discover" type="button">Buscar publicas</button>
-          <button id="kick" type="button">Expulsar</button>
-          <button id="leave" type="button">Salir</button>
+          <details class="more">
+            <summary>Más ▾</summary>
+            <div class="menu">
+              <button id="invite" type="button">Invitar</button>
+              <button id="rename" type="button">Renombrar</button>
+              <button id="favourite" type="button">Favorita</button>
+              <button id="topic" type="button">Descripción</button>
+              <button id="mute" type="button">Silenciar</button>
+              <button id="pinned" type="button">Fijados</button>
+              <button id="place" type="button">Sitio</button>
+              <button id="poll" type="button">Encuesta</button>
+              <button id="live-location" type="button">Compartir ubicación</button>
+              <button id="door" type="button">Puerta</button>
+              <button id="discover" type="button">Buscar publicas</button>
+              <button id="kick" type="button">Expulsar</button>
+              <button id="leave" type="button">Salir de la conversación</button>
+            </div>
+          </details>
         </div>
         <div id="call-panel" hidden>
           <p id="call-state"></p>
@@ -786,10 +1000,26 @@
         <footer hidden>
           <p id="replying" hidden></p>
           <p id="typing"></p>
-          <form id="message-form">
-            <input id="message" placeholder="Mensaje" autocomplete="off" required />
-            <button type="submit">Enviar</button>
-          </form>
+          <div id="composer">
+            <details id="attach">
+              <summary title="Adjuntar">+</summary>
+              <div class="menu">
+                <form id="file-form">
+                  <input id="file" type="file" required aria-label="Archivo adjunto" />
+                  <button type="submit">Enviar archivo</button>
+                  <progress id="upload-progress" value="0" max="1" hidden>0%</progress>
+                </form>
+                <div id="extras">
+                  <button id="record" type="button">🎤 Grabar nota de voz</button>
+                  <button id="sticker" type="button">😀 Pegatina</button>
+                </div>
+              </div>
+            </details>
+            <form id="message-form">
+              <input id="message" placeholder="Mensaje" autocomplete="off" required />
+              <button type="submit">Enviar</button>
+            </form>
+          </div>
           <p id="link-preview" hidden></p>
           <form id="poll-form" hidden>
             <input id="poll-question" placeholder="¿Qué quieres preguntar?" required />
@@ -801,15 +1031,6 @@
             />
             <button type="submit">Preguntar</button>
           </form>
-          <form id="file-form">
-            <input id="file" type="file" required aria-label="Archivo adjunto" />
-            <button type="submit">Enviar archivo</button>
-            <progress id="upload-progress" value="0" max="1" hidden>0%</progress>
-          </form>
-          <div id="extras">
-            <button id="record" type="button">🎤 Grabar nota de voz</button>
-            <button id="sticker" type="button">😀 Pegatina</button>
-          </div>
         </footer>
       </main>
     </div>

@@ -647,6 +647,33 @@ async function holdAConference(alice, bob, address) {
     );
   }
 
+  // A screen shared with three on the call reaches the two who are not sharing it — and is drawn for them.
+  // With two people there is a shortcut for "the other one's screen"; with three there is not, and that is
+  // exactly where it went unseen once.
+  await alice.webContents.executeJavaScript(`
+    ${conferenceOf}.then(call => window.relaykitDemo.client.calls.shareScreen(call.id, true)).then(() => true)
+  `);
+  said.carolSawAlicesScreen = await waitFor(
+    carol,
+    "carol to be shown alice's screen",
+    `
+    (() => {
+      const shown = document.getElementById("call-screen-media");
+      if (!shown || shown.hidden || !shown.srcObject) return false;
+      const live = shown.srcObject.getVideoTracks().filter(one => one.readyState === "live").length;
+      return live > 0 && { live };
+    })()
+  `
+  );
+  await alice.webContents.executeJavaScript(`
+    ${conferenceOf}.then(call => window.relaykitDemo.client.calls.shareScreen(call.id, false)).then(() => true)
+  `);
+  await waitFor(
+    carol,
+    "alice's screen to go away from carol's",
+    `document.getElementById("call-screen-media").hidden`
+  );
+
   // One leaves, the other two carry on with each other: that is what a room is, as against a line.
   await alice.webContents.executeJavaScript(`
     ${conferenceOf}.then(call => window.relaykitDemo.client.calls.hangUp(call.id)).then(() => true)

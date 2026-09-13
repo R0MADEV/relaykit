@@ -16,10 +16,16 @@ El ejemplo necesita un Synapse local o cualquier homeserver Matrix compatible. V
 
 ## Como probarlo
 
-1. Abrir `http://localhost:5173` en dos ventanas.
-2. En una elegir `alice` y en la otra `bob`. La contrasena se rellena sola.
-3. En la ventana de alice, con `@bob:localhost` seleccionado, pulsar "Abrir".
+1. Abrir `http://localhost:5173` en dos ventanas que no compartan sesion (dos perfiles, o una de incognito).
+2. En una entrar como `alice` y en la otra como `bob`. La contrasena se rellena sola.
+3. En la ventana de alice, con `@bob:localhost` seleccionado arriba a la izquierda, pulsar "Abrir".
 4. Escribir. En la ventana de bob aparece la conversacion con su contador de no leidos.
+
+La pantalla: conversaciones a la izquierda con quien eres abajo (✎ cambia tu nombre, ⚙ elige microfono y
+camara, ⏻ cierra la sesion); la conversacion en el centro, con llamar, videollamada y entrar a mano y el
+resto detras de "Mas"; el "+" del cuadro de texto para archivos, notas de voz y pegatinas; y la llamada
+encima de la conversacion mientras dura. `npm run snap:demo` la fotografia sin nadie delante
+(`RELAYKIT_SNAP_CALL=1` en mitad de una videollamada).
 
 Interfaz de dos paneles: a la izquierda las conversaciones ordenadas por actividad, con ultimo mensaje, contador
 de no leidos y buscador; a la derecha el hilo con estado de cada mensaje, adjuntos con progreso y descarga,

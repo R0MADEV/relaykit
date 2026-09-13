@@ -117,6 +117,11 @@ class DemoApp {
     this.select("username").addEventListener("change", () => {
       this.input("password").value = `${this.select("username").value}-password`;
     });
+    // The way out. The session is forgotten here and on the homeserver, and the page starts over.
+    this.element("sign-out").addEventListener("click", () => {
+      localStorage.removeItem(rememberedSession);
+      void this.client.logout().finally(() => location.reload());
+    });
   }
 
   private async login(): Promise<void> {
@@ -185,6 +190,7 @@ class DemoApp {
       localStorage.removeItem(rememberedSession);
       await this.client.stop().catch(() => undefined);
       this.element("app").hidden = true;
+      delete document.body.dataset.signedIn;
       this.showError(error);
     }
   }
@@ -193,6 +199,8 @@ class DemoApp {
     this.ownUserId = userId;
     // Said out loud and put in the tab: two windows of this on one machine are otherwise indistinguishable.
     this.element("who-am-i").textContent = userId;
+    paintAvatar(this.element("me-avatar"), userId);
+    document.body.dataset.signedIn = "true";
     document.title = `RelayKit · ${userId}`;
     void this.fillInDevices();
     // Somebody other than yourself to talk to, whoever you turned out to be.
@@ -240,6 +248,8 @@ class DemoApp {
   private conversationItem(conversation: Conversation): HTMLLIElement {
     const item = document.createElement("li");
     item.setAttribute("aria-current", String(conversation.id === this.conversationId));
+    const avatar = document.createElement("span");
+    avatar.className = "avatar";
     const name = document.createElement("span");
     name.className = "name";
     const pending = new Set(conversation.invitedIds ?? []);
@@ -248,10 +258,11 @@ class DemoApp {
         `${this.nameOf(participantId, conversation.id)}${pending.has(participantId) ? " (pendiente)" : ""}`
     );
     name.textContent = conversation.title ?? (others.length > 0 ? others.join(", ") : conversation.id);
+    paintAvatar(avatar, name.textContent);
     const preview = document.createElement("span");
     preview.className = "preview";
     preview.textContent = `${conversation.isFavourite ? "★ " : ""}${conversation.lastMessage?.body ?? "Sin mensajes"}`;
-    item.append(name, preview);
+    item.append(avatar, name, preview);
     if (conversation.unreadCount) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -332,24 +343,51 @@ class DemoApp {
     const lastReadIndex = lastRead ? messages.findIndex(message => message.id === lastRead) : -1;
     const drawn: Node[] = [this.element("load-more")];
     messages.forEach((message, index) => {
-      if (index === lastReadIndex + 1 && lastReadIndex !== -1 && index < messages.length) {
+      const newMessagesStartHere = index === lastReadIndex + 1 && lastReadIndex !== -1;
+      if (newMessagesStartHere) {
         const line = document.createElement("div");
         line.className = "unread-line";
         line.textContent = "mensajes nuevos";
         drawn.push(line);
       }
-      drawn.push(this.messageElement(message, messages));
+      // The same person, a moment later, and nothing between: one name and one face for the run of them.
+      const previous = messages[index - 1];
+      const continued =
+        previous !== undefined &&
+        !newMessagesStartHere &&
+        previous.senderId === message.senderId &&
+        message.createdAt - previous.createdAt < 5 * 60 * 1000 &&
+        !message.replyToId;
+      drawn.push(this.messageElement(message, messages, continued));
     });
     timeline.replaceChildren(...drawn);
     timeline.scrollTop = timeline.scrollHeight;
   }
 
-  private messageElement(message: Message, all: readonly Message[]): HTMLElement {
+  private messageElement(message: Message, all: readonly Message[], continued = false): HTMLElement {
     const item = document.createElement("article");
     const faded = message.deletedAt || message.undecryptable ? " deleted" : "";
     const kind = message.kind ? ` ${message.kind}` : "";
-    item.className = `message${message.senderId === this.ownUserId ? " own" : ""}${faded}${kind}`;
-    const children: (Node | string)[] = [];
+    const run = continued ? " continued" : "";
+    item.className = `message${message.senderId === this.ownUserId ? " own" : ""}${faded}${kind}${run}`;
+    // Said as data and not only as words: whatever reads the screen to know whether a message went out must
+    // not depend on how that is phrased, or on it being phrased at all.
+    item.dataset.status = message.status;
+    // Who, and when, above what: the face with initials until there is a real one.
+    const sender = this.nameOf(message.senderId, message.conversationId);
+    const avatar = document.createElement("span");
+    avatar.className = "avatar";
+    paintAvatar(avatar, sender);
+    const author = document.createElement("div");
+    author.className = "author";
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = sender;
+    const when = document.createElement("time");
+    when.dateTime = new Date(message.createdAt).toISOString();
+    when.textContent = timeOf(message.createdAt);
+    author.append(who, when);
+    const children: (Node | string)[] = [avatar, author];
     if (message.replyToId) {
       const quoted = document.createElement("div");
       quoted.className = "quote";
@@ -361,7 +399,7 @@ class DemoApp {
       const sticker = document.createElement("img");
       sticker.alt = message.body;
       void this.paintImage(sticker, message.attachment);
-      item.replaceChildren(sticker);
+      item.replaceChildren(avatar, author, sticker);
       return item;
     }
     const body = document.createElement("div");
@@ -387,9 +425,13 @@ class DemoApp {
 
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.append(
-      `${this.nameOf(message.senderId, message.conversationId)} · ${message.status}${message.editedAt ? " · editado" : ""}`
-    );
+    // Delivered is the normal case and says nothing; what is worth a word is a message still on its way, or
+    // one that failed, or one that was changed.
+    const worthSaying = [
+      ...(message.status === "sent" ? [] : [message.status]),
+      ...(message.editedAt ? ["editado"] : [])
+    ];
+    if (worthSaying.length > 0) meta.append(worthSaying.join(" · "));
     const attachment = message.attachment;
     if (attachment?.voice) {
       meta.append(`🎤 ${Math.round(attachment.voice.durationMs / 1000)}s`);
@@ -1203,9 +1245,11 @@ class DemoApp {
 
     this.drawParticipants(call);
 
-    // A shared screen is a second thing to show. Theirs when somebody is showing you one, otherwise your own,
-    // because showing a room you cannot see yourself is how people share the wrong window.
-    const shared = call.remoteScreen ?? call.ownScreen;
+    // A shared screen is a second thing to show. Somebody else's when anybody is showing one — whoever it is,
+    // however many are on the call — otherwise your own, because showing a room you cannot see yourself is how
+    // people share the wrong window.
+    const somebodyElses = call.participants.find(one => one.userId !== this.ownUserId && one.screen)?.screen;
+    const shared = somebodyElses ?? call.ownScreen;
     const screen = this.element("call-screen-media") as HTMLVideoElement;
     screen.srcObject = shared ?? null;
     screen.hidden = !shared;
@@ -1293,6 +1337,38 @@ class DemoApp {
     this.conversations?.stop();
     void this.client.stop();
   }
+}
+
+/** Two letters and a colour that is always the same for the same name, so a face is recognisable before it is one. */
+function paintAvatar(where: HTMLElement, name: string): void {
+  const words = name
+    .replace(/^@/, "")
+    .split(/[\s:._-]+/)
+    .filter(Boolean);
+  const initials =
+    words
+      .slice(0, 2)
+      .map(word => word[0] ?? "")
+      .join("") || name.slice(0, 2);
+  where.textContent = initials;
+  let hash = 0;
+  for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  where.style.setProperty(
+    "--tone",
+    `linear-gradient(135deg, hsl(${hue} 60% 50%), hsl(${(hue + 40) % 360} 60% 40%))`
+  );
+}
+
+/** Today's messages by the clock, older ones by the day: what anybody reading a conversation wants to know. */
+function timeOf(createdAt: number): string {
+  const then = new Date(createdAt);
+  const today = new Date().toDateString() === then.toDateString();
+  return today
+    ? then.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : then.toLocaleDateString([], { day: "2-digit", month: "short" }) +
+        " " +
+        then.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function buildClient(): MessagingClient {
