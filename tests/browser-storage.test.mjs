@@ -113,6 +113,39 @@ test("outbox attachments survive the round trip and are encrypted at rest", asyn
   assert.equal(stored.attachment.data.byteLength, data.byteLength + 12 + 16);
 });
 
+test("a thumbnail kept with an outbox attachment survives, and is encrypted too", async () => {
+  const { storage, name } = createStorage();
+  const data = new Uint8Array([0, 1, 2, 250, 251, 255]);
+  const small = new Uint8Array([9, 8, 7]);
+
+  await storage.saveOutboxOperation({
+    id: "local-2",
+    transactionId: "txn-2",
+    conversationId: "conversation-1",
+    body: "foto.png",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 500,
+    createdAt: 400,
+    attachment: {
+      name: "foto.png",
+      mimeType: "image/png",
+      data,
+      thumbnail: { mimeType: "image/png", data: small }
+    }
+  });
+
+  const restored = await storage.getOutboxOperation("local-2");
+  assert.deepEqual(restored.attachment.data, data);
+  assert.deepEqual(restored.attachment.thumbnail.data, small);
+  assert.equal(restored.attachment.thumbnail.mimeType, "image/png");
+
+  // The picture standing in for the file is somebody's too, so it is not left in the clear.
+  const [stored] = await readRaw(name, "outbox");
+  assert.notDeepEqual(stored.attachment.thumbnail.data, small);
+  assert.equal(stored.attachment.thumbnail.data.byteLength, small.byteLength + 12 + 16);
+});
+
 test("getReadyOutbox only returns operations whose next attempt is due", async () => {
   const { storage } = createStorage();
   const base = {

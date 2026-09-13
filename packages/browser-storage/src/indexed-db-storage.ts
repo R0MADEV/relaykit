@@ -1,5 +1,6 @@
 import { SdkError } from "@relaykit/core";
 import type {
+  FileInput,
   Conversation,
   ConversationId,
   Message,
@@ -148,21 +149,10 @@ export class IndexedDbStorage implements MessagingStorage {
 
   async saveOutboxOperation(operation: OutboxOperation): Promise<void> {
     const { attachment } = operation;
-    const thumbnail = attachment?.thumbnail;
     const storedOperation: OutboxOperation = {
       ...operation,
       body: await this.encrypt(operation.body),
-      ...(attachment
-        ? {
-            attachment: {
-              ...attachment,
-              data: await this.encryptBytes(attachment.data),
-              ...(thumbnail
-                ? { thumbnail: { ...thumbnail, data: await this.encryptBytes(thumbnail.data) } }
-                : {})
-            }
-          }
-        : {})
+      ...(attachment ? { attachment: await this.lockedAway(attachment) } : {})
     };
     await this.request(outboxStore, "readwrite", store => store.put(storedOperation));
   }
@@ -181,16 +171,16 @@ export class IndexedDbStorage implements MessagingStorage {
     return {
       ...operation,
       body,
-      ...(attachment && data
-        ? {
-            attachment: {
-              ...attachment,
-              data,
-              ...(thumbnail && thumbnailData ? { thumbnail: { ...thumbnail, data: thumbnailData } } : {})
-            }
-          }
-        : {})
+      ...(attachment && data ? { attachment: readBack(attachment, data, thumbnailData) } : {})
     };
+  }
+
+  /** A file on its way out, put away: its own bytes locked, and the picture standing in for it locked too. */
+  private async lockedAway(attachment: FileInput): Promise<FileInput> {
+    const locked = { ...attachment, data: await this.encryptBytes(attachment.data) };
+    const { thumbnail } = attachment;
+    if (!thumbnail) return locked;
+    return { ...locked, thumbnail: { ...thumbnail, data: await this.encryptBytes(thumbnail.data) } };
   }
 
   async getMessage(messageId: MessageId): Promise<Message | undefined> {
@@ -471,4 +461,12 @@ function ownBuffer(value: Uint8Array): ArrayBuffer {
   const buffer = new ArrayBuffer(value.byteLength);
   new Uint8Array(buffer).set(value);
   return buffer;
+}
+
+/** The same file with what was read back put in place of what was stored. */
+function readBack(attachment: FileInput, data: Uint8Array, thumbnailData: Uint8Array | undefined): FileInput {
+  const read = { ...attachment, data };
+  const { thumbnail } = attachment;
+  if (!thumbnail || !thumbnailData) return read;
+  return { ...read, thumbnail: { ...thumbnail, data: thumbnailData } };
 }
