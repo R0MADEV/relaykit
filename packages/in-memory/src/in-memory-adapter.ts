@@ -15,11 +15,6 @@ import type {
   ThreadSummary,
   LinkPreview,
   MediaLimits,
-  Poll,
-  StartPollInput,
-  LiveLocation,
-  ShareLocationInput,
-  GeoLocation,
   Call
 } from "@relaykit/core";
 import type {
@@ -32,7 +27,6 @@ import type {
   NotificationLevel,
   SendContent,
   Space,
-  Device,
   MediaRef,
   ReadReceipt,
   ThumbnailInput,
@@ -44,7 +38,6 @@ import type {
   CreateConversationInput,
   MessageId,
   PublicConversation,
-  PushRegistration,
   HistoryVisibility,
   JoinRule,
   KnockOptions,
@@ -672,42 +665,6 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.people.searchUsers(query, limit);
   }
 
-  listDevices(): Promise<readonly Device[]> {
-    return this.people.listDevices();
-  }
-
-  renameDevice(deviceId: string, displayName: string): Promise<void> {
-    return this.people.renameDevice(deviceId, displayName);
-  }
-
-  signOutDevices(deviceIds: readonly string[]): Promise<void> {
-    return this.people.signOutDevices(deviceIds);
-  }
-
-  watchForKeyword(word: string): Promise<void> {
-    return this.people.watchForKeyword(word);
-  }
-
-  stopWatchingForKeyword(word: string): Promise<void> {
-    return this.people.stopWatchingForKeyword(word);
-  }
-
-  listKeywords(): Promise<readonly string[]> {
-    return this.people.listKeywords();
-  }
-
-  registerPush(registration: PushRegistration): Promise<void> {
-    return this.people.registerPush(registration);
-  }
-
-  listPushRegistrations(): Promise<readonly PushRegistration[]> {
-    return this.people.listPushRegistrations();
-  }
-
-  unregisterPush(deviceToken: string): Promise<void> {
-    return this.people.unregisterPush(deviceToken);
-  }
-
   /** Sending twice under one transaction is one message: the second ask gets the first answer. */
   private sentAlready(transactionId?: string): Message | undefined {
     return transactionId
@@ -732,47 +689,15 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
-  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
-    return this.shares.startLocation(conversationId, input);
-  }
-
-  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
-    return this.shares.updateLocation(sharingId, position);
-  }
-
-  stopLiveLocation(sharingId: string): Promise<void> {
-    return this.shares.stopLocation(sharingId);
-  }
-
-  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
-    return this.shares.listLocations(conversationId);
-  }
-
-  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
-    return this.shares.startPoll(conversationId, input);
-  }
-
-  voteInPoll(_conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void> {
-    return this.shares.vote(pollId, answerId);
-  }
-
-  closePoll(_conversationId: ConversationId, pollId: MessageId): Promise<void> {
-    return this.shares.closePoll(pollId);
-  }
-
-  listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
-    return this.shares.listPolls(conversationId);
-  }
-
   /** Conferences, which this double always holds. */
   readonly calling: CallingAdapter = this.callsGoingOn;
   /** Everything else this double does, which is all of it. */
-  readonly polls: PollsAdapter = this;
-  readonly location: LocationAdapter = this;
+  readonly polls: PollsAdapter = this.shares;
+  readonly location: LocationAdapter = this.shares;
   readonly spaces: SpacesAdapter = this;
   readonly media: MediaAdapter = this;
-  readonly push: PushAdapter = this;
-  readonly devices: DevicesAdapter = this;
+  readonly push: PushAdapter = this.people;
+  readonly devices: DevicesAdapter = this.people;
   readonly reactions: ReactionsAdapter = this;
   readonly crypto: CryptoAdapter = this;
 

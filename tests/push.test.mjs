@@ -68,8 +68,8 @@ test("extra data the push gateway needs travels with the registration", async ()
 test("a registration without a gateway or a device token is refused before reaching the server", async () => {
   const { adapter, client } = await startClient();
   let asked = 0;
-  const original = adapter.registerPush.bind(adapter);
-  adapter.registerPush = (...args) => {
+  const original = adapter.push.registerPush.bind(adapter);
+  adapter.push.registerPush = (...args) => {
     asked += 1;
     return original(...args);
   };

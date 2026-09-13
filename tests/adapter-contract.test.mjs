@@ -134,7 +134,7 @@ function runContract(name, setup) {
       const data = new Uint8Array(64).map((_, index) => (index * 3) % 256);
       const progress = [];
 
-      const sent = await adapter.sendAttachment(
+      const sent = await adapter.media.sendAttachment(
         conversationId,
         { name: "contract.bin", mimeType: "application/octet-stream", data },
         `txn-file-${Date.now()}`,
@@ -144,14 +144,14 @@ function runContract(name, setup) {
       assert.equal(sent.attachment.name, "contract.bin");
       assert.ok(sent.attachment.source.length > 0);
       assert.equal(progress.at(-1), 1);
-      assert.deepEqual(await adapter.downloadAttachment(sent.attachment), data);
+      assert.deepEqual(await adapter.media.downloadAttachment(sent.attachment), data);
     });
 
     it("uploads a thumbnail that can be downloaded on its own", async () => {
       const data = new Uint8Array(64).map((_, index) => index % 251);
       const thumbnailData = new Uint8Array([1, 2, 3, 4, 5, 6]);
 
-      const sent = await adapter.sendAttachment(
+      const sent = await adapter.media.sendAttachment(
         conversationId,
         {
           name: "foto.jpg",
@@ -167,14 +167,14 @@ function runContract(name, setup) {
       const { thumbnail } = sent.attachment;
       assert.equal(thumbnail.mimeType, "image/jpeg");
       assert.equal(thumbnail.width, 80);
-      assert.deepEqual(await adapter.downloadAttachment(thumbnail), thumbnailData);
-      assert.deepEqual(await adapter.downloadAttachment(sent.attachment), data);
+      assert.deepEqual(await adapter.media.downloadAttachment(thumbnail), thumbnailData);
+      assert.deepEqual(await adapter.media.downloadAttachment(sent.attachment), data);
     });
 
     it("sends a voice note that is told apart from an audio file", async () => {
       const data = new Uint8Array([79, 103, 103, 83, 0, 2, 0, 0]);
 
-      const sent = await adapter.sendAttachment(
+      const sent = await adapter.media.sendAttachment(
         conversationId,
         {
           name: "nota.ogg",
@@ -190,7 +190,7 @@ function runContract(name, setup) {
         return listed.find(message => message.id === sent.id);
       });
       assert.equal(readBack.attachment.voice.durationMs, 3200);
-      assert.deepEqual(await adapter.downloadAttachment(readBack.attachment), data);
+      assert.deepEqual(await adapter.media.downloadAttachment(readBack.attachment), data);
     });
 
     it("sends a place that arrives as a place and not as a line of text", async () => {
@@ -235,23 +235,23 @@ function runContract(name, setup) {
     });
 
     it("tells where somebody is while they move, and stops telling when stopped", async () => {
-      const sharing = await adapter.startLiveLocation(conversationId, {
+      const sharing = await adapter.location.startLiveLocation(conversationId, {
         durationMs: 600000,
         description: `on my way ${Date.now()}`
       });
       assert.equal(sharing.isLive, true);
       assert.ok(sharing.durationMs > 0);
 
-      await adapter.updateLiveLocation(sharing.id, { latitude: 43.26, longitude: -2.93 });
+      await adapter.location.updateLiveLocation(sharing.id, { latitude: 43.26, longitude: -2.93 });
       const telling = await waitFor("the position", async () => {
-        const listed = await adapter.listLiveLocations(conversationId);
+        const listed = await adapter.location.listLiveLocations(conversationId);
         return listed.find(item => item.id === sharing.id && item.lastPosition);
       });
       assert.equal(Math.round(telling.lastPosition.latitude * 100), 4326);
 
-      await adapter.stopLiveLocation(sharing.id);
+      await adapter.location.stopLiveLocation(sharing.id);
       const stopped = await waitFor("the end", async () => {
-        const listed = await adapter.listLiveLocations(conversationId);
+        const listed = await adapter.location.listLiveLocations(conversationId);
         const current = listed.find(item => item.id === sharing.id);
         return current && !current.isLive ? current : undefined;
       });
@@ -364,7 +364,7 @@ function runContract(name, setup) {
     });
 
     it("asks the conversation something, counts the votes and closes it", async () => {
-      const poll = await adapter.startPoll(conversationId, {
+      const poll = await adapter.polls.startPoll(conversationId, {
         question: `What time do we eat? ${Date.now()}`,
         answers: ["At two", "At three"],
         maxSelections: 1
@@ -374,7 +374,7 @@ function runContract(name, setup) {
 
       // If `startPoll` gives back a poll, that poll exists: listing right after has to find it. Without
       // this, whoever asks something and paints the list sees that nothing happened.
-      const listedStraightAway = await adapter.listPolls(conversationId);
+      const listedStraightAway = await adapter.polls.listPolls(conversationId);
       assert.ok(
         listedStraightAway.some(item => item.id === poll.id),
         "the poll was not there when listing right after creating it"
@@ -382,8 +382,8 @@ function runContract(name, setup) {
 
       // Voting and the vote counting are not two different moments for the caller either: if `voteInPoll`
       // comes back, the vote is there. Waiting here would hide that the application paints an unchanged tally.
-      await adapter.voteInPoll(conversationId, poll.id, poll.answers[1].id);
-      const voted = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
+      await adapter.polls.voteInPoll(conversationId, poll.id, poll.answers[1].id);
+      const voted = (await adapter.polls.listPolls(conversationId)).find(item => item.id === poll.id);
       assert.equal(
         voted.answers.find(answer => answer.id === poll.answers[1].id).votes,
         1,
@@ -391,8 +391,8 @@ function runContract(name, setup) {
       );
       assert.equal(voted.answers.find(answer => answer.id === poll.answers[0].id).votes, 0);
 
-      await adapter.closePoll(conversationId, poll.id);
-      const closed = (await adapter.listPolls(conversationId)).find(item => item.id === poll.id);
+      await adapter.polls.closePoll(conversationId, poll.id);
+      const closed = (await adapter.polls.listPolls(conversationId)).find(item => item.id === poll.id);
       assert.equal(closed.isClosed, true, "the poll was not closed when listing right after closing it");
     });
 
@@ -402,7 +402,7 @@ function runContract(name, setup) {
       const url =
         name === "in-memory" ? "https://ejemplo.test/articulo" : "http://push-gateway:8080/received";
 
-      const preview = await adapter.previewLink(url);
+      const preview = await adapter.media.previewLink(url);
 
       assert.equal(preview.url, url);
       assert.ok(preview.title === undefined || typeof preview.title === "string");
@@ -411,7 +411,7 @@ function runContract(name, setup) {
 
     it("a link nothing is known about is not made up", async () => {
       // Two honest answers: fail, or say nothing is known. The one that will not do is making up a title.
-      const answer = await adapter.previewLink("https://no-existe.invalid/nada").catch(error => error);
+      const answer = await adapter.media.previewLink("https://no-existe.invalid/nada").catch(error => error);
 
       if (answer instanceof Error) {
         assert.equal(typeof answer.message, "string");
@@ -556,11 +556,11 @@ function runContract(name, setup) {
     it("stopping a file that is not being sent says so rather than pretending", async () => {
       // Nothing is going up, so there is nothing to stop. Saying otherwise would have a screen draw a file as
       // cancelled while it carries on.
-      assert.equal(await adapter.stopSendingFile("nothing-is-going-up"), false);
+      assert.equal(await adapter.media.stopSendingFile("nothing-is-going-up"), false);
     });
 
     it("says what the homeserver will take, before anybody sends it", async () => {
-      const limits = await adapter.mediaLimits();
+      const limits = await adapter.media.mediaLimits();
 
       // A number, and a believable one. Sending something a homeserver will refuse is a connection spent for
       // nothing, and finding out at the end is the worst moment to find out.
@@ -630,7 +630,7 @@ function runContract(name, setup) {
     });
 
     it("lists the devices of the account with the current one marked", async () => {
-      const devices = await adapter.listDevices();
+      const devices = await adapter.devices.listDevices();
 
       assert.ok(devices.length > 0);
       assert.equal(devices.filter(device => device.isCurrent).length, 1);
@@ -792,13 +792,13 @@ function runContract(name, setup) {
     it("watches for a word so a message saying it interrupts, and stops watching", async () => {
       const word = `contrato${Date.now()}`;
 
-      await adapter.watchForKeyword(word);
+      await adapter.push.watchForKeyword(word);
 
-      const watched = await adapter.listKeywords();
+      const watched = await adapter.push.listKeywords();
       assert.ok(watched.includes(word), `the word must be watched for: ${watched.join(", ")}`);
 
-      await adapter.stopWatchingForKeyword(word);
-      assert.ok(!(await adapter.listKeywords()).includes(word));
+      await adapter.push.stopWatchingForKeyword(word);
+      assert.ok(!(await adapter.push.listKeywords()).includes(word));
     });
 
     it("registers this device for notifications while the application is closed, and forgets it", async () => {
@@ -811,16 +811,16 @@ function runContract(name, setup) {
         deviceName: "Contract"
       };
 
-      await adapter.registerPush(registration);
+      await adapter.push.registerPush(registration);
 
-      const registered = await adapter.listPushRegistrations();
+      const registered = await adapter.push.listPushRegistrations();
       const found = registered.find(item => item.deviceToken === deviceToken);
       assert.ok(found, "the registration must be listed");
       assert.equal(found.gatewayUrl, registration.gatewayUrl);
       assert.equal(found.appId, registration.appId);
 
-      await adapter.unregisterPush(deviceToken);
-      const afterwards = await adapter.listPushRegistrations();
+      await adapter.push.unregisterPush(deviceToken);
+      const afterwards = await adapter.push.listPushRegistrations();
       assert.ok(afterwards.every(item => item.deviceToken !== deviceToken));
     });
 
