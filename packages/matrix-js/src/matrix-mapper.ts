@@ -1,3 +1,4 @@
+import { conversationLinkedIn } from "@relaykit/core";
 import type { IEventRelation, MatrixEvent } from "matrix-js-sdk";
 import {
   MsgType,
@@ -9,6 +10,7 @@ import {
   M_LOCATION
 } from "matrix-js-sdk";
 import type {
+  ConversationId,
   Attachment,
   Conversation,
   MediaRef,
@@ -143,6 +145,12 @@ function mapThumbnail(info: NonNullable<MatrixMessageContent["info"]>): MediaRef
     ...(typeof thumbnailInfo.h === "number" ? { height: thumbnailInfo.h } : {}),
     source: JSON.stringify(info.thumbnail_file ? { url, file: info.thumbnail_file } : { url })
   };
+}
+
+/** Where a message invites, when it carries a link to somewhere. Nothing, when it carries none. */
+function invitation(body: string): { invitesTo?: ConversationId } {
+  const invitesTo = conversationLinkedIn(body);
+  return invitesTo ? { invitesTo } : {};
 }
 
 export function mapMessages(events: readonly MatrixEvent[]): Message[] {
@@ -347,6 +355,7 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
     ...(replyToId ? { replyToId } : {}),
     ...(undecryptable ? { undecryptable: true } : {}),
     ...(threadId ? { threadId } : {}),
+    ...invitation(body),
     ...(mapFormatted(content) ?? {}),
     ...(mapMentions(content) ?? {}),
     ...(isSticker ? { kind: "sticker" as const } : (mapKind(content.msgtype) ?? {})),

@@ -18,6 +18,7 @@ export type { CacheOptions, MessagingClientConfig } from "./client-config.js";
 export type { StartOptions } from "./client-lifecycle.js";
 export { EventBus, type ClientEventMap, type EventListener, type EventName } from "./events.js";
 export { SdkError, type SdkErrorCode } from "./errors.js";
+export { conversationLinkedIn } from "./conversation-links.js";
 export {
   joinRules,
   historyVisibilities,

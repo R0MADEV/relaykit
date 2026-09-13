@@ -125,6 +125,8 @@ export class MessagingClient {
       this.conversationOperations.upgrade(conversationId),
     current: (conversationId: ConversationId): Promise<Conversation> =>
       this.conversationOperations.current(conversationId),
+    link: (conversationId: ConversationId): Promise<string> =>
+      this.conversationOperations.link(conversationId),
     setAlias: (conversationId: ConversationId, alias: string): Promise<Conversation> =>
       this.conversationOperations.setAlias(conversationId, alias),
     publish: (conversationId: ConversationId, listed: boolean): Promise<void> =>

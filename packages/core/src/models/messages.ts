@@ -32,6 +32,14 @@ export interface MarkReadOptions {
   readonly private?: boolean;
   /** Reading inside a thread, which leaves the rest of the conversation as unread as it was. */
   readonly threadId?: MessageId;
+  /**
+   * The conversation this message invites into, when it carries a link to one.
+   *
+   * Read off the link rather than off a shape invented here, so an invitation written by any other client
+   * is understood too. What a screen does with it — a card with a way in, rather than a line of text — is
+   * its own business.
+   */
+  readonly invitesTo?: ConversationId;
 }
 
 /** What hangs off one message, for a list of threads that does not open each one to find out. */

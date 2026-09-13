@@ -339,3 +339,66 @@ test("joining a conversation tells the list it was joined", async () => {
     ["join"]
   );
 });
+
+/**
+ * The link that invites somebody into a conversation.
+ *
+ * Not a shape invented here: a conversation is reached in Matrix by a link that any client understands, so
+ * one pasted into a chat, an email or a calendar entry opens the same place wherever it is opened. A
+ * conversation that goes by a name uses the name, because a name outlives the identifier behind it.
+ */
+test("a conversation can be handed out as a link anybody can open", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sala" });
+
+  const link = await client.conversations.link(conversation.id);
+
+  assert.match(link, /^https:\/\/matrix\.to\/#\//);
+  assert.ok(link.includes(encodeURIComponent(conversation.id)), `the link does not name it: ${link}`);
+  await client.stop();
+});
+
+test("a conversation that goes by a name is handed out under the name", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sala" });
+  await client.conversations.setAlias(conversation.id, "#guardias:localhost");
+
+  const link = await client.conversations.link(conversation.id);
+
+  assert.ok(link.includes(encodeURIComponent("#guardias:localhost")), `the name is not in it: ${link}`);
+  await client.stop();
+});
+
+test("asking for the link of a conversation that is not there is refused", async () => {
+  const { client } = await startClient();
+
+  await assert.rejects(client.conversations.link("   "), { code: "INVALID_INPUT" });
+  await client.stop();
+});
+
+/**
+ * A message carrying one of those links is an invitation, and a screen draws it as a card with a way in
+ * rather than as a line of text nobody reads. What it points at is read off the link the protocol already
+ * defines, so an invitation written by any other client is understood here too.
+ */
+test("a message carrying a conversation link says what it invites into", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sala" });
+  const room = await client.conversations.create({ participantIds: ["bob"], title: "Post-mortem" });
+  const link = await client.conversations.link(room.id);
+
+  const sent = await client.messages.send(conversation.id, `Nos vemos aquí: ${link}`);
+
+  assert.equal(sent.invitesTo, room.id);
+  await client.stop();
+});
+
+test("an ordinary message invites nowhere", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "sala" });
+
+  const sent = await client.messages.send(conversation.id, "hola, sin enlaces");
+
+  assert.equal(sent.invitesTo, undefined);
+  await client.stop();
+});

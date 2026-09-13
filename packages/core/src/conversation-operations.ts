@@ -3,6 +3,7 @@ import type { MessagingStorage } from "./storage.js";
 import type {
   AvatarImage,
   Conversation,
+  ConversationId,
   Message,
   NotificationLevel,
   ConversationPermissions,
@@ -363,6 +364,26 @@ export class ConversationOperations {
       throw new SdkError("INVALID_INPUT", "A conversation is required");
     }
     await this.crypto.rotateConversationKeys(conversationId.trim());
+  }
+
+  /**
+   * The link that invites somebody in.
+   *
+   * A `matrix.to` link, which is how the protocol says where a conversation is — so one pasted into a chat,
+   * an email or a calendar entry opens the same place in whatever client opens it. No shape is invented
+   * here: a shape only this library understood would be one nobody else could follow.
+   *
+   * A conversation that goes by a name is handed out under the name, because a name outlives the identifier
+   * behind it: a conversation replaced by another keeps the name and the link keeps working.
+   */
+  async link(conversationId: ConversationId): Promise<string> {
+    this.context.assertStarted();
+    const wanted = conversationId.trim();
+    if (!wanted) {
+      throw new SdkError("INVALID_INPUT", "A link needs a conversation to lead to");
+    }
+    const known = (await this.list()).find(conversation => conversation.id === wanted);
+    return `https://matrix.to/#/${encodeURIComponent(known?.alias ?? wanted)}`;
   }
 
   /** A name people can type instead of the identifier. It has to look like `#something:server`. */

@@ -48,7 +48,7 @@ import type {
   UserId,
   VerificationSession
 } from "@relaykit/core";
-import { SdkError } from "@relaykit/core";
+import { SdkError, conversationLinkedIn } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
 import { InMemoryCrypto } from "./in-memory-crypto.js";
 import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
@@ -73,6 +73,12 @@ interface Report {
 export interface InMemoryAdapterOptions {
   readonly conversations?: readonly Conversation[];
   readonly messages?: readonly Message[];
+}
+
+/** What a message invites into, when it carries a link to somewhere. Nothing, when it carries none. */
+function invitation(body: string): { invitesTo?: ConversationId } {
+  const invitesTo = conversationLinkedIn(body);
+  return invitesTo ? { invitesTo } : {};
 }
 
 export class InMemoryAdapter implements MessagingAdapter {
@@ -205,6 +211,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       body,
       createdAt: Date.now(),
       status: "sent",
+      ...invitation(body),
       ...overrides
     };
     if (this.ignoredUsers.includes(senderId)) return message;
@@ -515,6 +522,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       body,
       createdAt: Date.now(),
       status: "sent",
+      ...invitation(body),
       ...(transactionId ? { transactionId } : {}),
       ...(replyToId ? { replyToId } : {}),
       ...(threadId ? { threadId } : {}),
