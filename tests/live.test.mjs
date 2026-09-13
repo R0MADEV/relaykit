@@ -119,3 +119,35 @@ test("a stopped collection no longer follows the client", async () => {
   assert.equal(await waitUntil(() => timeline.get().length > 0, 10), false);
   await client.stop();
 });
+
+/**
+ * A live list reloads itself when a conversation it has never seen turns up. That reload asks the adapter,
+ * and an adapter can refuse — so the failure has to reach the application through the error it already
+ * listens on, rather than becoming a rejection nobody is holding.
+ */
+test("a live list that cannot reload says so instead of failing silently", async () => {
+  class RefusesToList extends InMemoryAdapter {
+    refuse = false;
+    async listConversations() {
+      if (this.refuse) throw new Error("the homeserver is not answering");
+      return super.listConversations();
+    }
+  }
+  // No local copy on purpose: with one, a refusal is answered from what is held and never reaches anybody.
+  const adapter = new RefusesToList();
+  const client = new MessagingClient({ adapter, session });
+  await client.start();
+  const errors = [];
+  client.on("error", error => errors.push(error));
+  const conversations = createConversationList(client);
+  await conversations.refresh();
+
+  // One nobody has seen: the list has to go and ask again, and asking is what fails.
+  adapter.refuse = true;
+  adapter.receiveInvitation("bob");
+
+  assert.ok(await waitUntil(() => errors.length > 0), "the failed reload never reached the error channel");
+  assert.match(errors[0].message, /not answering/);
+  conversations.stop();
+  await client.stop();
+});

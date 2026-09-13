@@ -110,7 +110,9 @@ export function createConversationList(client: MessagingClient): LiveCollection<
       // The one that changed arrives whole, so it is put in place and the rest are left alone.
       const known = current.some(item => item.id === conversation.id);
       if (!known) {
-        void collection.refresh();
+        // Reloading is asking the adapter again, and it can refuse. Nobody is holding this promise, so
+        // where it goes wrong is said on the same channel as anything else that goes wrong in here.
+        void collection.refresh().catch(error => client.emitListenerError(error));
         return;
       }
       const replaced = current.map(item => (item.id === conversation.id ? conversation : item));
