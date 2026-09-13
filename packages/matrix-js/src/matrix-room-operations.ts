@@ -19,10 +19,10 @@ import type { RoomMessageEventContent, StickerEventContent } from "matrix-js-sdk
  */
 type SentContent = RoomMessageEventContent | StickerEventContent;
 import type {
-  Mentions,
   Conversation,
   ConversationId,
   CreateConversationInput,
+  Mentions,
   Message,
   MessagePage,
   SendContent,
@@ -173,36 +173,43 @@ export function matrixTypeOf(kind: MessageKind | undefined): MsgType {
 }
 
 /**
- * A place is the SDK's shape, not one written out here. Ours said less than its does — no time, no asset,
- * and none of the plain text a client that knows nothing of places falls back to — and a place that travels
- * with less than it should is a place some clients cannot draw. It says the kind and the body itself.
+ * Everything a message carries besides what it says and what kind it is: how it is written, who it names,
+ * and what it answers.
+ *
+ * One type with optional parts, not a union of shapes. Spreading a variable whose type is a union gives
+ * every missing key the type `never`, which nothing will accept — so this says the keys may be absent
+ * instead of being a different shape when they are. `format` is the literal it has to be, not a string.
  */
-function whatIsSaid(body: string, options: SendContent) {
-  const { location, kind } = options;
-  if (!location) return { msgtype: matrixTypeOf(kind), body };
-  return ContentHelpers.makeLocationContent(
-    body,
-    `geo:${location.latitude},${location.longitude}`,
-    Date.now(),
-    location.description,
-    LocationAssetType.Self
-  );
+interface AlsoSaid {
+  format?: "org.matrix.custom.html";
+  formatted_body?: string;
+  "m.mentions"?: Named;
+  "m.relates_to"?: Record<string, unknown>;
 }
 
-/** The same words again as HTML, for whoever can draw them. Nothing, for a message that is only words. */
-function howItIsWritten(formattedBody: string | undefined) {
-  return formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {};
+interface Named {
+  user_ids?: string[];
+  room?: true;
 }
 
 /** Who the message names, which is what decides whose screen lights up for it. */
-function whoIsNamed(mentions: Mentions | undefined) {
-  if (!mentions) return {};
-  return {
-    "m.mentions": {
-      ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),
-      ...(mentions.everyone ? { room: true } : {})
-    }
-  };
+function whoIsNamed(mentions: Mentions): Named {
+  const named: Named = {};
+  if (mentions.userIds) named.user_ids = [...mentions.userIds];
+  if (mentions.everyone) named.room = true;
+  return named;
+}
+
+function alsoSaidIn(options: SendContent): AlsoSaid {
+  const said: AlsoSaid = {};
+  if (options.formattedBody) {
+    said.format = "org.matrix.custom.html";
+    said.formatted_body = options.formattedBody;
+  }
+  if (options.mentions) said["m.mentions"] = whoIsNamed(options.mentions);
+  const answering = relationFor(options.replyToId, options.threadId);
+  if (answering) said["m.relates_to"] = answering;
+  return said;
 }
 
 export function sendMessage(
@@ -211,13 +218,38 @@ export function sendMessage(
   body: string,
   options: SendContent = {}
 ): Promise<Message> {
-  const content = {
-    ...whatIsSaid(body, options),
-    ...howItIsWritten(options.formattedBody),
-    ...whoIsNamed(options.mentions),
-    ...(relationFor(options.replyToId, options.threadId) ?? {})
-  } as RoomMessageEventContent;
-  return sendWithTransaction(client, conversationId, content, options.transactionId);
+  const alsoSaid = alsoSaidIn(options);
+  const { location, kind } = options;
+  if (location) {
+    // A place is the SDK's shape, not one written out here: ours said less than its does — no time, no
+    // asset, and none of the plain text a client that knows nothing of places falls back to.
+    const asTheSdkMakesIt = ContentHelpers.makeLocationContent(
+      body,
+      `geo:${location.latitude},${location.longitude}`,
+      Date.now(),
+      location.description,
+      LocationAssetType.Self
+    );
+    // `msgtype` said again by name: the helper declares it a plain string, and a plain string is what takes
+    // the whole thing out of the union the SDK checks what is sent against.
+    // `info` is the thumbnail of the map, which a place shared from here does not have. The spec has it
+    // optional and the SDK has it required, so it goes empty: every client reads `info?.thumbnail_url` and
+    // finds nothing either way, and what is sent is checked instead of asserted.
+    const place = {
+      ...asTheSdkMakesIt,
+      ...alsoSaid,
+      info: {},
+      msgtype: MsgType.Location as const
+    };
+    return sendWithTransaction(client, conversationId, place, options.transactionId);
+  }
+  // The SDK tells its content types apart by `msgtype`, and a member of that union cannot be built from a
+  // value worked out while the program runs. Each one goes out by name, so each is checked as what it is.
+  const sent = (content: SentContent) =>
+    sendWithTransaction(client, conversationId, content, options.transactionId);
+  if (kind === "action") return sent({ msgtype: MsgType.Emote, body, ...alsoSaid });
+  if (kind === "notice") return sent({ msgtype: MsgType.Notice, body, ...alsoSaid });
+  return sent({ msgtype: MsgType.Text, body, ...alsoSaid });
 }
 
 /** A thread answer carries the thread it belongs to, and a plain answer only points at the message. */
