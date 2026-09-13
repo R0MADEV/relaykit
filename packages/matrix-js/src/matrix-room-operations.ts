@@ -12,6 +12,7 @@ import {
 } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import type {
+  Mentions,
   Conversation,
   ConversationId,
   CreateConversationInput,
@@ -165,39 +166,57 @@ export async function waitUntilRoomIsUsable(room: Room, timeoutMs = 15000): Prom
 
 const messageTypes: Partial<Record<MessageKind, MsgType>> = { action: MsgType.Emote, notice: MsgType.Notice };
 
+/**
+ * What Matrix calls this kind of message. A sticker has no name of its own here: it is an event type, not a
+ * message type, so as a message it goes as plain text and the event around it is what makes it a sticker.
+ */
+export function matrixTypeOf(kind: MessageKind | undefined): MsgType {
+  return (kind && messageTypes[kind]) ?? MsgType.Text;
+}
+
+/**
+ * A place is the SDK's shape, not one written out here. Ours said less than its does — no time, no asset,
+ * and none of the plain text a client that knows nothing of places falls back to — and a place that travels
+ * with less than it should is a place some clients cannot draw. It says the kind and the body itself.
+ */
+function whatIsSaid(body: string, options: SendContent): object {
+  const { location, kind } = options;
+  if (!location) return { msgtype: matrixTypeOf(kind), body };
+  return ContentHelpers.makeLocationContent(
+    body,
+    `geo:${location.latitude},${location.longitude}`,
+    Date.now(),
+    location.description,
+    LocationAssetType.Self
+  );
+}
+
+/** The same words again as HTML, for whoever can draw them. Nothing, for a message that is only words. */
+function howItIsWritten(formattedBody: string | undefined): object {
+  return formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {};
+}
+
+/** Who the message names, which is what decides whose screen lights up for it. */
+function whoIsNamed(mentions: Mentions | undefined): object {
+  if (!mentions) return {};
+  return {
+    "m.mentions": {
+      ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),
+      ...(mentions.everyone ? { room: true } : {})
+    }
+  };
+}
+
 export function sendMessage(
   client: MatrixClient,
   conversationId: ConversationId,
   body: string,
   options: SendContent = {}
 ): Promise<Message> {
-  const { formattedBody, mentions, kind, location } = options;
-  // A place is the SDK's shape, not one written out here. Ours said less than its does — no time, no asset,
-  // and none of the plain text a client that knows nothing of places falls back to — and a place that travels
-  // with less than it should is a place some clients cannot draw. It says the kind and the body itself.
-  const said = location
-    ? ContentHelpers.makeLocationContent(
-        body,
-        `geo:${location.latitude},${location.longitude}`,
-        Date.now(),
-        location.description,
-        LocationAssetType.Self
-      )
-    : {
-        msgtype: messageTypes[kind ?? "action"] && kind ? messageTypes[kind] : MsgType.Text,
-        body
-      };
   const content = {
-    ...said,
-    ...(formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {}),
-    ...(mentions
-      ? {
-          "m.mentions": {
-            ...(mentions.userIds ? { user_ids: [...mentions.userIds] } : {}),
-            ...(mentions.everyone ? { room: true } : {})
-          }
-        }
-      : {}),
+    ...whatIsSaid(body, options),
+    ...howItIsWritten(options.formattedBody),
+    ...whoIsNamed(options.mentions),
     ...(relationFor(options.replyToId, options.threadId) ?? {})
   } as RoomMessageEventContent;
   return sendWithTransaction(client, conversationId, content, options.transactionId);
