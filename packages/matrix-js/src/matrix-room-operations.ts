@@ -256,15 +256,13 @@ export function sendMessage(
 function relationFor(replyToId: string | undefined, threadId: string | undefined) {
   if (threadId) {
     return {
-      "m.relates_to": {
-        rel_type: RelationType.Thread,
-        event_id: threadId,
-        is_falling_back: replyToId === undefined,
-        "m.in_reply_to": { event_id: replyToId ?? threadId }
-      }
+      rel_type: RelationType.Thread,
+      event_id: threadId,
+      is_falling_back: replyToId === undefined,
+      "m.in_reply_to": { event_id: replyToId ?? threadId }
     };
   }
-  return replyToId ? { "m.relates_to": { "m.in_reply_to": { event_id: replyToId } } } : undefined;
+  return replyToId ? { "m.in_reply_to": { event_id: replyToId } } : undefined;
 }
 
 export async function listMatrixThread(
