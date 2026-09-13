@@ -194,7 +194,7 @@ export async function downloadMatrixAttachment(
 ): Promise<Uint8Array> {
   const source = parseSource(attachment.source);
   const { data } = await downloadFromMediaServer(client, source.url);
-  const bytes = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  const bytes = toArrayBuffer(data);
   return new Uint8Array(source.file ? await decryptAttachment(bytes, source.file) : bytes);
 }
 
@@ -258,8 +258,17 @@ function msgTypeFor(mimeType: string): MsgType {
   return MsgType.File;
 }
 
+/**
+ * The window a Uint8Array points at, as a buffer of its own.
+ *
+ * Copied into a new one rather than sliced off the buffer behind it: a typed array may sit on something
+ * shared, so slicing gives back something that might be shared too, and saying otherwise was an assertion.
+ * The copy is the same work — slicing copies as well — and it is an ArrayBuffer because it was made as one.
+ */
 function toArrayBuffer(data: Uint8Array): ArrayBuffer {
-  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  const window = new ArrayBuffer(data.byteLength);
+  new Uint8Array(window).set(data);
+  return window;
 }
 
 /**

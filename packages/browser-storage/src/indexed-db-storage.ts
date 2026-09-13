@@ -369,9 +369,8 @@ export class IndexedDbStorage implements MessagingStorage {
       return value;
     }
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const plain = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
     const encrypted = new Uint8Array(
-      await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await this.encryptionKey, plain)
+      await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await this.encryptionKey, ownBuffer(value))
     );
     const stored = new Uint8Array(iv.byteLength + encrypted.byteLength);
     stored.set(iv);
@@ -385,10 +384,7 @@ export class IndexedDbStorage implements MessagingStorage {
       return value;
     }
     const iv = value.slice(0, 12);
-    const encrypted = value.buffer.slice(
-      value.byteOffset + 12,
-      value.byteOffset + value.byteLength
-    ) as ArrayBuffer;
+    const encrypted = ownBuffer(value.subarray(12));
     try {
       return new Uint8Array(
         await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await this.encryptionKey, encrypted)
@@ -462,4 +458,17 @@ export class IndexedDbStorage implements MessagingStorage {
       request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
     });
   }
+}
+
+/**
+ * These bytes in a buffer of their own.
+ *
+ * A typed array may sit on something shared, and what encrypts will not take one that might be — so it is
+ * copied rather than sliced off what is behind it. Slicing copied too; this one says why, and is an
+ * ArrayBuffer because it was made as one rather than asserted to be.
+ */
+function ownBuffer(value: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(value.byteLength);
+  new Uint8Array(buffer).set(value);
+  return buffer;
 }

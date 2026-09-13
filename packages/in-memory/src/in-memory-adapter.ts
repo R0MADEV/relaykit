@@ -831,11 +831,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   async listThreads(conversationId: ConversationId): Promise<readonly ThreadSummary[]> {
     const byRoot = new Map<MessageId, Message[]>();
     for (const message of this.messages) {
-      const belongsHere = message.conversationId === conversationId && message.threadId !== undefined;
-      if (!belongsHere) continue;
-      const answers = byRoot.get(message.threadId as MessageId) ?? [];
+      // Held in its own name rather than asked for twice: that is what lets this be known to be a thread
+      // answer from here on, instead of being asserted to be one at each mention.
+      const root = message.threadId;
+      if (root === undefined || message.conversationId !== conversationId) continue;
+      const answers = byRoot.get(root) ?? [];
       answers.push(message);
-      byRoot.set(message.threadId as MessageId, answers);
+      byRoot.set(root, answers);
     }
     return [...byRoot].map(([rootId, answers]) => {
       const lastRead = this.threadReads.get(`${conversationId}/${rootId}`);
