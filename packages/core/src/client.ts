@@ -52,6 +52,7 @@ import type {
   SignOutOptions,
   MediaRef,
   User,
+  UserPresence,
   FileInput,
   SendFileOptions,
   SendMessageOptions,
@@ -240,7 +241,10 @@ export class MessagingClient {
     setupRecovery: (options?: RecoverySetupOptions) => this.cryptoOperations.setupRecovery(options),
     recover: (recoveryKey: string) => this.cryptoOperations.recover(recoveryKey)
   };
-  readonly presence = { set: (update: PresenceUpdate): Promise<void> => this.presenceOperations.set(update) };
+  readonly presence = {
+    set: (update: PresenceUpdate): Promise<void> => this.presenceOperations.set(update),
+    of: (userId: string): Promise<UserPresence | undefined> => this.presenceOperations.of(userId)
+  };
   readonly users = {
     profile: (userId: string, conversationId?: ConversationId): Promise<User> =>
       this.userOperations.profile(userId, conversationId),

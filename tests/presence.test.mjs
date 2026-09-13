@@ -45,3 +45,23 @@ test("a status message longer than a status message is refused", async () => {
   );
   await client.stop();
 });
+
+test("what somebody is doing can be read back, not only told", async () => {
+  const { client } = await startClient();
+
+  await client.presence.set({ presence: "unavailable", statusMessage: "en una llamada" });
+
+  assert.deepEqual(await client.presence.of("alice"), {
+    userId: "alice",
+    presence: "unavailable",
+    statusMessage: "en una llamada"
+  });
+  await client.stop();
+});
+
+test("somebody nobody has heard anything about reads as nothing, not as offline", async () => {
+  const { client } = await startClient();
+
+  assert.equal(await client.presence.of("nobody"), undefined);
+  await client.stop();
+});

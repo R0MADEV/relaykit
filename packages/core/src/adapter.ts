@@ -265,6 +265,8 @@ export interface MessagingAdapter {
   setIgnoredUsers(userIds: readonly UserId[]): Promise<void>;
   setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void>;
   setPresence(update: PresenceUpdate): Promise<void>;
+  /** What somebody is doing, asked for. Nothing when the homeserver has never heard anything about them. */
+  getPresence(userId: UserId): Promise<UserPresence | undefined>;
   listMessages(conversationId: ConversationId): Promise<readonly Message[]>;
   loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage>;
   sendMessage(conversationId: ConversationId, body: string, options: SendContent): Promise<Message>;

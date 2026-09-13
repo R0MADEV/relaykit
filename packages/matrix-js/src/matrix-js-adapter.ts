@@ -29,6 +29,8 @@ import type {
   Reaction,
   MessagePage,
   PresenceUpdate,
+  UserId,
+  UserPresence,
   MarkReadOptions,
   Notification,
   ThreadSummary,
@@ -113,6 +115,7 @@ import {
 import {
   getMatrixAvatar,
   searchMatrixUsers,
+  getMatrixPresence,
   getMatrixProfile,
   listMatrixDevices,
   setMatrixAvatar,
@@ -202,6 +205,10 @@ export class MatrixJsAdapter implements MessagingAdapter {
         ...(update.statusMessage ? { status_msg: update.statusMessage } : {})
       })
     );
+  }
+
+  async getPresence(userId: UserId): Promise<UserPresence | undefined> {
+    return this.run(() => getMatrixPresence(this.runtime.getClient(), userId, Date.now()));
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {

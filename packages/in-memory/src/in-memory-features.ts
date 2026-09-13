@@ -9,11 +9,14 @@ import type {
   RecoverySetup,
   PresenceUpdate,
   Reaction,
-  UserId
+  UserId,
+  UserPresence
 } from "@relaykit/core";
 
 export class InMemoryFeatures {
   private readonly reactions: Reaction[] = [];
+  /** What each person was last known to be doing, so it can be asked for and not only announced. */
+  private readonly presence = new Map<UserId, UserPresence>();
   private nextReactionId = 1;
   private recoveryKey: string | undefined;
 
@@ -84,7 +87,13 @@ export class InMemoryFeatures {
   }
 
   async setPresence(update: PresenceUpdate): Promise<void> {
-    this.getHandlers().onPresenceChanged?.({ ...update, userId: this.requireUserId() });
+    const presence = { ...update, userId: this.requireUserId() };
+    this.presence.set(presence.userId, presence);
+    this.getHandlers().onPresenceChanged?.(presence);
+  }
+
+  async getPresence(userId: UserId): Promise<UserPresence | undefined> {
+    return this.presence.get(userId);
   }
 
   async markMessageRead(conversationId: ConversationId, messageId: MessageId): Promise<void> {

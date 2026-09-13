@@ -55,6 +55,10 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new SdkError("NOT_CONFIGURED", "Cannot update presence");
   }
 
+  async getPresence(): Promise<undefined> {
+    throw new SdkError("NOT_CONFIGURED", "Cannot read presence");
+  }
+
   async listMessages(): Promise<readonly Message[]> {
     return [];
   }

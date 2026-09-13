@@ -19,6 +19,7 @@ import type {
   GeoLocation,
   HistoryVisibility,
   JoinRule,
+  MessageId,
   MessageKind,
   NotificationLevel,
   Reaction,
@@ -154,16 +155,32 @@ function invitation(body: string): { invitesTo?: ConversationId } {
 }
 
 export function mapMessages(events: readonly MatrixEvent[]): Message[] {
+  // Reactions are timeline events like any other, so they are already here. Gathering them first means a
+  // message arrives with the reactions left on it, instead of a screen having to ask once per message.
+  const left = reactionsByMessage(events);
   const messages: Message[] = [];
   for (const event of events) {
     // A local echo has no server id yet. Its state belongs to the outbox, which knows if it is still going out.
     if (event.getId()?.startsWith("~")) continue;
     const message = mapMessage(event);
-    if (message) {
-      messages.push(message);
-    }
+    if (!message) continue;
+    const reactions = left.get(message.id);
+    messages.push(reactions ? { ...message, reactions } : message);
   }
   return messages;
+}
+
+/** The reactions in a stretch of timeline, under the message each one was left on, oldest first. */
+function reactionsByMessage(events: readonly MatrixEvent[]): Map<MessageId, Reaction[]> {
+  const left = new Map<MessageId, Reaction[]>();
+  for (const event of events) {
+    const reaction = mapReaction(event);
+    if (!reaction) continue;
+    const already = left.get(reaction.messageId);
+    if (already) already.push(reaction);
+    else left.set(reaction.messageId, [reaction]);
+  }
+  return left;
 }
 
 /**

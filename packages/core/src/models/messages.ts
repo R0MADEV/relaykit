@@ -146,6 +146,14 @@ export interface Message {
   readonly mentions?: Mentions;
   /** Plain talk unless it is an action ("/me") or a notice, which usually comes from a program. */
   readonly kind?: MessageKind;
+  /**
+   * What people left on this message, oldest first. Absent when nobody left anything.
+   *
+   * They arrive with the message rather than being asked for one message at a time: they travel in the
+   * same timeline, so a screen that opens a conversation already has them and does not have to ask again
+   * once per line. What arrives afterwards comes as `reaction.added` and `reaction.removed`.
+   */
+  readonly reactions?: readonly Reaction[];
 }
 
 /** `sticker` is an image that draws itself: no file name and no download button. */

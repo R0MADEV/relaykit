@@ -1,7 +1,8 @@
 import { MatrixError, type MatrixClient, AuthType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
 import { downloadFromMediaServer, uploadAvatarImage } from "./matrix-media.js";
-import type { AvatarImage, Device, SignOutOptions, User, UserId } from "@relaykit/core";
+import type { AvatarImage, Device, SignOutOptions, User, UserId, UserPresence } from "@relaykit/core";
+import { presenceStates } from "@relaykit/core";
 
 /**
  * The homeserver has no profile for unknown users, which is not an error worth propagating. Naming a
@@ -107,4 +108,40 @@ export async function signOutMatrixDevices(
       ...(session ? { session } : {})
     });
   }
+}
+
+/**
+ * What somebody is doing now.
+ *
+ * Whoever is in a conversation this account is in has already been synced, and asking the homeserver once per
+ * face is what makes a list of people slow. The server is only asked about people the sync says nothing about.
+ * It answers nothing for somebody it has never heard of, and nothing is not the same as being offline.
+ */
+export async function getMatrixPresence(
+  client: MatrixClient,
+  userId: UserId,
+  now: number
+): Promise<UserPresence | undefined> {
+  const synced = client.getUser(userId);
+  const state = presenceStates.find(each => each === synced?.presence);
+  if (state) return presenceOf(userId, state, synced?.presenceStatusMsg, synced?.lastActiveAgo, now);
+  const said = await client.getPresence(userId).catch(() => undefined);
+  const told = presenceStates.find(each => each === said?.presence);
+  if (!told) return undefined;
+  return presenceOf(userId, told, said?.status_msg, said?.last_active_ago, now);
+}
+
+/** How long ago they were last doing something is turned into when that was, which is what a screen shows. */
+function presenceOf(
+  userId: UserId,
+  presence: UserPresence["presence"],
+  statusMessage: string | undefined,
+  lastActiveAgo: number | undefined,
+  now: number
+): UserPresence {
+  const said: UserPresence = { userId, presence };
+  const withStatus = statusMessage ? { ...said, statusMessage } : said;
+  return typeof lastActiveAgo === "number"
+    ? { ...withStatus, lastActiveAt: now - lastActiveAgo }
+    : withStatus;
 }

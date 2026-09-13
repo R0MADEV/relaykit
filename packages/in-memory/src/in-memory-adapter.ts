@@ -46,6 +46,7 @@ import type {
   Message,
   Session,
   UserId,
+  UserPresence,
   VerificationSession
 } from "@relaykit/core";
 import { SdkError, conversationLinkedIn } from "@relaykit/core";
@@ -406,6 +407,10 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async setPresence(_update: PresenceUpdate): Promise<void> {
     return this.features.setPresence(_update);
+  }
+
+  async getPresence(userId: UserId): Promise<UserPresence | undefined> {
+    return this.features.getPresence(userId);
   }
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {
