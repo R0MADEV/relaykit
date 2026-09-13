@@ -58,6 +58,7 @@ import type {
 } from "@relaykit/core";
 import { SdkError } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
+import { InMemoryPeople } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
@@ -77,13 +78,9 @@ export class InMemoryAdapter implements MessagingAdapter {
   private nextConversationId = 1;
   private nextAttachmentId = 1;
   private readonly unreadCounts = new Map<ConversationId, number>();
-  private readonly profiles = new Map<UserId, { displayName?: string; avatar?: AvatarImage }>();
-  private readonly pushRegistrations = new Map<string, PushRegistration>();
   private readonly knocks = new Map<ConversationId, { userId: UserId; reason?: string }[]>();
   private readonly reported: { conversationId: ConversationId; messageId: MessageId; reason: string }[] = [];
   private readonly published = new Set<ConversationId>();
-  private readonly keywords = new Set<string>();
-  private readonly conversationNames = new Map<string, string>();
   private readonly rotatedKeys: ConversationId[] = [];
 
   private readonly receipts: ReadReceipt[] = [];
@@ -93,6 +90,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     () => this.handlers
   );
   private readonly verification = new InMemoryVerification(() => this.handlers);
+  private readonly people = new InMemoryPeople({
+    requireUserId: () => this.requireUserId(),
+    deviceId: () => this.currentDeviceId,
+    everybodySeen: () => this.conversations.flatMap(conversation => conversation.participantIds)
+  });
   private readonly shares = new InMemoryShares({
     requireUserId: () => this.requireUserId(),
     nextId: () => this.nextMessageId++
@@ -586,16 +588,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: gives a user a display name and an avatar. */
-  setProfile(userId: UserId, profile: { displayName?: string; avatar?: AvatarImage }): void {
-    this.profiles.set(userId, profile);
-  }
-
-  /** Test helper: the name somebody uses in one conversation, which can differ from the one they use elsewhere. */
-  setConversationName(conversationId: ConversationId, userId: UserId, displayName: string): void {
-    this.conversationNames.set(`${conversationId}/${userId}`, displayName);
-  }
-
-  private readonly devices = new Map<string, Device>();
   private ignoredUsers: readonly UserId[] = [];
   /** Silenced, not ignored: what they say still arrives, it just does not interrupt. */
   private readonly mutedUsers = new Set<UserId>();
@@ -638,58 +630,75 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: adds another session of this account. */
+  /** Test helper: what somebody goes by everywhere, and the picture they go by it with. */
+  setProfile(userId: UserId, profile: { displayName?: string; avatar?: AvatarImage }): void {
+    this.people.setProfile(userId, profile);
+  }
+
+  /** Test helper: the name somebody uses inside one conversation, which can differ from their own. */
+  setConversationName(conversationId: ConversationId, userId: UserId, displayName: string): void {
+    this.people.setConversationName(conversationId, userId, displayName);
+  }
+
+  /** Test helper: another device of this account, which is not another person. */
   addDevice(deviceId: string, displayName?: string): void {
-    this.devices.set(deviceId, { id: deviceId, isCurrent: false, ...(displayName ? { displayName } : {}) });
+    this.people.addDevice(deviceId, displayName);
   }
 
-  async setDisplayName(displayName: string): Promise<void> {
-    const userId = this.requireUserId();
-    this.profiles.set(userId, { ...this.profiles.get(userId), displayName });
+  setDisplayName(displayName: string): Promise<void> {
+    return this.people.setDisplayName(displayName);
   }
 
-  async setAvatar(image: AvatarImage): Promise<void> {
-    const userId = this.requireUserId();
-    this.profiles.set(userId, { ...this.profiles.get(userId), avatar: image });
+  setAvatar(image: AvatarImage): Promise<void> {
+    return this.people.setAvatar(image);
   }
 
-  async watchForKeyword(word: string): Promise<void> {
-    this.keywords.add(word);
+  getProfile(userId: UserId, conversationId?: ConversationId): Promise<User> {
+    return this.people.getProfile(userId, conversationId);
   }
 
-  async stopWatchingForKeyword(word: string): Promise<void> {
-    this.keywords.delete(word);
+  getAvatar(userId: UserId, _conversationId?: ConversationId, _size?: number): Promise<AvatarImage | undefined> {
+    return this.people.getAvatar(userId);
   }
 
-  async listKeywords(): Promise<readonly string[]> {
-    return [...this.keywords];
+  searchUsers(query: string, limit: number): Promise<readonly User[]> {
+    return this.people.searchUsers(query, limit);
   }
 
-  async registerPush(registration: PushRegistration): Promise<void> {
-    // The device token is what the gateway uses to find the device, so registering again replaces the old entry.
-    this.pushRegistrations.set(registration.deviceToken, registration);
+  listDevices(): Promise<readonly Device[]> {
+    return this.people.listDevices();
   }
 
-  async listPushRegistrations(): Promise<readonly PushRegistration[]> {
-    return [...this.pushRegistrations.values()];
+  renameDevice(deviceId: string, displayName: string): Promise<void> {
+    return this.people.renameDevice(deviceId, displayName);
   }
 
-  async unregisterPush(deviceToken: string): Promise<void> {
-    this.pushRegistrations.delete(deviceToken);
+  signOutDevices(deviceIds: readonly string[]): Promise<void> {
+    return this.people.signOutDevices(deviceIds);
   }
 
-  async listDevices(): Promise<readonly Device[]> {
-    const current = this.currentDeviceId;
-    const own: Device[] = current ? [{ id: current, isCurrent: true }] : [];
-    return [...own, ...this.devices.values()];
+  watchForKeyword(word: string): Promise<void> {
+    return this.people.watchForKeyword(word);
   }
 
-  async renameDevice(deviceId: string, displayName: string): Promise<void> {
-    const device = this.devices.get(deviceId);
-    if (device) this.devices.set(deviceId, { ...device, displayName });
+  stopWatchingForKeyword(word: string): Promise<void> {
+    return this.people.stopWatchingForKeyword(word);
   }
 
-  async signOutDevices(deviceIds: readonly string[]): Promise<void> {
-    for (const deviceId of deviceIds) this.devices.delete(deviceId);
+  listKeywords(): Promise<readonly string[]> {
+    return this.people.listKeywords();
+  }
+
+  registerPush(registration: PushRegistration): Promise<void> {
+    return this.people.registerPush(registration);
+  }
+
+  listPushRegistrations(): Promise<readonly PushRegistration[]> {
+    return this.people.listPushRegistrations();
+  }
+
+  unregisterPush(deviceToken: string): Promise<void> {
+    return this.people.unregisterPush(deviceToken);
   }
 
   /** Sending twice under one transaction is one message: the second ask gets the first answer. */
@@ -702,48 +711,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   private requireUserId(): UserId {
     if (!this.currentUserId) throw new Error("The in-memory adapter is not started");
     return this.currentUserId;
-  }
-
-  async getProfile(userId: UserId, conversationId?: ConversationId): Promise<User> {
-    const profile = this.profiles.get(userId);
-    const inConversation = conversationId
-      ? this.conversationNames.get(`${conversationId}/${userId}`)
-      : undefined;
-    const displayName = inConversation ?? profile?.displayName;
-    return {
-      id: userId,
-      ...(displayName ? { displayName } : {}),
-      ...(profile?.avatar ? { avatarId: `memory-avatar-${userId}` } : {})
-    };
-  }
-
-  async getAvatar(
-    userId: UserId,
-    _conversationId?: ConversationId,
-    _size?: number
-  ): Promise<AvatarImage | undefined> {
-    return this.profiles.get(userId)?.avatar;
-  }
-
-  /**
-   * A homeserver's directory knows the people it has seen, which for this account means everybody it shares a
-   * conversation with, plus anybody it has been told about. The double knows the same two things.
-   */
-  async searchUsers(query: string, limit: number): Promise<readonly User[]> {
-    const wanted = query.toLowerCase();
-    const everybody = new Set([
-      ...this.profiles.keys(),
-      ...this.conversations.flatMap(conversation => conversation.participantIds)
-    ]);
-    const found = [];
-    for (const userId of everybody) {
-      if (found.length >= limit) break;
-      const profile = await this.getProfile(userId);
-      const goesBy = profile.displayName?.toLowerCase() ?? "";
-      const isWhoTheyMean = userId.toLowerCase().includes(wanted) || goesBy.includes(wanted);
-      if (isWhoTheyMean) found.push(profile);
-    }
-    return found;
   }
 
   private storeThumbnail(thumbnail: ThumbnailInput): MediaRef {
