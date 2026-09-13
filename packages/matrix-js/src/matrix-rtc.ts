@@ -1,6 +1,6 @@
 import { SdkError } from "@relaykit/core";
 import type { ConversationId } from "@relaykit/core";
-import { EventType, type MatrixClient } from "matrix-js-sdk";
+import { EventType, type MatrixClient, type Room } from "matrix-js-sdk";
 import type { RoomPowerLevelsEventContent } from "matrix-js-sdk/lib/@types/state_events.js";
 import { isLivekitTransportConfig, type MatrixRTCSession } from "matrix-js-sdk/lib/matrixrtc/index.js";
 import type { LivekitTransportConfig } from "matrix-js-sdk/lib/matrixrtc/LivekitTransport.js";
@@ -115,6 +115,40 @@ export class MatrixRtc {
       }
     };
     await client.sendStateEvent(conversationId, EventType.RoomPowerLevels, opened, "");
+  }
+
+  /**
+   * Waiting for the first admin to call is a dead end when the first to try is not one: the room refuses
+   * them, nothing gets written, and no admin ever learns that anybody wanted to call. So an admin's client
+   * opens the rooms it can, once, when it starts. What it already holds says which look closed — one read
+   * of memory per room, no network — and only those are asked of the homeserver and, if it agrees, opened.
+   * Rooms whose levels it does not hold are left to the moment somebody with the right calls in them.
+   */
+  async openTheDoorsToCallsEverywhere(client: MatrixClient): Promise<void> {
+    for (const room of client.getRooms()) {
+      // One room not opening must not stop the rest: it is left as it is and says why when somebody calls.
+      await this.openTheDoorToCallsIfClosed(client, room).catch(() => undefined);
+    }
+  }
+
+  /**
+   * The same for one room, as it arrives: created here, or joined, or made by another client and only now
+   * seen. Decided from what is already held, so a room that is open or not this account's to open costs no
+   * request; the homeserver is asked only when memory says there is something to do.
+   */
+  async openTheDoorToCallsIfClosed(client: MatrixClient, room: Room): Promise<void> {
+    if (room.getMyMembership() !== "join") return;
+    const held = room.currentState
+      .getStateEvents(EventType.RoomPowerLevels, "")
+      ?.getContent<RoomPowerLevelsEventContent>();
+    if (!held) return;
+    const everybody = held.users_default ?? 0;
+    const neededFor = (eventType: string): number => held.events?.[eventType] ?? held.state_default ?? 50;
+    const looksClosed = membershipEventTypes.some(eventType => neededFor(eventType) > everybody);
+    const mine = held.users?.[client.getSafeUserId()] ?? everybody;
+    const looksLikeICan = mine >= neededFor(EventType.RoomPowerLevels);
+    if (!looksClosed || !looksLikeICan) return;
+    await this.openTheDoorToCalls(client, room.roomId);
   }
 
   /** What the homeserver says the room's power levels are, or nothing when it says there are none. */

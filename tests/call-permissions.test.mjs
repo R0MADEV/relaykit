@@ -155,3 +155,91 @@ test("a room the homeserver has no power levels for is not given some", async ()
 
   assert.deepEqual(written, []);
 });
+
+/**
+ * Waiting for the first admin to call is a dead end when the first to try is not one: the room refuses
+ * them, nothing is written, and no admin ever learns anybody wanted to call. So an admin's client opens the
+ * rooms it can, once, when it starts — looking at what it already holds to find the closed ones, and asking
+ * the homeserver before touching any.
+ */
+function clientHoldingRooms(rooms) {
+  const written = [];
+  const client = {
+    getSafeUserId: () => "@alice:localhost",
+    getRooms: () =>
+      rooms.map(room => ({
+        roomId: room.id,
+        getMyMembership: () => room.membership ?? "join",
+        currentState: {
+          getStateEvents: (type, key) =>
+            type === "m.room.power_levels" && key === "" && room.levels
+              ? { getContent: () => room.levels }
+              : null
+        }
+      })),
+    getStateEvent: async (roomId, type) => {
+      const room = rooms.find(one => one.id === roomId);
+      if (type !== "m.room.power_levels" || !room?.levels) throw new Error("M_NOT_FOUND");
+      return room.levels;
+    },
+    sendStateEvent: async (roomId, type, content) => {
+      written.push({ roomId, type, content });
+      return { event_id: "$pl" };
+    }
+  };
+  return { client, written };
+}
+
+const admin = { users: { "@alice:localhost": 100 }, users_default: 0, state_default: 50, events: {} };
+const opened = { ...admin, events: { [EventType.GroupCallMemberPrefix]: 0, [EventType.RTCMembership]: 0 } };
+const notMine = { users: { "@bob:localhost": 100 }, users_default: 0, state_default: 50, events: {} };
+
+test("an admin's client opens the closed rooms it holds when it starts, and only those", async () => {
+  const { client, written } = clientHoldingRooms([
+    { id: "!closed:localhost", levels: admin },
+    { id: "!open:localhost", levels: opened },
+    { id: "!theirs:localhost", levels: notMine },
+    { id: "!invited:localhost", levels: admin, membership: "invite" },
+    { id: "!unknown:localhost" }
+  ]);
+
+  await new MatrixRtc("http://jwt").openTheDoorsToCallsEverywhere(client);
+
+  assert.deepEqual(
+    written.map(one => one.roomId),
+    ["!closed:localhost"]
+  );
+});
+
+test("a room that arrives after starting is opened too, the moment it is joined", async () => {
+  const { client, written } = clientHoldingRooms([{ id: "!late:localhost", levels: admin }]);
+  const [late] = client.getRooms();
+
+  await new MatrixRtc("http://jwt").openTheDoorToCallsIfClosed(client, late);
+
+  assert.deepEqual(
+    written.map(one => one.roomId),
+    ["!late:localhost"]
+  );
+});
+
+test("a room that arrives already open, or that is not mine to open, is not asked about", async () => {
+  const { client, written } = clientHoldingRooms([
+    { id: "!open:localhost", levels: opened },
+    { id: "!theirs:localhost", levels: notMine }
+  ]);
+  let asked = 0;
+  const counting = {
+    ...client,
+    getStateEvent: async (...args) => {
+      asked += 1;
+      return client.getStateEvent(...args);
+    }
+  };
+
+  for (const room of client.getRooms())
+    await new MatrixRtc("http://jwt").openTheDoorToCallsIfClosed(counting, room);
+
+  assert.deepEqual(written, []);
+  assert.equal(asked, 0, "what is already known from memory must not cost a request");
+});

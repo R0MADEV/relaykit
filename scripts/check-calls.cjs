@@ -783,6 +783,75 @@ async function signOut(...pages) {
   }
 }
 
+/**
+ * A room from before, or from another client: made with the defaults, which let only admins say they are on
+ * a call. Bob, who is not one, is the first to call in it. Once, that was a 403 nobody saw and a dead end:
+ * bob was refused, nothing was written, and alice never learned anybody had tried. Now alice's client opens
+ * the room the moment it sees it, and bob's call simply goes through.
+ */
+async function callingFirstInAnOldRoom(alice, bob) {
+  const homeserver = "http://localhost:8008";
+  const asAlice = await fetch(`${homeserver}/_matrix/client/v3/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "m.login.password",
+      identifier: { type: "m.id.user", user: "alice" },
+      password: "alice-password"
+    })
+  }).then(response => response.json());
+  const made = await fetch(`${homeserver}/_matrix/client/v3/createRoom`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${asAlice.access_token}` },
+    body: JSON.stringify({ name: `old room ${Date.now()}`, invite: ["@bob:localhost"] })
+  }).then(response => response.json());
+  await fetch(`${homeserver}/_matrix/client/v3/logout`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${asAlice.access_token}` }
+  });
+  const oldRoom = made.room_id;
+  detail.oldRoom = oldRoom;
+
+  // Bob is invited and the example accepts invitations on its own; alice's client sees the room as one she
+  // is in. Both have to really be in before anybody calls.
+  for (const [who, page] of [
+    ["alice", alice],
+    ["bob", bob]
+  ]) {
+    await waitFor(
+      page,
+      `${who} to be in the old room`,
+      `
+      window.relaykitDemo.client.conversations.list().then(list =>
+        list.find(item => item.id === ${JSON.stringify(oldRoom)})?.membership === "join")
+    `,
+      60
+    );
+  }
+
+  await bob.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.place(${JSON.stringify(oldRoom)}, { video: false }).then(() => true)
+  `);
+  // The refusal used to arrive a moment later, as the call ending with a reason. It must not arrive at all,
+  // and the room must ring alice.
+  detail.aliceWasRungInTheOldRoom = await waitFor(
+    alice,
+    "alice to be rung in the old room by bob",
+    `
+    window.relaykitDemo.client.calls.list().then(calls =>
+      calls.some(call => call.conversationId === ${JSON.stringify(oldRoom)} && call.state === "ringing") && "yes")
+  `,
+    60
+  );
+  const bobsCall = await bob.webContents.executeJavaScript(`
+    window.relaykitDemo.client.calls.list().then(calls => calls.find(call => call.conversationId === ${JSON.stringify(oldRoom)}))
+  `);
+  if (!bobsCall || bobsCall.state !== "connected" || bobsCall.wentWrong) {
+    throw new Error(`Bob's call in the old room did not hold: ${JSON.stringify(bobsCall)}`);
+  }
+  await leaveNothingGoingOn([alice, bob]);
+}
+
 async function run() {
   const server = await serve(root);
   // Told where conferences are carried, because a development homeserver has no `.well-known` to say so.
@@ -873,6 +942,7 @@ async function run() {
     },
     camera: () => turnTheCameraOnMidCall(alice, bob),
     conference: () => holdAConference(alice, bob, address),
+    oldroom: () => callingFirstInAnOldRoom(alice, bob),
     // Last, because alice does not come back from it.
     dying: () => dyingLeavesTheCall(alice, bob, conversationId)
   };

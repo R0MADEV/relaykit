@@ -88,6 +88,9 @@ export class MatrixRuntime {
         ? undefined
         : openTheWindow(this.client, this.options.conversationWindow);
     await waitForInitialSync(this.client, this.options.initialSyncLimit ?? 20, this.window?.sliding);
+    // Rooms from before calls let only admins on one. An admin opens the ones they hold, in the background:
+    // starting does not wait for it, and a room that will not open is left to say so when somebody calls.
+    void this.rtc.openTheDoorsToCallsEverywhere(this.client);
   }
 
   /** Asking for more conversations than the window holds widens it and waits for the rest to arrive. */
@@ -204,6 +207,9 @@ export class MatrixRuntime {
 
   private readonly handleMembership = (room: Room): void => {
     this.handlers.onConversationUpdated?.(mapConversation(room));
+    // A room this account just joined, or made, or was only now told about: if it is closed to calls and
+    // this account may open it, it is opened now, so that whoever tries to call in it first is not refused.
+    void this.rtc.openTheDoorToCallsIfClosed(this.getClient(), room).catch(() => undefined);
   };
 
   private readonly handleSessionEnded = (): void => {

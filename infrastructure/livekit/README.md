@@ -97,8 +97,10 @@ Y tres cosas que no son obstáculos pero conviene saber:
   de una llamada y exige que bob la vea irse en segundos (unos 20 en el entorno de desarrollo), y solo pasa
   con esto activo.
 - El servicio de tokens anunciado en `.well-known/matrix/client` bajo `org.matrix.msc4143.rtc_foci`.
-- Salas con los dos tipos de membresía de llamada abiertos a sus miembros (las nuevas nacen así; las antiguas
-  las abre el primer administrador que llame).
+- Salas con los dos tipos de membresía de llamada abiertos a sus miembros. Las nuevas nacen así; las
+  anteriores, o las creadas por otro cliente, las abre el cliente de cualquier administrador en cuanto las
+  ve — al arrancar, o cuando llegan — sin esperar a que nadie llame. Una sala sin ningún administrador que
+  use la librería sigue cerrada, y quien intente llamar en ella se entera por `wentWrong`.
 
 ## Solo para desarrollo
 
