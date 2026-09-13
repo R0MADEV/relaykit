@@ -1,4 +1,4 @@
-import { ClientPrefix, EventType, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
+import { ClientPrefix, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
@@ -129,15 +129,16 @@ export async function sendMatrixAttachment(
       : {}),
     ...(encrypted ? { file: { ...encrypted.info, url: upload.content_uri } } : { url: upload.content_uri })
   };
-  // The SDK's message content union cannot be built from a conditional spread; the shape follows the spec.
-  // A sticker is not a message: it is its own event type, which is how whoever receives it knows to draw it
-  // on its own.
+  // TypeScript cannot build a member of a discriminated union when the discriminant is decided at runtime,
+  // and msgtype here follows the file's type. The alternative is writing the same object out four times, one
+  // per kind, which is four places for the shape to drift. One step, not through unknown: what is built does
+  // belong to the union, and only the compiler cannot see which member it is.
   return sendWithTransaction(
     client,
     conversationId,
-    content as unknown as RoomMessageEventContent,
+    content as RoomMessageEventContent,
     transactionId,
-    file.sticker ? EventType.Sticker : undefined
+    file.sticker === true
   );
 }
 
@@ -250,7 +251,7 @@ function parseSource(source: string): MatrixAttachmentSource {
   return parsed as MatrixAttachmentSource;
 }
 
-function msgTypeFor(mimeType: string): string {
+function msgTypeFor(mimeType: string): MsgType {
   if (mimeType.startsWith("image/")) return MsgType.Image;
   if (mimeType.startsWith("video/")) return MsgType.Video;
   if (mimeType.startsWith("audio/")) return MsgType.Audio;

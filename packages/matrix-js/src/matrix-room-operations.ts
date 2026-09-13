@@ -10,7 +10,14 @@ import {
   ContentHelpers,
   LocationAssetType
 } from "matrix-js-sdk";
-import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
+import type { RoomMessageEventContent, StickerEventContent } from "matrix-js-sdk/lib/@types/events.js";
+
+/**
+ * What can be sent into a conversation as one event. A sticker carries body, info and url the way an image
+ * message does — the spec says so — but the SDK names the two shapes apart, so both are said here and the
+ * one line that hands it over says which of them it is.
+ */
+type SentContent = RoomMessageEventContent | StickerEventContent;
 import type {
   Mentions,
   Conversation,
@@ -127,23 +134,14 @@ async function waitUntilEncryptionIsKnown(
 async function sendOnce(
   client: MatrixClient,
   conversationId: string,
-  content: RoomMessageEventContent,
+  content: SentContent,
   transactionId: string | undefined,
-  eventType?: EventType
+  asSticker = false
 ): Promise<{ event_id: string }> {
-  // The `sendEvent` overload ties the content to the event type, and here the type is decided at runtime.
-  // The shape follows the spec: a sticker carries body, info and url, like an image attachment.
-  const sendAsItsOwnType = () => {
-    const sendTyped = client.sendEvent.bind(client) as (
-      roomId: string,
-      type: string,
-      body: unknown,
-      txnId?: string
-    ) => Promise<{ event_id: string }>;
-    return sendTyped(conversationId, eventType as string, content, transactionId);
-  };
   const send = () =>
-    eventType ? sendAsItsOwnType() : client.sendMessage(conversationId, content, transactionId);
+    asSticker
+      ? client.sendEvent(conversationId, EventType.Sticker, content as StickerEventContent, transactionId)
+      : client.sendMessage(conversationId, content as RoomMessageEventContent, transactionId);
   try {
     return await send();
   } catch (error) {
@@ -258,10 +256,10 @@ export async function listMatrixThread(
 export async function sendWithTransaction(
   client: MatrixClient,
   conversationId: ConversationId,
-  content: RoomMessageEventContent,
+  content: SentContent,
   transactionId: string | undefined,
-  /** Anything that is not an ordinary message has its own event type. A sticker is `m.sticker`. */
-  eventType?: EventType
+  /** A sticker is not a message: it is its own event type, which is how whoever gets it knows to draw it. */
+  asSticker = false
 ): Promise<Message> {
   // The room may not be in the local store yet, right after creating it, and sending does not need it.
   const room = client.getRoom(conversationId);
@@ -274,7 +272,7 @@ export async function sendWithTransaction(
   const pending = room && transactionId ? room.getEventForTxnId(transactionId) : undefined;
   const eventId = pending
     ? await resolvePendingEvent(client, room!, pending)
-    : (await sendOnce(client, conversationId, content, transactionId, eventType)).event_id;
+    : (await sendOnce(client, conversationId, content, transactionId, asSticker)).event_id;
   const message = await mapSentEvent(client, conversationId, eventId, content);
   return transactionId ? { ...message, transactionId } : message;
 }
@@ -288,7 +286,7 @@ async function mapSentEvent(
   client: MatrixClient,
   conversationId: ConversationId,
   eventId: string,
-  content: RoomMessageEventContent
+  content: SentContent
 ): Promise<Message> {
   const event = client.getRoom(conversationId)?.findEventById(eventId);
   if (event?.isEncrypted()) await client.decryptEventIfNeeded(event);
