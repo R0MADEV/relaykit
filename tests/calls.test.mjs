@@ -112,3 +112,55 @@ test("what is going on can be asked for, which is what a screen paints", async (
   assert.equal(going[0].conversationId, conversation.id);
   await client.stop();
 });
+
+test("what is silenced, shown and chosen on a call travels to the other side", async () => {
+  const { client, conversation } = await startClient();
+  const call = await client.calls.place(conversation.id);
+
+  await client.calls.muteMicrophone(call.id, true);
+  await client.calls.muteCamera(call.id, true);
+  await client.calls.shareScreen(call.id, true);
+  await client.calls.useMicrophone("mic-1");
+  await client.calls.useCamera("cam-1");
+
+  const [going] = await client.calls.list();
+  assert.equal(going.isMicrophoneMuted, true);
+  assert.equal(going.isCameraMuted, true);
+  assert.equal(going.isSharingScreen, true);
+  await client.stop();
+});
+
+test("how a call is going can be asked for, so a screen can say why nobody is heard", async () => {
+  const { client, conversation } = await startClient();
+  const call = await client.calls.place(conversation.id);
+
+  assert.deepEqual(await client.calls.quality(call.id), {});
+  await client.stop();
+});
+
+test("a call nobody named, and a device nobody named, are refused before anything is asked of the adapter", async () => {
+  const { client } = await startClient();
+
+  for (const blank of ["", "   "]) {
+    await assert.rejects(client.calls.muteMicrophone(blank, true), { code: "INVALID_INPUT" });
+    await assert.rejects(client.calls.useMicrophone(blank), { code: "INVALID_INPUT" });
+    await assert.rejects(client.calls.useCamera(blank), { code: "INVALID_INPUT" });
+  }
+  await client.stop();
+});
+
+/**
+ * Not every protocol, and not every homeserver, can hold a conference. An adapter that cannot says so by
+ * not offering it at all, and asking anyway has to come back as something an application can act on rather
+ * than as whatever the missing method happens to do.
+ */
+test("an adapter that cannot hold calls refuses them as unsupported", async () => {
+  class WithoutCalls extends InMemoryAdapter {
+    calling = undefined;
+  }
+  const { client, conversation } = await startClient(new WithoutCalls());
+
+  await assert.rejects(client.calls.place(conversation.id), { code: "NOT_SUPPORTED" });
+  await assert.rejects(client.calls.list(), { code: "NOT_SUPPORTED" });
+  await client.stop();
+});

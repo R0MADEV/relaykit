@@ -31,9 +31,7 @@ import type {
   LinkPreview,
   MediaLimits,
   Poll,
-  LiveLocation,
-  Call,
-  CallQuality
+  LiveLocation
 } from "./models.js";
 
 export class UnavailableAdapter implements MessagingAdapter {
@@ -354,54 +352,6 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async listPolls(): Promise<readonly Poll[]> {
     throw new SdkError("NOT_CONFIGURED", "Cannot list polls");
-  }
-
-  async placeCall(): Promise<Call> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot place a call");
-  }
-
-  async joinCall(): Promise<Call> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot join a call");
-  }
-
-  async answerCall(): Promise<Call> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot answer a call");
-  }
-
-  async hangUpCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot hang up a call");
-  }
-
-  async rejectCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot refuse a call");
-  }
-
-  async muteCallMicrophone(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot silence a call");
-  }
-
-  async muteCallCamera(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot put the camera away");
-  }
-
-  async shareScreenInCall(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot show the screen");
-  }
-
-  async callQuality(): Promise<CallQuality> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot say how a call is going");
-  }
-
-  async useMicrophone(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot choose a microphone");
-  }
-
-  async useCamera(): Promise<void> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot choose a camera");
-  }
-
-  async listCalls(): Promise<readonly Call[]> {
-    throw new SdkError("NOT_CONFIGURED", "Cannot list calls");
   }
 
   async stopSendingFile(): Promise<boolean> {

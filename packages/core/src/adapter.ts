@@ -79,6 +79,35 @@ export interface AdapterHandlers {
   readonly onError?: (error: Error) => void;
 }
 
+/**
+ * Holding a conference: who is on one and what each of them is sending. Who may be on it and who is goes
+ * over the protocol; the picture and the sound do not.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional. A protocol without conferences, or a
+ * homeserver that does not say where they are carried, has none of this — and saying so by not being there
+ * is better than a method that exists in order to refuse.
+ */
+export interface CallingAdapter {
+  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
+  /**
+   * Entering the call of a conversation, which is already going on and rings nobody. Joining what is
+   * already joined returns the same call: a screen opened twice must not put somebody in twice.
+   */
+  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
+  answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;
+  hangUpCall(callId: string): Promise<void>;
+  /** Refusing is not hanging up: the other side is told a different thing. */
+  rejectCall(callId: string): Promise<void>;
+  muteCallMicrophone(callId: string, muted: boolean): Promise<void>;
+  muteCallCamera(callId: string, muted: boolean): Promise<void>;
+  shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
+  callQuality(callId: string): Promise<CallQuality>;
+  /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */
+  useMicrophone(deviceId: string): Promise<void>;
+  useCamera(deviceId: string): Promise<void>;
+  listCalls(): Promise<readonly Call[]>;
+}
+
 export interface MessagingAdapter {
   login(credentials: LoginCredentials): Promise<Session>;
   register(credentials: RegisterCredentials): Promise<Session>;
@@ -147,25 +176,11 @@ export interface MessagingAdapter {
   mediaLimits(): Promise<MediaLimits>;
   /** Stops a file on its way up. Says whether there was one to stop. */
   stopSendingFile(transactionId: string): Promise<boolean>;
-  /** Calls. Who may be on one and who is goes over Matrix; the picture and the sound do not. */
-  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
   /**
-   * Entering the call of a conversation, which is already going on and rings nobody. Joining what is
-   * already joined returns the same call: a screen opened twice must not put somebody in twice.
+   * Conferences, when there are any. Absent when the protocol or the homeserver cannot hold one, which is
+   * a thing an application has to be able to find out without asking and being refused.
    */
-  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call>;
-  answerCall(callId: string, options: PlaceCallOptions): Promise<Call>;
-  hangUpCall(callId: string): Promise<void>;
-  /** Refusing is not hanging up: the other side is told a different thing. */
-  rejectCall(callId: string): Promise<void>;
-  muteCallMicrophone(callId: string, muted: boolean): Promise<void>;
-  muteCallCamera(callId: string, muted: boolean): Promise<void>;
-  shareScreenInCall(callId: string, sharing: boolean): Promise<void>;
-  callQuality(callId: string): Promise<CallQuality>;
-  /** Which microphone and camera to use from now on, which belongs to the account and not to one call. */
-  useMicrophone(deviceId: string): Promise<void>;
-  useCamera(deviceId: string): Promise<void>;
-  listCalls(): Promise<readonly Call[]>;
+  readonly calling?: CallingAdapter;
   /** A poll: the question, its answers and the votes. Closing it is final. */
   startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll>;
   voteInPoll(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>;

@@ -47,9 +47,7 @@ import type {
   LiveLocation,
   ShareLocationInput,
   GeoLocation,
-  Call,
-  CallQuality,
-  PlaceCallOptions
+  CallingAdapter
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
@@ -543,59 +541,47 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.reaching(conversationId, () => listMatrixPolls(this.runtime.getClient(), conversationId));
   }
 
-  /** Starting a call is entering it first, and having the room ring everybody else in it. */
-  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    return this.reaching(conversationId, async () =>
-      this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: true })
-    );
-  }
-
-  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    return this.reaching(conversationId, async () =>
-      this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: false })
-    );
-  }
-
-  answerCall(callId: string, options: PlaceCallOptions): Promise<Call> {
-    return this.run(() => this.runtime.conference.answer(this.runtime.getClient(), callId, options));
-  }
-
-  async hangUpCall(callId: string): Promise<void> {
-    await this.run(() => this.runtime.conference.leave(callId));
-  }
-
-  /** Not picking up is walking away from what rang: it goes on, and this side stops being told. */
-  async rejectCall(callId: string): Promise<void> {
-    await this.run(() => this.runtime.conference.leave(callId));
-  }
-
-  async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
-    await this.run(() => this.runtime.conference.setMicrophone(callId, !muted));
-  }
-
-  async muteCallCamera(callId: string, muted: boolean): Promise<void> {
-    await this.run(() => this.runtime.conference.setCamera(callId, !muted));
-  }
-
-  async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
-    await this.run(() => this.runtime.conference.setScreenShare(callId, sharing));
-  }
-
-  async callQuality(callId: string): Promise<CallQuality> {
-    return this.run(() => this.runtime.conference.quality(callId));
-  }
-
-  async useMicrophone(deviceId: string): Promise<void> {
-    await this.run(() => this.runtime.conference.useMicrophone(deviceId));
-  }
-
-  async useCamera(deviceId: string): Promise<void> {
-    await this.run(() => this.runtime.conference.useCamera(deviceId));
-  }
-
-  async listCalls(): Promise<readonly Call[]> {
-    return this.runtime.conference.list();
-  }
+  /**
+   * Conferences. Always offered by this adapter: whether the homeserver can actually hold one is not known
+   * until it is asked where they are carried, and that refusal says which homeserver and why.
+   */
+  readonly calling: CallingAdapter = {
+    /** Starting a call is entering it first, and having the room ring everybody else in it. */
+    placeCall: (conversationId, options) =>
+      this.reaching(conversationId, async () =>
+        this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: true })
+      ),
+    joinCall: (conversationId, options) =>
+      this.reaching(conversationId, async () =>
+        this.runtime.conference.join(this.runtime.getClient(), conversationId, options, { ring: false })
+      ),
+    answerCall: (callId, options) =>
+      this.run(() => this.runtime.conference.answer(this.runtime.getClient(), callId, options)),
+    hangUpCall: async callId => {
+      await this.run(() => this.runtime.conference.leave(callId));
+    },
+    /** Not picking up is walking away from what rang: it goes on, and this side stops being told. */
+    rejectCall: async callId => {
+      await this.run(() => this.runtime.conference.leave(callId));
+    },
+    muteCallMicrophone: async (callId, muted) => {
+      await this.run(() => this.runtime.conference.setMicrophone(callId, !muted));
+    },
+    muteCallCamera: async (callId, muted) => {
+      await this.run(() => this.runtime.conference.setCamera(callId, !muted));
+    },
+    shareScreenInCall: async (callId, sharing) => {
+      await this.run(() => this.runtime.conference.setScreenShare(callId, sharing));
+    },
+    callQuality: callId => this.run(() => this.runtime.conference.quality(callId)),
+    useMicrophone: async deviceId => {
+      await this.run(() => this.runtime.conference.useMicrophone(deviceId));
+    },
+    useCamera: async deviceId => {
+      await this.run(() => this.runtime.conference.useCamera(deviceId));
+    },
+    listCalls: async () => this.runtime.conference.list()
+  };
 
   async stopSendingFile(transactionId: string): Promise<boolean> {
     return this.media.stopSending(transactionId);

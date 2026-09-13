@@ -1,5 +1,5 @@
 import { SdkError } from "./errors.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { CallingAdapter, MessagingAdapter } from "./adapter.js";
 import type { Call, CallQuality, ConversationId, PlaceCallOptions } from "./models.js";
 
 export interface CallOperationsContext {
@@ -16,7 +16,7 @@ export class CallOperations {
    */
   async place(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    return this.context.adapter.placeCall(this.requireConversation(conversationId), options);
+    return this.calling.placeCall(this.requireConversation(conversationId), options);
   }
 
   /**
@@ -25,7 +25,7 @@ export class CallOperations {
    */
   async join(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    return this.context.adapter.joinCall(this.requireConversation(conversationId), options);
+    return this.calling.joinCall(this.requireConversation(conversationId), options);
   }
 
   /**
@@ -35,7 +35,7 @@ export class CallOperations {
    */
   async answer(callId: string, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    return this.context.adapter.answerCall(this.require(callId), options);
+    return this.calling.answerCall(this.require(callId), options);
   }
 
   /**
@@ -44,52 +44,64 @@ export class CallOperations {
    */
   async hangUp(callId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.hangUpCall(this.require(callId));
+    await this.calling.hangUpCall(this.require(callId));
   }
 
   /** Not picking up what rang. The call goes on without this side, which simply stops being told about it. */
   async reject(callId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.rejectCall(this.require(callId));
+    await this.calling.rejectCall(this.require(callId));
   }
 
   /** Silenced: the others stop hearing this side, and the call carries on. */
   async muteMicrophone(callId: string, muted: boolean): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.muteCallMicrophone(this.require(callId), muted);
+    await this.calling.muteCallMicrophone(this.require(callId), muted);
   }
 
   async muteCamera(callId: string, muted: boolean): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.muteCallCamera(this.require(callId), muted);
+    await this.calling.muteCallCamera(this.require(callId), muted);
   }
 
   async shareScreen(callId: string, sharing: boolean): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.shareScreenInCall(this.require(callId), sharing);
+    await this.calling.shareScreenInCall(this.require(callId), sharing);
   }
 
   /** How a call is going, for a screen that wants to say why somebody cannot be heard. */
   async quality(callId: string): Promise<CallQuality> {
     this.context.assertStarted();
-    return this.context.adapter.callQuality(this.require(callId));
+    return this.calling.callQuality(this.require(callId));
   }
 
   /** Which microphone and camera to use from now on. It belongs to the account, not to one call. */
   async useMicrophone(deviceId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.useMicrophone(this.requireDevice(deviceId));
+    await this.calling.useMicrophone(this.requireDevice(deviceId));
   }
 
   async useCamera(deviceId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.useCamera(this.requireDevice(deviceId));
+    await this.calling.useCamera(this.requireDevice(deviceId));
   }
 
   /** What is going on now, which is what a screen paints when it is opened in the middle of a call. */
-  list(): Promise<readonly Call[]> {
+  async list(): Promise<readonly Call[]> {
     this.context.assertStarted();
-    return this.context.adapter.listCalls();
+    return this.calling.listCalls();
+  }
+
+/**
+   * The one place that answers whether this adapter holds conferences at all. Asked for before every call,
+   * so an application that asks anyway is told plainly instead of meeting a method that is not there.
+   */
+  private get calling(): CallingAdapter {
+    const calling = this.context.adapter.calling;
+    if (!calling) {
+      throw new SdkError("NOT_SUPPORTED", "Conferences are not something this homeserver holds");
+    }
+    return calling;
   }
 
   private requireConversation(conversationId: ConversationId): ConversationId {

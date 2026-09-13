@@ -266,19 +266,19 @@ function runContract(name, setup) {
     it("places a call into a conversation and hangs it up", { skip: !callsArePossible }, async () => {
       // What has to be true is that starting it says a call is going on and hanging up says it is not; there
       // are no devices on either side of this to carry anything.
-      const call = await adapter.placeCall(conversationId, { video: false });
+      const call = await adapter.calling.placeCall(conversationId, { video: false });
 
       assert.equal(call.conversationId, conversationId);
       assert.equal(call.isVideo, false);
       assert.equal(call.state, "connected", "whoever starts a call is the first one on it");
       assert.ok(
-        (await adapter.listCalls()).some(item => item.id === call.id),
+        (await adapter.calling.listCalls()).some(item => item.id === call.id),
         "the call was not going on"
       );
 
-      await adapter.hangUpCall(call.id);
+      await adapter.calling.hangUpCall(call.id);
       await waitFor("the call to be over", async () =>
-        (await adapter.listCalls()).every(item => item.id !== call.id)
+        (await adapter.calling.listCalls()).every(item => item.id !== call.id)
       );
     });
 
@@ -286,81 +286,81 @@ function runContract(name, setup) {
       "a call with video says so, because a screen has to be made room for",
       { skip: !callsArePossible },
       async () => {
-        const call = await adapter.placeCall(conversationId, { video: true });
+        const call = await adapter.calling.placeCall(conversationId, { video: true });
 
         assert.equal(call.isVideo, true);
-        await adapter.hangUpCall(call.id);
+        await adapter.calling.hangUpCall(call.id);
       }
     );
 
     it("what somebody does during a call: silence, camera", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, { video: true });
+      const call = await adapter.calling.placeCall(conversationId, { video: true });
 
-      const asItStands = async () => (await adapter.listCalls()).find(item => item.id === call.id);
+      const asItStands = async () => (await adapter.calling.listCalls()).find(item => item.id === call.id);
       assert.equal((await asItStands()).isMicrophoneMuted, false, "a new call started silenced");
 
-      await adapter.muteCallMicrophone(call.id, true);
+      await adapter.calling.muteCallMicrophone(call.id, true);
       assert.equal((await asItStands()).isMicrophoneMuted, true);
-      await adapter.muteCallCamera(call.id, true);
+      await adapter.calling.muteCallCamera(call.id, true);
       assert.equal((await asItStands()).isCameraMuted, true);
 
       // And back, because a button that only goes one way is half a button.
-      await adapter.muteCallMicrophone(call.id, false);
+      await adapter.calling.muteCallMicrophone(call.id, false);
       assert.equal((await asItStands()).isMicrophoneMuted, false);
 
-      await adapter.hangUpCall(call.id);
+      await adapter.calling.hangUpCall(call.id);
     });
 
     it("says when it started, and keeps saying the same", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, {});
+      const call = await adapter.calling.placeCall(conversationId, {});
 
       await new Promise(resolve => setTimeout(resolve, 50));
-      const laterOn = (await adapter.listCalls()).find(item => item.id === call.id);
+      const laterOn = (await adapter.calling.listCalls()).find(item => item.id === call.id);
 
       // A call that starts again every time it is read is a call nothing can time.
       assert.equal(laterOn.startedAt, call.startedAt);
-      await adapter.hangUpCall(call.id);
+      await adapter.calling.hangUpCall(call.id);
     });
 
     it(
       "says how a call is going, or says nothing rather than zeroes",
       { skip: !callsArePossible },
       async () => {
-        const call = await adapter.placeCall(conversationId, {});
+        const call = await adapter.calling.placeCall(conversationId, {});
 
-        const going = await adapter.callQuality(call.id);
+        const going = await adapter.calling.callQuality(call.id);
 
         // Numbers only where there are numbers. Zero lost packets and no idea are not the same thing, and a
         // screen that cannot tell them apart says the line is perfect when nothing is connected at all.
         for (const [name, value] of Object.entries(going)) {
           assert.equal(typeof value, "number", `${name} came back as something other than a number`);
         }
-        await adapter.hangUpCall(call.id);
+        await adapter.calling.hangUpCall(call.id);
       }
     );
 
     it("refusing a call leaves it no longer going on", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, {});
+      const call = await adapter.calling.placeCall(conversationId, {});
 
-      await adapter.rejectCall(call.id);
+      await adapter.calling.rejectCall(call.id);
 
       await waitFor("the refused call to be over", async () =>
-        (await adapter.listCalls()).every(item => item.id !== call.id)
+        (await adapter.calling.listCalls()).every(item => item.id !== call.id)
       );
     });
 
     it("choosing a microphone and a camera is taken notice of", { skip: !callsArePossible }, async () => {
       // Nothing comes back to look at: what is required is that asking is not a failure, because an
       // application with a device picker asks this on every change.
-      await adapter.useMicrophone("default");
-      await adapter.useCamera("default");
+      await adapter.calling.useMicrophone("default");
+      await adapter.calling.useCamera("default");
     });
 
     it("hanging up a call that is already over is not a failure", { skip: !callsArePossible }, async () => {
-      const call = await adapter.placeCall(conversationId, {});
-      await adapter.hangUpCall(call.id);
+      const call = await adapter.calling.placeCall(conversationId, {});
+      await adapter.calling.hangUpCall(call.id);
 
-      await adapter.hangUpCall(call.id);
+      await adapter.calling.hangUpCall(call.id);
     });
 
     it("asks the conversation something, counts the votes and closes it", async () => {

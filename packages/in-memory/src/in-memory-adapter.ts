@@ -1,5 +1,6 @@
 import type {
   AdapterHandlers,
+  CallingAdapter,
   MessagingAdapter,
   MarkReadOptions,
   Notification,
@@ -11,9 +12,7 @@ import type {
   LiveLocation,
   ShareLocationInput,
   GeoLocation,
-  Call,
-  CallQuality,
-  PlaceCallOptions
+  Call
 } from "@relaykit/core";
 import type {
   Attachment,
@@ -757,54 +756,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.shares.listPolls(conversationId);
   }
 
-  placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    return this.callsGoingOn.place(conversationId, options);
-  }
-
-  joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    return this.callsGoingOn.join(conversationId, options);
-  }
-
-  answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
-    return this.callsGoingOn.answer(callId);
-  }
-
-  hangUpCall(callId: string): Promise<void> {
-    return this.callsGoingOn.hangUp(callId);
-  }
-
-  /** Not picking up: the call goes on without this side, which stops being told about it. */
-  rejectCall(callId: string): Promise<void> {
-    return this.callsGoingOn.hangUp(callId);
-  }
-
-  muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
-    return this.callsGoingOn.muteMicrophone(callId, muted);
-  }
-
-  muteCallCamera(callId: string, muted: boolean): Promise<void> {
-    return this.callsGoingOn.muteCamera(callId, muted);
-  }
-
-  shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
-    return this.callsGoingOn.shareScreen(callId, sharing);
-  }
-
-  callQuality(callId: string): Promise<CallQuality> {
-    return this.callsGoingOn.quality(callId);
-  }
-
-  async useMicrophone(deviceId: string): Promise<void> {
-    this.callsGoingOn.useMicrophone(deviceId);
-  }
-
-  async useCamera(deviceId: string): Promise<void> {
-    this.callsGoingOn.useCamera(deviceId);
-  }
-
-  async listCalls(): Promise<readonly Call[]> {
-    return this.callsGoingOn.list();
-  }
+  /** Conferences, which this double always holds. */
+  readonly calling: CallingAdapter = this.callsGoingOn;
 
   /** Test helper: somebody else starts a call in this conversation, which rings here to be joined. */
   startConferenceAs(conversationId: ConversationId, userId: UserId): Call {

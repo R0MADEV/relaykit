@@ -1,4 +1,4 @@
-export type { AdapterHandlers, MessagingAdapter } from "./adapter.js";
+export type { AdapterHandlers, CallingAdapter, MessagingAdapter } from "./adapter.js";
 export type { MessagingStorage } from "./storage.js";
 export { MessagingClient } from "./client.js";
 export type { ClientEvents } from "./events.js";

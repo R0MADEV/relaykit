@@ -1,6 +1,7 @@
 import { SdkError } from "@relaykit/core";
 import type {
   AdapterHandlers,
+  CallingAdapter,
   Call,
   CallParticipant,
   CallQuality,
@@ -36,7 +37,7 @@ export interface InMemoryCallsContext {
  * in by its identifier and nothing more, so everything here can be read without the eight hundred lines of
  * conversations and messages that surround it.
  */
-export class InMemoryCalls {
+export class InMemoryCalls implements CallingAdapter {
   private readonly calls = new Map<string, Call>();
   /** Calls this side walked out of, which go on without it and stop being painted here. */
   private readonly left = new Set<string>();
@@ -49,15 +50,15 @@ export class InMemoryCalls {
    * Starting a call is entering it first. Ringing the others is the homeserver's doing and a double has none,
    * so here it is the same as walking in; a test that wants somebody to be rung has `startConferenceAs`.
    */
-  async place(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
-    return this.join(conversationId, options);
+  async placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+    return this.joinCall(conversationId, options);
   }
 
   /**
    * A call is entered, not started: if one is already going on in that conversation this joins that one,
    * because a screen opened twice must not put the same person in twice.
    */
-  async join(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
+  async joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     if (!this.context.hasConversation(conversationId)) {
       throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
     }
@@ -77,7 +78,7 @@ export class InMemoryCalls {
   }
 
   /** Picking up what rang is walking into it. */
-  async answer(callId: string): Promise<Call> {
+  async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
     const call = this.calls.get(callId);
     if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
     const answered = this.enter(call);
@@ -118,7 +119,7 @@ export class InMemoryCalls {
    * Leaving is not ending it: whoever is still on it carries on, and coming back has to find the same call.
    * Only a call nobody is left on stops going on.
    */
-  async hangUp(callId: string): Promise<void> {
+  async hangUpCall(callId: string): Promise<void> {
     const call = this.calls.get(callId);
     if (!call) return;
     const mine = this.context.requireUserId();
@@ -133,30 +134,35 @@ export class InMemoryCalls {
     this.context.handlers().onCallChanged?.({ ...call, state: "ended" });
   }
 
-  async muteMicrophone(callId: string, muted: boolean): Promise<void> {
+  /** Not picking up: the call goes on without this side, which stops being told about it. */
+  async rejectCall(callId: string): Promise<void> {
+    await this.hangUpCall(callId);
+  }
+
+  async muteCallMicrophone(callId: string, muted: boolean): Promise<void> {
     this.change(callId, { isMicrophoneMuted: muted });
   }
 
   /** Turning the camera on makes it a video call, and turning it off leaves it one that had video. */
-  async muteCamera(callId: string, muted: boolean): Promise<void> {
+  async muteCallCamera(callId: string, muted: boolean): Promise<void> {
     this.change(callId, { isCameraMuted: muted, ...(muted ? {} : { isVideo: true }) });
   }
 
-  async shareScreen(callId: string, sharing: boolean): Promise<void> {
+  async shareScreenInCall(callId: string, sharing: boolean): Promise<void> {
     this.change(callId, { isSharingScreen: sharing });
   }
 
   /** A double has no line to measure, so it says nothing rather than making numbers up. */
-  async quality(callId: string): Promise<CallQuality> {
+  async callQuality(callId: string): Promise<CallQuality> {
     if (!this.calls.has(callId)) throw new SdkError("INVALID_INPUT", "That call is not going on");
     return {};
   }
 
-  useMicrophone(deviceId: string): void {
+  async useMicrophone(deviceId: string): Promise<void> {
     this.chosenMicrophone = deviceId;
   }
 
-  useCamera(deviceId: string): void {
+  async useCamera(deviceId: string): Promise<void> {
     this.chosenCamera = deviceId;
   }
 
@@ -169,7 +175,7 @@ export class InMemoryCalls {
   }
 
   /** What this side is in or is being rung for, which is what a screen paints. A call left goes on without it. */
-  list(): readonly Call[] {
+  async listCalls(): Promise<readonly Call[]> {
     return [...this.calls.values()].filter(call => !this.left.has(call.id));
   }
 
