@@ -5,7 +5,6 @@ import type {
   CreateSpaceInput,
   NotificationLevel,
   PublicConversation,
-  VerificationRequestOptions,
   PushRegistration,
   HistoryVisibility,
   JoinRule,
@@ -28,15 +27,8 @@ import type {
   LoginCredentials,
   RegisterCredentials,
   Reaction,
-  DeviceVerification,
-  CryptoStatus,
-  KeyBackupRestoreSummary,
-  KeyBackupStatus,
   MessagePage,
   PresenceUpdate,
-  RecoverySetup,
-  RecoverySetupOptions,
-  VerificationSession,
   MarkReadOptions,
   Notification,
   ThreadSummary,
@@ -58,20 +50,11 @@ import type {
   SpacesAdapter
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
-import { SdkError } from "@relaykit/core";
 import { loginWithPassword, registerWithPassword } from "./matrix-auth.js";
 import type { MatrixJsAdapterOptions } from "./types.js";
 import { deleteMatrixMessage, editMatrixMessage, findMessage } from "./matrix-message-mutations.js";
 import { addMatrixReaction, removeMatrixReaction } from "./matrix-reactions.js";
 import { listMatrixMessages } from "./matrix-timeline.js";
-import {
-  getCryptoStatus,
-  getDeviceVerification,
-  getKeyBackupStatus,
-  recoverWithKey,
-  setDeviceVerified,
-  setupRecovery
-} from "./matrix-security.js";
 import {
   createConversation,
   joinConversation,
@@ -148,6 +131,7 @@ import {
   signOutMatrixDevices
 } from "./matrix-profiles.js";
 import { withTranslatedErrors } from "./matrix-errors.js";
+import { MatrixCrypto } from "./matrix-crypto.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
   /** Files on their way up, so one can be stopped while it is going. */
@@ -157,6 +141,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
 
   constructor(options: MatrixJsAdapterOptions = {}) {
     this.runtime = new MatrixRuntime(options);
+    // Built here and not beside the other capabilities: it takes the runtime, which exists as of this line.
+    this.crypto = new MatrixCrypto(this.runtime);
   }
 
   async register(credentials: RegisterCredentials): Promise<Session> {
@@ -253,14 +239,6 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.reaching(conversationId, () =>
       sendMessage(this.runtime.getClient(), conversationId, body, options)
     );
-  }
-
-  rotateConversationKeys(conversationId: ConversationId): Promise<void> {
-    return this.reaching(conversationId, async () => {
-      const crypto = this.runtime.getClient().getCrypto();
-      if (!crypto) throw new SdkError("NOT_CONFIGURED", "This session has no encryption");
-      await crypto.forceDiscardSession(conversationId);
-    });
   }
 
   upgradeConversation(conversationId: ConversationId): Promise<Conversation> {
@@ -561,7 +539,7 @@ export class MatrixJsAdapter implements MessagingAdapter {
   readonly push: PushAdapter = this;
   readonly devices: DevicesAdapter = this;
   readonly reactions: ReactionsAdapter = this;
-  readonly crypto: CryptoAdapter = this;
+  readonly crypto: CryptoAdapter;
 
   readonly calling: CallingAdapter = {
     /** Starting a call is entering it first, and having the room ring everybody else in it. */
@@ -700,64 +678,6 @@ export class MatrixJsAdapter implements MessagingAdapter {
     await this.reaching(conversationId, () =>
       removeMatrixReaction(this.runtime.getClient(), conversationId, reactionId)
     );
-  }
-
-  async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined> {
-    return getDeviceVerification(this.runtime.getClient(), userId, deviceId);
-  }
-
-  async setDeviceVerified(userId: string, deviceId: string, verified: boolean): Promise<void> {
-    await this.run(() => setDeviceVerified(this.runtime.getClient(), userId, deviceId, verified));
-  }
-
-  async getCryptoStatus(): Promise<CryptoStatus> {
-    return getCryptoStatus(this.runtime.getClient());
-  }
-
-  async getKeyBackupStatus(): Promise<KeyBackupStatus> {
-    return getKeyBackupStatus(this.runtime.getClient());
-  }
-
-  async setupRecovery(options: RecoverySetupOptions): Promise<RecoverySetup> {
-    return this.run(() => setupRecovery(this.runtime.getClient(), this.runtime.secretStorageKeys, options));
-  }
-
-  async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
-    return this.run(() =>
-      recoverWithKey(this.runtime.getClient(), this.runtime.secretStorageKeys, recoveryKey)
-    );
-  }
-
-  requestVerification(
-    userId: string,
-    deviceId?: string,
-    options?: VerificationRequestOptions
-  ): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.request(userId, deviceId, options));
-  }
-
-  getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined> {
-    return this.run(() => this.runtime.verification.qrCode(sessionId));
-  }
-
-  scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.scan(sessionId, code));
-  }
-
-  acceptVerification(sessionId: string): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.accept(sessionId));
-  }
-
-  cancelVerification(sessionId: string): Promise<VerificationSession> {
-    return this.runtime.verification.cancel(sessionId);
-  }
-
-  confirmVerification(sessionId: string): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.confirm(sessionId));
-  }
-
-  rejectVerification(sessionId: string): Promise<VerificationSession> {
-    return this.run(() => this.runtime.verification.reject(sessionId));
   }
 
   /** Single exit point for homeserver errors, so Matrix details never reach the public API. */
