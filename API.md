@@ -84,6 +84,10 @@ cada frame sale cifrado del navegador. Matrix sigue mandando: quién puede estar
 
 No hay espera, ni transferencia, ni teclas: eso es vocabulario de teléfono, y el teléfono no va por aquí.
 
+**Una pantalla compartida a la vez, y la última gana.** Si alguien empieza a compartir mientras tú compartes,
+tú dejas de hacerlo y te enteras por `call.changed` (`isSharingScreen` pasa a `false`). Nadie puede parar la
+pantalla de otro; quien se aparta es el que ya estaba, y sale lo mismo para todos sin que nadie mande.
+
 La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegador con `enumerateDevices()`.
 `useMicrophone(deviceId)` es la parte que sí es nuestra.
 

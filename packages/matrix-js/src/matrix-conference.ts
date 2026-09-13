@@ -299,7 +299,17 @@ export class MatrixConference {
     const changed = (): void => this.report?.(this.describe(callId, going));
     going.room.on(events.ParticipantConnected, changed);
     going.room.on(events.ParticipantDisconnected, changed);
-    going.room.on(events.TrackPublished, changed);
+    // One screen at a time, and the last to start is the one that stays: when somebody else begins sharing
+    // while this side is, this side stops. Nobody can stop anybody else's, so it is the one already sharing
+    // who steps aside, which comes out the same for everybody without anybody being in charge.
+    going.room.on(events.TrackPublished, publication => {
+      const somebodyElseShares = publication.source === going.screenShare[0];
+      const thisSideShares = going.room.localParticipant.isScreenShareEnabled;
+      if (somebodyElseShares && thisSideShares) {
+        void going.room.localParticipant.setScreenShareEnabled(false).then(changed);
+      }
+      changed();
+    });
     going.room.on(events.TrackSubscribed, changed);
     going.room.on(events.TrackUnsubscribed, changed);
     // After the publication is gone, not only after its track is: unsubscribed arrives while the engine still

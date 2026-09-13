@@ -1023,6 +1023,17 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.calls.has(callId);
   }
 
+  /**
+   * Test helper: somebody else starts sharing their screen. One screen at a time is the rule, and the last
+   * to start is the one that stays: whoever was sharing stops, and is told so.
+   */
+  shareScreenAs(callId: string, _userId: UserId): void {
+    const call = this.calls.get(callId);
+    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!call.isSharingScreen) return;
+    this.changeCall(callId, { isSharingScreen: false });
+  }
+
   /** Test helper: somebody starts talking, which is told apart from the call changing. */
   startSpeaking(callId: string, userIds: readonly UserId[]): void {
     this.handlers.onCallSpeaking?.({ callId, userIds });

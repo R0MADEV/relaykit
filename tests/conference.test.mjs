@@ -157,3 +157,20 @@ test("a conference that everybody left is over, even for whoever never joined", 
   assert.deepEqual(await client.calls.list(), []);
   await client.stop();
 });
+
+test("one screen at a time: whoever starts sharing makes whoever was sharing stop", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const call = await client.calls.join(conversation.id);
+  adapter.joinCallAs(call.id, "bob");
+  await client.calls.shareScreen(call.id, true);
+  assert.equal((await client.calls.list())[0].isSharingScreen, true);
+  const changed = new Promise(resolve => client.on("call.changed", resolve));
+
+  adapter.shareScreenAs(call.id, "bob");
+
+  // Told, not merely done: a screen that still says "stop sharing" while nothing is shared is a screen
+  // showing the wrong room to the wrong person.
+  assert.equal((await changed).isSharingScreen, false);
+  assert.equal((await client.calls.list())[0].isSharingScreen, false);
+  await client.stop();
+});

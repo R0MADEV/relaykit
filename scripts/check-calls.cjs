@@ -669,12 +669,33 @@ async function holdAConference(alice, bob, address) {
     })()
   `
   );
-  await alice.webContents.executeJavaScript(`
+  // One screen at a time: bob starting to share makes alice stop, and carol ends up with bob's.
+  await bob.webContents.executeJavaScript(`
+    ${conferenceOf}.then(call => window.relaykitDemo.client.calls.shareScreen(call.id, true)).then(() => true)
+  `);
+  said.aliceStoppedWhenBobShared = await waitFor(
+    alice,
+    "alice to stop sharing once bob does",
+    `${conferenceOf}.then(call => call && call.isSharingScreen === false && "yes")`
+  );
+  said.carolNowSeesBobsScreen = await waitFor(
+    carol,
+    "carol to be shown bob's screen instead",
+    `
+    window.relaykitDemo.client.calls.list().then(calls => {
+      const call = calls.find(one => one.conversationId === ${JSON.stringify(conversationId)});
+      const bob = call && call.participants.find(one => one.userId === "@bob:localhost");
+      const alice = call && call.participants.find(one => one.userId === "@alice:localhost");
+      return !!bob?.screen && !alice?.screen && "yes";
+    })
+  `
+  );
+  await bob.webContents.executeJavaScript(`
     ${conferenceOf}.then(call => window.relaykitDemo.client.calls.shareScreen(call.id, false)).then(() => true)
   `);
   await waitFor(
     carol,
-    "alice's screen to go away from carol's",
+    "bob's screen to go away from carol's",
     `document.getElementById("call-screen-media").hidden`
   );
 
