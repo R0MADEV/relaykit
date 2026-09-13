@@ -574,6 +574,15 @@ body {
   font-size: 17px;
   background: #3a3b40;
 }
+.seat video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: #2b2c30;
+}
 .seat-name {
   position: absolute;
   left: 10px;
@@ -897,4 +906,62 @@ body {
   padding-top: 16px;
   margin-top: 16px;
   border-top: 1px solid var(--line);
+}
+
+/* --- the way in --------------------------------------------------------- */
+.sign-in {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(360px, 90vw);
+  margin: 12vh auto;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--raised);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 6%);
+}
+.sign-in h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.sign-in > p {
+  margin: -6px 0 6px;
+}
+.sign-in .button {
+  margin-top: 6px;
+  padding: 10px;
+}
+.wrong {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #fdecec;
+  color: var(--red);
+  font-size: 13px;
+}
+
+/* --- what a message can be other than words ----------------------------- */
+.gone {
+  color: var(--faint);
+  font-style: italic;
+}
+.file {
+  color: var(--muted);
+}
+[data-sending="true"] {
+  color: var(--muted);
+}
+
+/* A control that is already pressed has to look pressed, or it reads as a button that undoes itself. */
+.round[data-pressed] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Looking somebody up inside a dialog: the same box as the sidebar, the full width of the list under it. */
+.search.wide {
+  width: 100%;
+  margin-bottom: 8px;
 }

@@ -21,7 +21,7 @@
     "smoke:recovery": "node scripts/smoke-recovery.mjs",
     "smoke:verification": "node scripts/smoke-verification.mjs",
     "test:unit": "npm run build && node --test tests/*.test.mjs",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false && tsc -p examples/web --pretty false",
     "pack:check": "npm pack --dry-run -w @relaykit/core -w @relaykit/browser-storage -w @relaykit/in-memory -w @relaykit/matrix-js -w @relaykit/web",
     "release:check": "npm run check && npm run test:unit && npm run pack:check",
     "test:contract": "npm run build && RELAYKIT_CONTRACT_MATRIX=1 node --test --test-force-exit tests/adapter-contract.test.mjs",

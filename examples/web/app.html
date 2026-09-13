@@ -7,12 +7,28 @@
     <link rel="stylesheet" href="/src/app/app.css" />
   </head>
   <body>
+    <!-- Who you are. Answered once; opening it again with a session already here skips straight past. -->
+    <form class="sign-in" id="sign-in" hidden>
+      <h1>Deitu</h1>
+      <p class="faint">Entra con tu cuenta de Matrix</p>
+      <label class="field"
+        ><span class="label">Servidor</span><input id="homeserver" value="http://localhost:8008"
+      /></label>
+      <label class="field"
+        ><span class="label">Usuario</span><input id="username" autocomplete="username"
+      /></label>
+      <label class="field"
+        ><span class="label">Contraseña</span
+        ><input id="password" type="password" autocomplete="current-password"
+      /></label>
+      <button class="button accent" type="submit">Entrar</button>
+      <p class="wrong" id="sign-in-wrong" hidden></p>
+    </form>
+
     <!--
       The shell: a list of what can be talked in, whatever is open, and a thread beside it when one is.
-      Nothing here decides anything — every screen of the design is laid out so the shape can be seen
-      before any of it is wired to the library.
     -->
-    <div class="shell" data-view="chat">
+    <div class="shell" id="shell" hidden>
       <!-- What is going on above everything, when a call is. -->
       <div class="call-bar" id="call-bar" hidden>
         <span class="live-dot"></span>
@@ -56,14 +72,14 @@
         <main class="main" id="chat-view">
           <header class="head">
             <div>
-              <h1 id="open-title"># incidencias-voz</h1>
+              <h1 id="open-title"></h1>
               <p class="head-under">
-                <span id="open-topic">Guardias y cortes de servicio</span>
-                <span class="mono faint" id="open-address">#incidencias-voz:matrix.un.es</span>
+                <span id="open-topic"></span>
+                <span class="mono faint" id="open-address"></span>
               </p>
             </div>
             <div class="head-actions">
-              <span class="pill" id="open-people"><span aria-hidden="true">◍</span> 18</span>
+              <span class="pill" id="open-people" hidden></span>
               <button class="button accent" id="open-room">
                 <span aria-hidden="true">▭</span> Abrir sala
               </button>
@@ -71,12 +87,12 @@
             </div>
           </header>
 
-          <div class="banner" id="room-banner">
+          <div class="banner" id="room-banner" hidden>
             <span class="live-dot"></span>
             <strong>Sala activa en este canal</strong>
-            <span class="mono faint">3 participantes</span>
+            <span class="mono faint" id="room-banner-who"></span>
             <div class="spacer"></div>
-            <button class="button accent small">Unirse</button>
+            <button class="button accent small" id="room-banner-join">Unirse</button>
           </div>
 
           <div class="timeline" id="timeline"></div>
@@ -91,12 +107,12 @@
               <button type="button" aria-label="Responder">↩</button>
             </div>
             <div class="write">
-              <input id="write" placeholder="Escribe en #incidencias-voz…" />
+              <input id="write" autocomplete="off" />
               <button class="icon-button accent" type="submit" aria-label="Enviar">→</button>
             </div>
           </form>
 
-          <p class="foot mono">Matrix · cifrado extremo a extremo</p>
+          <p class="foot mono" id="foot"></p>
         </main>
 
         <!-- A thread, when one is open. -->
@@ -104,13 +120,13 @@
           <header class="thread-head">
             <div>
               <h2>Hilo</h2>
-              <p class="mono faint" id="thread-where">#incidencias-voz</p>
+              <p class="mono faint" id="thread-where"></p>
             </div>
             <button class="icon-button" id="thread-close" aria-label="Cerrar hilo">✕</button>
           </header>
           <div class="thread-body" id="thread-body"></div>
-          <form class="thread-write">
-            <input placeholder="Responder en el hilo…" />
+          <form class="thread-write" id="thread-write">
+            <input id="thread-write-body" placeholder="Responder en el hilo…" autocomplete="off" />
             <button class="icon-button accent" type="submit" aria-label="Responder">→</button>
           </form>
         </section>
@@ -119,7 +135,7 @@
         <main class="main rooms" id="rooms-view" hidden>
           <header class="head">
             <div>
-              <h1 id="room-title">Sala · Post-mortem incidencia voz</h1>
+              <h1 id="room-title"></h1>
               <p class="head-under"><span class="mono faint">MATRIX + LIVEKIT</span></p>
             </div>
             <div class="head-actions">
@@ -129,22 +145,19 @@
           </header>
           <div class="grid" id="grid"></div>
           <div class="call-controls">
-            <button class="round" aria-label="Silenciar micrófono">
+            <button class="round" id="mute-microphone">
               <span aria-hidden="true">🎙</span><small>Silenciar</small>
             </button>
-            <button class="round" aria-label="Cámara">
+            <button class="round" id="mute-camera">
               <span aria-hidden="true">📷</span><small>Cámara</small>
             </button>
-            <button class="round" aria-label="Compartir pantalla">
+            <button class="round" id="share-screen">
               <span aria-hidden="true">▣</span><small>Compartir</small>
             </button>
-            <button class="round" aria-label="Chat">
+            <button class="round" id="back-to-chat">
               <span aria-hidden="true">▭</span><small>Chat</small>
             </button>
-            <button class="round" aria-label="Participantes">
-              <span aria-hidden="true">◍</span><small>Participantes</small>
-            </button>
-            <button class="round leave" aria-label="Salir">
+            <button class="round leave" id="hang-up">
               <span aria-hidden="true">✆</span><small>Salir</small>
             </button>
           </div>
@@ -155,20 +168,13 @@
           <section class="card lobby-card">
             <p class="label">Sala creada por ti</p>
             <div class="lobby-head">
-              <h2>Sala de Eve Deitu</h2>
-              <button class="button accent">Entrar</button>
+              <h2 id="lobby-title"></h2>
+              <button class="button accent" id="lobby-enter">Entrar</button>
             </div>
             <p class="status"><span class="live-dot"></span> Sala activa · esperando invitados</p>
-            <p class="tags">
-              <span class="tag">Solo invitados</span><span class="tag quiet">Anfitrión · Eve Deitu</span>
-            </p>
+            <p class="tags" id="lobby-tags"></p>
             <p class="list-label">En la sala</p>
-            <ul class="in-room">
-              <li>
-                <span class="avatar" data-there="here">ED</span> Eve Deitu
-                <span class="mono faint">anfitrión</span>
-              </li>
-            </ul>
+            <ul class="in-room" id="lobby-in-room"></ul>
             <div class="lobby-actions">
               <button class="button" data-opens="invite">
                 <span aria-hidden="true">◍</span> Invitar usuarios
@@ -177,8 +183,8 @@
                 <span aria-hidden="true">⧉</span> Copiar enlace de invitación
               </button>
             </div>
-            <input class="link mono" id="invite-link" readonly value="deitu.un.es/sala/n1" />
-            <p class="mono faint">Abierta ahora · solo tú dentro</p>
+            <input class="link mono" id="invite-link" readonly />
+            <p class="mono faint" id="lobby-foot"></p>
           </section>
         </main>
       </div>
@@ -186,12 +192,12 @@
       <!-- A call left running while something else is looked at. -->
       <div class="mini" id="mini" hidden>
         <p class="mini-icon" aria-hidden="true">▭</p>
-        <p class="mini-title">Post-mortem incidencia voz</p>
-        <p class="mono faint"><span id="mini-time">00:26</span> · 3 en sala</p>
+        <p class="mini-title" id="mini-title"></p>
+        <p class="mono faint" id="mini-under"></p>
         <div class="mini-actions">
           <button class="button accent small" id="mini-open">Ampliar</button>
-          <button class="icon-button" aria-label="Silenciar">🎙</button>
-          <button class="icon-button danger" aria-label="Salir">✕</button>
+          <button class="icon-button" id="mini-mute" aria-label="Silenciar">🎙</button>
+          <button class="icon-button danger" id="mini-leave" aria-label="Salir">✕</button>
         </div>
       </div>
     </div>
@@ -208,7 +214,9 @@
         </header>
         <label class="field">
           <span class="label">Nombre del canal</span>
-          <span class="prefixed"><span class="prefix">#</span><input placeholder="guardias-verano" /></span>
+          <span class="prefixed"
+            ><span class="prefix">#</span><input id="channel-name" placeholder="guardias-verano"
+          /></span>
         </label>
         <p class="label">Visibilidad</p>
         <div class="choices">
@@ -224,6 +232,13 @@
           </label>
         </div>
         <p class="label">Añadir usuarios</p>
+        <label class="search wide"
+          ><input id="create-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
         <ul class="people" id="create-people"></ul>
         <footer class="modal-foot">
           <span class="mono faint">Puedes invitar después</span>
@@ -245,6 +260,13 @@
           <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
         </header>
         <p class="label">Usuarios</p>
+        <label class="search wide"
+          ><input id="invite-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
         <ul class="people" id="invite-people"></ul>
         <footer class="modal-foot">
           <span class="mono faint" id="invite-count">0 invitaciones</span>
@@ -266,6 +288,13 @@
           <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
         </header>
         <p class="label">Usuarios</p>
+        <label class="search wide"
+          ><input id="new-message-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
         <ul class="people" id="new-message-people"></ul>
         <footer class="modal-foot">
           <div class="spacer"></div>

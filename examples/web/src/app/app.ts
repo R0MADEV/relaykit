@@ -1,303 +1,283 @@
-/**
- * The shape of the application, with nothing behind it yet.
- *
- * Every screen of the design is laid out and can be moved between, filled with stand-in content so the form
- * can be judged before any of it is wired to the library. Nothing here talks to a homeserver: what each
- * piece will eventually ask for is named in a comment where it goes.
- */
+import {
+  createConversationList,
+  createMessageTimeline,
+  type Conversation,
+  type ConversationId,
+  type LiveCollection,
+  type Message,
+  type MessageId,
+  type Session
+} from "@relaykit/web";
+import { CallScreen } from "./call-screen.js";
+import { element, input, onClick, onSubmit, pressedIn } from "./dom.js";
+import { MakingThings } from "./making-things.js";
+import { People } from "./people.js";
+import { isBetweenTwo, onePerPerson, paintChannels, paintDirects, titleOf } from "./sidebar.js";
+import { paintThread } from "./thread.js";
+import { paintTimeline, type Entry } from "./timeline.js";
+import { SigningIn } from "./signing-in.js";
+import { show } from "./views.js";
 
-interface Person {
-  readonly initials: string;
-  readonly name: string;
-  readonly extension: string;
-  readonly there?: "here" | "away";
-}
+class Deitu {
+  private readonly signingIn = new SigningIn(
+    session => this.enter(session),
+    error => this.wentWrong(error)
+  );
+  private readonly client = this.signingIn.client;
+  private me = "";
+  private people = new People(this.client, () => this.repaint());
+  private calls: CallScreen | undefined;
+  private conversations: LiveCollection<Conversation> | undefined;
+  private timeline: LiveCollection<Message> | undefined;
+  private openId: ConversationId | undefined;
+  private threadRootId: MessageId | undefined;
+  private threads = new Map<MessageId, number>();
+  private entries: readonly Entry[] = [];
+  private making: MakingThings | undefined;
 
-const people: readonly Person[] = [
-  { initials: "AM", name: "Adrián Meléndez", extension: "2275", there: "here" },
-  { initials: "AM", name: "Aitana Malabe", extension: "2551", there: "here" },
-  { initials: "SP", name: "Sergio Peña", extension: "2590", there: "away" },
-  { initials: "SB", name: "Soraya Ben", extension: "2232", there: "here" },
-  { initials: "AS", name: "Ainara Saracho", extension: "2571", there: "here" }
-];
-
-const element = <T extends HTMLElement>(id: string): T => {
-  const found = document.getElementById(id);
-  if (!found) throw new Error(`The design has no ${id}`);
-  return found as T;
-};
-
-/** Which of the three things the middle of the screen is showing. */
-function show(view: "chat" | "rooms" | "lobby"): void {
-  element("chat-view").hidden = view !== "chat";
-  element("rooms-view").hidden = view !== "rooms";
-  element("lobby-view").hidden = view !== "lobby";
-  element("call-bar").hidden = view === "rooms";
-}
-
-/** Going into the room: it is on screen, so nothing has to stand in for it. */
-function enterRoom(): void {
-  show("rooms");
-  element("mini").hidden = true;
-}
-
-/** Leaving the room on screen while staying on the call: the widget stands in for it. */
-function minimise(): void {
-  show("chat");
-  element("mini").hidden = false;
-}
-
-// --- the sidebar: conversations.list(), told apart by isDirect -------------
-
-function paintLists(): void {
-  const channels = [
-    { name: "general", unread: 0, live: false },
-    { name: "incidencias-voz", unread: 4, live: true },
-    { name: "despliegue-deitu", unread: 1, live: false },
-    { name: "guardia-privada", unread: 0, live: false, shut: true }
-  ];
-  element("channels").innerHTML = channels
-    .map(
-      (channel, at) => `
-      <li><button ${at === 1 ? 'aria-current="true"' : ""}>
-        <span class="hash" aria-hidden="true">${channel.shut ? "🔒" : "#"}</span>
-        <span class="name">${channel.name}</span>
-        ${channel.live ? '<span class="live">● LIVE</span>' : ""}
-        ${channel.unread ? `<span class="badge">${channel.unread}</span>` : ""}
-      </button></li>`
-    )
-    .join("");
-
-  const directs = [
-    { who: people[1], unread: 2 },
-    { who: people[4], unread: 1 },
-    { who: people[3], unread: 0 },
-    { who: people[2], unread: 0 }
-  ];
-  element("directs").innerHTML = directs
-    .map(
-      direct => `
-      <li><button>
-        <span class="avatar" data-there="${direct.who?.there}">${direct.who?.initials}</span>
-        <span class="name">${direct.who?.name}</span>
-        ${direct.unread ? `<span class="badge">${direct.unread}</span>` : ""}
-      </button></li>`
-    )
-    .join("");
-}
-
-// --- the timeline: messages.list(), plus what each message carries ---------
-
-function paintTimeline(): void {
-  element("timeline").innerHTML = `
-    <p class="day">Martes, 1 de septiembre</p>
-
-    <div class="said">
-      <span class="avatar big">SP</span>
-      <div>
-        <p class="who"><strong>Sergio Peña</strong><span class="at">09:12</span><span class="tag">Guardia</span></p>
-        <p>Corte parcial en la sede norte: el SBC secundario no registra. Abro incidencia.</p>
-        <div class="reactions"><button class="reaction">:eyes: 4</button></div>
-      </div>
-    </div>
-
-    <div class="said same"><span class="at">09:14</span><p>Confirmado, afecta a 40 extensiones del edificio Amigos.</p></div>
-
-    <div class="said">
-      <span class="avatar big">AM</span>
-      <div>
-        <p class="who"><strong>Aitana Malabe</strong><span class="at">09:20</span></p>
-        <p>¿Aviso a Secretaría o lo gestionáis vosotros? Tengo tres llamadas en cola.</p>
-        <button class="in-thread" id="open-thread">↩ 5 respuestas en hilo</button>
-      </div>
-    </div>
-
-    <div class="said">
-      <span class="avatar big">AH</span>
-      <div>
-        <p class="who"><strong>Alberto Hernán</strong><span class="at">09:31</span></p>
-        <p>Rutas reencaminadas al primario. 240 ms p95 estables.</p>
-        <div class="reactions">
-          <button class="reaction">:+1: 6</button><button class="reaction">:tada: 2</button>
-        </div>
-      </div>
-    </div>
-
-    <p class="day">Hoy</p>
-
-    <div class="said">
-      <span class="avatar big">SP</span>
-      <div>
-        <p class="who"><strong>Sergio Peña</strong><span class="at">10:02</span></p>
-        <!-- message.invitesTo says this is one; who is inside comes from calls.list() -->
-        <div class="card invite-card">
-          <span class="card-icon" aria-hidden="true">▭</span>
-          <div>
-            <p class="label">Invitación a sala</p>
-            <strong>Post-mortem incidencia voz</strong>
-            <p class="mono faint">3 personas dentro</p>
-          </div>
-          <div class="spacer"></div>
-          <button class="button accent" id="enter-room">Entrar</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="said">
-      <span class="avatar big">SB</span>
-      <div>
-        <p class="who"><strong>Soraya Ben</strong><span class="at">10:05</span></p>
-        <p>Me uno en cinco, termino una llamada.</p>
-      </div>
-    </div>
-
-    <!-- calls.history(): one participant means nobody else ever came -->
-    <div class="said">
-      <span class="avatar big">AM</span>
-      <div>
-        <p class="who"><strong>Aitana Malabe</strong><span class="at">17:20</span></p>
-        <div class="card over-card">
-          <span class="card-icon" aria-hidden="true">▭</span>
-          <div>
-            <p class="label">Sala caducada</p>
-            <strong>Revisión rápida del acta</strong>
-            <p class="mono faint">Nadie entró · la sala se cerró sola</p>
-          </div>
-        </div>
-        <div class="card over-card">
-          <span class="card-icon" aria-hidden="true">◷</span>
-          <div>
-            <p class="label">Conferencia finalizada</p>
-            <strong>Acta de la comisión</strong>
-            <p class="mono faint">2 participantes · 14 min 22 s</p>
-          </div>
-          <div class="spacer"></div>
-          <button class="button">Ver detalle</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-// --- a thread: messages.thread(rootId) ------------------------------------
-
-function paintThread(): void {
-  const answers = [
-    ["SP", "Sergio Peña", "09:22", "Lo gestionamos nosotros, pero avisa tú a Secretaría: es su edificio."],
-    ["AM", "Aitana Malabe", "09:24", "Hecho. Les digo que desvíen al 2551 mientras dure el corte."],
-    ["AH", "Alberto Hernán", "09:26", "Desvío aplicado en la centralita, sin pérdida de llamadas."],
-    ["AM", "Aitana Malabe", "09:28", "Perfecto, ya no entran quejas en el mostrador."],
-    ["SP", "Sergio Peña", "09:30", "Cierro el aviso cuando el secundario vuelva a registrar."]
-  ];
-  element("thread-body").innerHTML = `
-    <div class="said">
-      <span class="avatar big">AM</span>
-      <div>
-        <p class="who"><strong>Aitana Malabe</strong><span class="at">09:20</span></p>
-        <p>¿Aviso a Secretaría o lo gestionáis vosotros? Tengo tres llamadas en cola.</p>
-      </div>
-    </div>
-    <p class="thread-count">${answers.length} respuestas</p>
-    ${answers
-      .map(
-        ([initials, name, at, said]) => `
-      <div class="said">
-        <span class="avatar big">${initials}</span>
-        <div>
-          <p class="who"><strong>${name}</strong><span class="at">${at}</span></p>
-          <p>${said}</p>
-        </div>
-      </div>`
-      )
-      .join("")}`;
-}
-
-// --- a room: calls.list() and what each participant is sending -------------
-
-function paintGrid(): void {
-  const seats = [
-    { initials: "SP", name: "Sergio Peña", sharing: true },
-    { initials: "AH", name: "Alberto Hernán" },
-    { initials: "SB", name: "Soraya Ben", quiet: true }
-  ];
-  element("grid").innerHTML = seats
-    .map(
-      seat => `
-      <div class="seat" ${seat.sharing ? "data-sharing" : ""}>
-        ${seat.sharing ? '<span class="seat-sharing">Pantalla</span>' : ""}
-        <span class="avatar">${seat.initials}</span>
-        <span class="seat-name">${seat.name}${seat.quiet ? " 🔇" : ""}</span>
-      </div>`
-    )
-    .join("");
-}
-
-// --- who can be added to something: users.search() -------------------------
-
-function paintPeople(id: string, picked: number): void {
-  element(id).innerHTML = people
-    .map(
-      (person, at) => `
-      <li ${at < picked ? "data-picked" : ""}>
-        <span class="avatar" data-there="${person.there}">${person.initials}</span>
-        <span class="who-name">${person.name}</span>
-        <span class="mono faint">${person.extension}</span>
-        <input type="checkbox" ${at < picked ? "checked" : ""} />
-      </li>`
-    )
-    .join("");
-}
-
-// --- moving between them ---------------------------------------------------
-
-function wire(): void {
-  const menu = element("new-menu");
-  element("new-button").addEventListener("click", () => {
-    menu.hidden = !menu.hidden;
-  });
-  document.addEventListener("click", event => {
-    const inside = (event.target as HTMLElement).closest(".new");
-    if (!inside) menu.hidden = true;
-  });
-
-  for (const opener of document.querySelectorAll<HTMLElement>("[data-opens]")) {
-    opener.addEventListener("click", () => {
-      menu.hidden = true;
-      element<HTMLDialogElement>(opener.dataset.opens ?? "").showModal();
-    });
+  /** Either straight in with the session kept from last time, or the form until somebody answers it. */
+  async open(): Promise<void> {
+    await this.signingIn.reopen();
   }
 
-  const thread = element("thread");
-  element("open-thread").addEventListener("click", () => {
-    thread.hidden = false;
-  });
-  element("thread-close").addEventListener("click", () => {
-    thread.hidden = true;
-  });
+  private async enter(session: Session): Promise<void> {
+    this.me = session.userId;
+    document.title = `Deitu · ${this.people.nameOf(session.userId)}`;
+    this.calls = new CallScreen(this.client, this.people, this.me, () => this.backToChat());
+    this.calls.wire();
+    this.making = new MakingThings(this.client, this.people, {
+      openId: () => this.openId,
+      opened: conversationId => void this.openConversation(conversationId),
+      wentWrong: error => this.wentWrong(error)
+    });
+    this.wire();
+    // Not waiting: what was here yesterday goes on screen at once, and the rest arrives as the server answers.
+    await this.client.start({ waitForSync: false });
+    element("sign-in").hidden = true;
+    element("shell").hidden = false;
+    show("chat");
+    const conversations = createConversationList(this.client);
+    this.conversations = conversations;
+    conversations.subscribe(() => this.somethingToRead());
+    // Not awaited on purpose. Catching up on an account with hundreds of conversations keeps the list
+    // reloading, and one that is still reloading has not resolved: waiting here is waiting for the sync.
+    void conversations.refresh();
+    this.listen();
+  }
 
-  element("enter-room").addEventListener("click", enterRoom);
-  element("open-room").addEventListener("click", () => show("lobby"));
-  element("minimise").addEventListener("click", minimise);
-  element("mini-open").addEventListener("click", enterRoom);
-  element("call-bar-back").addEventListener("click", enterRoom);
-  element("call-bar-leave").addEventListener("click", () => {
-    element("call-bar").hidden = true;
-    element("mini").hidden = true;
-  });
-  element("copy-link").addEventListener("click", () => {
-    // conversations.link() gives this, and it is a matrix.to link any client can open.
-    void navigator.clipboard?.writeText(element<HTMLInputElement>("invite-link").value);
-  });
+  /** The first conversation opens on its own, as soon as there is one. Nobody wants to arrive at nothing. */
+  private somethingToRead(): void {
+    this.paintSidebar();
+    if (this.openId) return;
+    const first = this.conversations?.get()[0];
+    if (first) void this.openConversation(first.id);
+  }
+
+  private listen(): void {
+    this.client.on("call.incoming", () => void this.calls?.heard());
+    this.client.on("call.changed", () => void this.calls?.heard());
+    this.client.on("presence.changed", presence => this.people.heard(presence));
+    this.client.on("reaction.added", () => void this.reload());
+    this.client.on("reaction.removed", () => void this.reload());
+    this.client.on("error", error => this.wentWrong(error));
+    void this.calls?.heard();
+  }
+
+  private wire(): void {
+    const menu = element("new-menu");
+    onClick("new-button", () => {
+      menu.hidden = !menu.hidden;
+    });
+    document.addEventListener("click", event => {
+      const inside = event.target instanceof Element && event.target.closest(".new");
+      if (!inside) menu.hidden = true;
+    });
+    for (const opener of document.querySelectorAll("[data-opens]")) {
+      const which = opener instanceof HTMLElement ? opener.dataset.opens : undefined;
+      if (!which) continue;
+      opener.addEventListener("click", () => {
+        menu.hidden = true;
+        this.making?.open(which);
+      });
+    }
+
+    element("lists").addEventListener("click", event => {
+      const conversationId = pressedIn(event, "conversation");
+      if (conversationId) void this.openConversation(conversationId);
+    });
+    element("timeline").addEventListener("click", event => this.pressedInTimeline(event));
+    onClick("thread-close", () => this.closeThread());
+    onClick("open-room", () => void this.openRoom());
+    onClick("room-banner-join", () => void this.openRoom());
+    onSubmit("composer", () => void this.say(input("write"), undefined));
+    onSubmit("thread-write", () => void this.say(input("thread-write-body"), this.threadRootId));
+    input("search").addEventListener("input", () => this.paintSidebar());
+  }
+
+  // --- what is open ---------------------------------------------------------
+
+  private async openConversation(conversationId: ConversationId): Promise<void> {
+    this.openId = conversationId;
+    this.closeThread();
+    this.timeline?.stop();
+    const timeline = createMessageTimeline(this.client, conversationId);
+    this.timeline = timeline;
+    timeline.subscribe(() => void this.reload());
+    this.backToChat();
+    await timeline.refresh();
+    await this.reload();
+    element("timeline").scrollTop = element("timeline").scrollHeight;
+  }
+
+  /** Everything a conversation shows, read together: what was said, the calls that are over, and the threads. */
+  private async reload(): Promise<void> {
+    const conversationId = this.openId;
+    if (!conversationId) return;
+    const messages = this.timeline?.get() ?? [];
+    const [over, threads] = await Promise.all([
+      this.client.calls.history(conversationId, 20).catch(() => []),
+      this.client.messages.threads(conversationId).catch(() => [])
+    ]);
+    this.threads = new Map(threads.map(thread => [thread.rootId, thread.replyCount]));
+    const said: Entry[] = messages.map(message => ({ kind: "message", at: message.createdAt, message }));
+    const ended: Entry[] = over.map(call => ({ kind: "call", at: call.endedAt, call }));
+    this.entries = [...said, ...ended].sort((left, right) => left.at - right.at);
+    this.people.learn(messages.map(message => message.senderId));
+    this.repaint();
+  }
+
+  private repaint(): void {
+    this.paintSidebar();
+    const conversationId = this.openId;
+    if (!conversationId) return;
+    const conversation = this.conversations?.get().find(each => each.id === conversationId);
+    if (conversation) this.paintHead(conversation);
+    paintTimeline(element("timeline"), this.entries, { people: this.people, threads: this.threads });
+    void this.paintThread();
+  }
+
+  private paintHead(conversation: Conversation): void {
+    const name = titleOf(conversation, this.people, this.me);
+    element("open-title").textContent = isBetweenTwo(conversation) ? name : `# ${name}`;
+    element("open-topic").textContent = conversation.topic ?? "";
+    // The identifier is not an address anybody can use, so a conversation without an alias says nothing.
+    element("open-address").textContent = conversation.alias ?? "";
+    const people = element("open-people");
+    people.innerHTML = `<span aria-hidden="true">◍</span> ${conversation.participantIds.length}`;
+    people.hidden = false;
+    element("foot").textContent = conversation.isEncrypted
+      ? "Matrix · cifrado extremo a extremo"
+      : "Matrix · sin cifrar";
+    input("write").placeholder = `Escribe en ${isBetweenTwo(conversation) ? name : `#${name}`}…`;
+    const going = this.calls?.goingIn(conversation.id);
+    element("room-banner").hidden = !going || Boolean(this.calls?.onACallIn(conversation.id));
+    element("room-banner-who").textContent = `${going?.participants.length ?? 0} participantes`;
+  }
+
+  private paintSidebar(): void {
+    const all = this.conversations?.get() ?? [];
+    const query = input("search").value.trim().toLowerCase();
+    const shown = query
+      ? all.filter(each => titleOf(each, this.people, this.me).toLowerCase().includes(query))
+      : all;
+    const where = {
+      people: this.people,
+      me: this.me,
+      openId: this.openId,
+      live: this.calls?.liveIn() ?? new Set<ConversationId>()
+    };
+    paintChannels(
+      element("channels"),
+      shown.filter(each => !isBetweenTwo(each)),
+      where
+    );
+    paintDirects(element("directs"), onePerPerson(shown.filter(isBetweenTwo), this.me), where);
+    // A conversation with no name of its own is called by who is in it, so those names have to be known.
+    for (const conversation of all) {
+      if (conversation.title ?? conversation.alias) continue;
+      this.people.learn(conversation.participantIds.slice(0, 4), conversation.id);
+    }
+  }
+
+  // --- talking --------------------------------------------------------------
+
+  private async say(where: HTMLInputElement, threadId: MessageId | undefined): Promise<void> {
+    const body = where.value.trim();
+    const conversationId = this.openId;
+    if (!body || !conversationId) return;
+    where.value = "";
+    const options = threadId ? { threadId } : {};
+    await this.client.messages.send(conversationId, body, options).catch(error => this.wentWrong(error));
+  }
+
+  private pressedInTimeline(event: Event): void {
+    const rootId = pressedIn(event, "opensThread");
+    if (rootId) return this.openThread(rootId);
+    const entersId = pressedIn(event, "enters");
+    if (entersId) return void this.enterRoomOf(entersId);
+    const messageId = pressedIn(event, "reacts");
+    const key = pressedIn(event, "key");
+    if (messageId && key && this.openId) {
+      void this.client.reactions.add(this.openId, messageId, key).catch(error => this.wentWrong(error));
+    }
+  }
+
+  private openThread(rootId: MessageId): void {
+    this.threadRootId = rootId;
+    element("thread").hidden = false;
+    element("thread-where").textContent = element("open-title").textContent;
+    void this.paintThread();
+  }
+
+  private closeThread(): void {
+    this.threadRootId = undefined;
+    element("thread").hidden = true;
+  }
+
+  private async paintThread(): Promise<void> {
+    const rootId = this.threadRootId;
+    const conversationId = this.openId;
+    if (!rootId || !conversationId) return;
+    const messages = await this.client.messages.thread(conversationId, rootId).catch(() => []);
+    paintThread(element("thread-body"), messages, this.people);
+  }
+
+  // --- rooms ----------------------------------------------------------------
+
+  private async openRoom(): Promise<void> {
+    const conversationId = this.openId;
+    if (!conversationId) return;
+    await this.calls?.open(conversationId).catch(error => this.wentWrong(error));
+    this.calls?.bringBack();
+    await this.showTheLink(conversationId);
+  }
+
+  /** An invitation somebody can be handed: the same matrix.to link any other client understands. */
+  private async showTheLink(conversationId: ConversationId): Promise<void> {
+    const link = await this.client.conversations.link(conversationId).catch(() => "");
+    input("invite-link").value = link;
+  }
+
+  private async enterRoomOf(conversationId: ConversationId): Promise<void> {
+    const known = this.conversations?.get().some(each => each.id === conversationId);
+    if (!known) await this.client.conversations.join(conversationId).catch(error => this.wentWrong(error));
+    await this.openConversation(conversationId);
+    await this.openRoom();
+  }
+
+  private backToChat(): void {
+    show("chat");
+    this.repaint();
+  }
+
+  private wentWrong(error: unknown): undefined {
+    const said = error instanceof Error ? error.message : String(error);
+    const where = element("sign-in-wrong");
+    where.textContent = said;
+    where.hidden = false;
+    window.setTimeout(() => (where.hidden = true), 6000);
+    return undefined;
+  }
 }
 
-paintLists();
-paintTimeline();
-paintThread();
-paintGrid();
-paintPeople("create-people", 0);
-paintPeople("invite-people", 3);
-paintPeople("new-message-people", 0);
-wire();
-show("chat");
-element("call-bar").hidden = false;
-// A chat opens at the newest thing said in it, not at the oldest.
-element("timeline").scrollTop = element("timeline").scrollHeight;
+void new Deitu().open();
