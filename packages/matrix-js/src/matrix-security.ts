@@ -181,18 +181,22 @@ async function proveWhoYouAre(
       throw new SdkError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
     }
     const session = (error.data as { session?: string }).session;
-    await makeRequest({
-      ...passwordAuth(client, password),
-      ...(session ? { session } : {})
-    } as AuthDict);
+    // Built as the one kind of auth this asks for, rather than assembled and then said to be some kind of
+    // auth: what the SDK takes is a union, and a spread of one member plus a key belongs to none of them.
+    await makeRequest(passwordAuth(client, password, session));
   }
 }
 
-function passwordAuth(client: MatrixClient, password: string | undefined): AuthDict | null {
-  if (!password) return null;
-  return {
+/**
+ * Proving who this is with a password, which is the one way this asks. The caller has already checked there
+ * is one. Built here with the session it belongs to rather than spread into later: what the SDK takes is a
+ * union of ways to prove yourself, and one member with a key added afterwards belongs to none of them.
+ */
+function passwordAuth(client: MatrixClient, password: string, session: string | undefined): AuthDict {
+  const proving = {
     type: AuthType.Password,
     identifier: { type: "m.id.user", user: client.getSafeUserId() },
     password
   };
+  return session ? { ...proving, session } : proving;
 }

@@ -148,7 +148,14 @@ export async function listMatrixPushRegistrations(
 ): Promise<readonly PushRegistration[]> {
   const { pushers } = await client.getPushers();
   return pushers.map(pusher => {
-    const { url, format, ...rest } = (pusher.data ?? {}) as Record<string, string>;
+    const { url, format, ...rest } = pusher.data;
+    // Whatever else the homeserver keeps against this registration, kept only where it is text. The SDK
+    // types those as maybe-absent, and what is handed on says every value it has is a string — so the ones
+    // that are not there are dropped rather than described as strings that happen to be missing.
+    const alsoKept: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (typeof value === "string") alsoKept[key] = value;
+    }
     return {
       gatewayUrl: url ?? "",
       deviceToken: pusher.pushkey,
@@ -156,7 +163,7 @@ export async function listMatrixPushRegistrations(
       appName: pusher.app_display_name,
       ...(pusher.device_display_name ? { deviceName: pusher.device_display_name } : {}),
       ...(pusher.lang ? { language: pusher.lang } : {}),
-      ...(Object.keys(rest).length > 0 ? { data: rest } : {})
+      ...(Object.keys(alsoKept).length > 0 ? { data: alsoKept } : {})
     };
   });
 }
