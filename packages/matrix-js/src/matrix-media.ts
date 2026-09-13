@@ -245,10 +245,14 @@ function parseSource(source: string): MatrixAttachmentSource {
   } catch {
     throw new Error("The attachment source is not valid");
   }
-  const isSource =
-    typeof parsed === "object" && parsed !== null && typeof (parsed as { url?: unknown }).url === "string";
-  if (!isSource) throw new Error("The attachment source is not valid");
-  return parsed as MatrixAttachmentSource;
+  if (!isAttachmentSource(parsed)) throw new Error("The attachment source is not valid");
+  return parsed;
+}
+
+/** What was parsed, once it has been looked at: anything without a url is not one of ours. */
+function isAttachmentSource(value: unknown): value is MatrixAttachmentSource {
+  if (typeof value !== "object" || value === null) return false;
+  return "url" in value && typeof value.url === "string";
 }
 
 function msgTypeFor(mimeType: string): MsgType {

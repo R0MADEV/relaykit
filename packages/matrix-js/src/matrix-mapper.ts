@@ -99,7 +99,7 @@ function mapAttachment(content: MatrixMessageContent, name: string): Attachment 
 
 /** A voice note says so with an empty marker; without it an audio file is just a file somebody attached. */
 function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefined {
-  const record = content as unknown as Record<string, unknown>;
+  const record: Record<string, unknown> = { ...content };
   if (record["org.matrix.msc3245.voice"] === undefined) return undefined;
   const audio = (record["org.matrix.msc1767.audio"] ?? {}) as { duration?: unknown; waveform?: unknown };
   const fallback = (content.info as { duration?: unknown } | undefined)?.duration;
@@ -114,7 +114,7 @@ function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefin
 /** A place is read from the pieces when they are there, and from the geo URI when they are not. */
 function mapLocation(content: MatrixMessageContent): { location: GeoLocation } | undefined {
   if (content.msgtype !== MsgType.Location) return undefined;
-  const record = content as unknown as Record<string, unknown>;
+  const record: Record<string, unknown> = { ...content };
   const asset = (record[M_LOCATION.name] ?? {}) as { uri?: unknown; description?: unknown };
   const uri = typeof asset.uri === "string" ? asset.uri : record["geo_uri"];
   if (typeof uri !== "string" || !uri.startsWith("geo:")) return undefined;
