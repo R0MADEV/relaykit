@@ -23,8 +23,7 @@ import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
  * the homeserver put it, which is all either caller needs.
  */
 export async function uploadAvatarImage(client: MatrixClient, image: AvatarImage): Promise<string> {
-  const bytes = image.data.buffer.slice(image.data.byteOffset, image.data.byteOffset + image.data.byteLength);
-  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), {
+  const upload = await client.uploadContent(new Blob([toArrayBuffer(image.data)]), {
     type: image.mimeType,
     includeFilename: false
   });

@@ -840,13 +840,16 @@ export class InMemoryAdapter implements MessagingAdapter {
       byRoot.set(root, answers);
     }
     return [...byRoot].map(([rootId, answers]) => {
+      // Held in its own name: asking for it twice makes the compiler forget the first answer said it was
+      // there, and then it has to be told again.
+      const last = answers.at(-1);
       const lastRead = this.threadReads.get(`${conversationId}/${rootId}`);
       const readAt = answers.findIndex(answer => answer.id === lastRead);
       return {
         conversationId,
         rootId,
         replyCount: answers.length,
-        ...(answers.at(-1) ? { lastMessage: answers.at(-1) as Message } : {}),
+        ...(last ? { lastMessage: last } : {}),
         ...(lastRead ? { lastReadMessageId: lastRead } : {}),
         unreadCount: readAt === -1 ? answers.length : answers.length - readAt - 1
       };
