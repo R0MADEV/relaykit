@@ -15,6 +15,11 @@ export interface Call {
   readonly state: CallState;
   readonly startedAt: number;
   /**
+   * When it stopped, set only on a call that is over. What a screen draws afterwards is how long it lasted,
+   * and the start on its own cannot be subtracted from anything: this is the other half of that sum.
+   */
+  readonly endedAt?: number;
+  /**
    * Everybody on the call, this side included. A call between two people is a conference with two in it, so
    * there is one list and not a special case: whoever draws a grid draws this, however many there are.
    */

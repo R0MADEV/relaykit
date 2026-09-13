@@ -164,3 +164,40 @@ test("an adapter that cannot hold calls refuses them as unsupported", async () =
   await assert.rejects(client.calls.list(), { code: "NOT_SUPPORTED" });
   await client.stop();
 });
+
+/**
+ * A call that is over is the only source a screen has for how long it lasted. The timeline draws "14 min 22 s"
+ * and a room list draws the same for every past one, so what ends has to say when it ended — the start alone
+ * cannot be subtracted from anything.
+ */
+test("a call that ends says when it ended, so how long it lasted can be worked out", async () => {
+  const { client, conversation } = await startClient();
+  const ended = [];
+  client.on("call.changed", call => {
+    if (call.state === "ended") ended.push(call);
+  });
+  const call = await client.calls.place(conversation.id);
+
+  await client.calls.hangUp(call.id);
+
+  assert.equal(ended.length, 1);
+  const [over] = ended;
+  assert.equal(typeof over.endedAt, "number");
+  assert.ok(over.endedAt >= over.startedAt, "a call cannot end before it started");
+  await client.stop();
+});
+
+test("a call nobody ever joined still says when it ended", async () => {
+  const { adapter, client, conversation } = await startClient();
+  const ended = [];
+  client.on("call.changed", call => {
+    if (call.state === "ended") ended.push(call);
+  });
+  const rung = adapter.startConferenceAs(conversation.id, "bob");
+
+  adapter.endConference(rung.id);
+
+  assert.equal(ended.length, 1);
+  assert.equal(typeof ended[0].endedAt, "number");
+  await client.stop();
+});

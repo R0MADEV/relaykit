@@ -127,11 +127,16 @@ export class InMemoryCalls implements CallingAdapter {
     if (others.length > 0) {
       this.calls.set(callId, { ...call, participants: others });
       this.left.add(callId);
-      this.context.handlers().onCallChanged?.({ ...call, participants: others, state: "ended" });
+      this.context.handlers().onCallChanged?.({
+        ...call,
+        participants: others,
+        state: "ended",
+        endedAt: Date.now()
+      });
       return;
     }
     this.calls.delete(callId);
-    this.context.handlers().onCallChanged?.({ ...call, state: "ended" });
+    this.context.handlers().onCallChanged?.({ ...call, state: "ended", endedAt: Date.now() });
   }
 
   /** Not picking up: the call goes on without this side, which stops being told about it. */
@@ -206,7 +211,12 @@ export class InMemoryCalls implements CallingAdapter {
     if (!call) return;
     this.calls.delete(callId);
     this.left.delete(callId);
-    this.context.handlers().onCallChanged?.({ ...call, participants: nobodyYet, state: "ended" });
+    this.context.handlers().onCallChanged?.({
+      ...call,
+      participants: nobodyYet,
+      state: "ended",
+      endedAt: Date.now()
+    });
   }
 
   /** Test helper: somebody else walks into a call that is already going on. */

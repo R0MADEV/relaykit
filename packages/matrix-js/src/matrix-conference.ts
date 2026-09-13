@@ -85,7 +85,12 @@ export class MatrixConference {
       if (!going) return;
       this.announced.delete(callId);
       going.stopListening();
-      this.report?.({ ...this.describeAnnounced(callId, going), participants: [], state: "ended" });
+      this.report?.({
+        ...this.describeAnnounced(callId, going),
+        participants: [],
+        state: "ended",
+        endedAt: Date.now()
+      });
     };
     client.matrixRTC.on(MatrixRTCSessionManagerEvents.SessionStarted, started);
     client.matrixRTC.on(MatrixRTCSessionManagerEvents.SessionEnded, ended);
@@ -146,7 +151,12 @@ export class MatrixConference {
       if (!going) return;
       this.joined.delete(callId);
       const why = error instanceof Error ? error.message : String(error);
-      const ended = { ...this.describe(callId, going), state: "ended" as const, wentWrong: why };
+      const ended = {
+        ...this.describe(callId, going),
+        state: "ended" as const,
+        endedAt: Date.now(),
+        wentWrong: why
+      };
       void walkOutOf(going).finally(() => this.report?.(ended));
     };
     session.on(MatrixRTCSessionEvent.MembershipManagerError, refused);
@@ -218,7 +228,7 @@ export class MatrixConference {
     if (ringing) {
       this.announced.delete(callId);
       ringing.stopListening();
-      this.report?.({ ...this.describeAnnounced(callId, ringing), state: "ended" });
+      this.report?.({ ...this.describeAnnounced(callId, ringing), state: "ended", endedAt: Date.now() });
       return;
     }
     const going = this.joined.get(callId);
@@ -226,7 +236,7 @@ export class MatrixConference {
     this.joined.delete(callId);
     // Over for this side the moment it hangs up, and said so at once: taking the connection and the room's
     // account of it down is network work, and a screen must not stay on a call waiting for a write to land.
-    this.report?.({ ...this.describe(callId, going), state: "ended" });
+    this.report?.({ ...this.describe(callId, going), state: "ended", endedAt: Date.now() });
     await walkOutOf(going);
   }
 
@@ -329,7 +339,7 @@ export class MatrixConference {
       if (!this.joined.has(callId)) return;
       this.joined.delete(callId);
       going.stopListening();
-      this.report?.({ ...this.describe(callId, going), state: "ended" });
+      this.report?.({ ...this.describe(callId, going), state: "ended", endedAt: Date.now() });
     });
   }
 
