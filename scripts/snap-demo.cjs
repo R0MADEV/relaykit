@@ -13,9 +13,16 @@ const out = process.env.RELAYKIT_SNAP_OUT ?? "/tmp/relaykit-demo.png";
 async function run() {
   const server = await serve(root);
   const address = `https://127.0.0.1:${server.address().port}/?conference=http://localhost:8091`;
-  const page = new BrowserWindow({ show: false, width: 1440, height: 900, webPreferences: { partition: "persist:snap-alice" } });
+  const page = new BrowserWindow({
+    show: false,
+    width: 1440,
+    height: 900,
+    webPreferences: { partition: "persist:snap-alice" }
+  });
   acceptOwnCertificate(page.webContents.session);
-  page.webContents.session.setPermissionRequestHandler((_c, permission, callback) => callback(permission === "media"));
+  page.webContents.session.setPermissionRequestHandler((_c, permission, callback) =>
+    callback(permission === "media")
+  );
   await page.loadURL(address);
   await waitFor(page, "login", `document.getElementById("login-form") !== null`);
   await page.webContents.executeJavaScript(`
@@ -34,9 +41,16 @@ async function run() {
   }
   const image = await page.capturePage();
   fs.writeFileSync(out, image.toPNG());
-  await page.webContents.executeJavaScript(`window.relaykitDemo.client.logout().then(() => true, () => true)`);
+  await page.webContents.executeJavaScript(
+    `window.relaykitDemo.client.logout().then(() => true, () => true)`
+  );
   server.close();
   console.log(`RELAYKIT_SNAP ${out}`);
   app.exit(0);
 }
-app.whenReady().then(() => run().catch(error => { console.error(`snap failed: ${error.message}`); app.exit(1); }));
+app.whenReady().then(() =>
+  run().catch(error => {
+    console.error(`snap failed: ${error.message}`);
+    app.exit(1);
+  })
+);
