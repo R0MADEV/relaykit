@@ -3,11 +3,11 @@ import {
   M_POLL_RESPONSE,
   M_POLL_START,
   type MatrixClient,
-  type Room,
   M_POLL_KIND_UNDISCLOSED,
   M_TEXT,
   RelationType
 } from "matrix-js-sdk";
+import type { Poll as MatrixPoll } from "matrix-js-sdk/lib/models/poll.js";
 import type { ConversationId, MessageId, Poll, PollAnswer, StartPollInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
@@ -137,24 +137,10 @@ export async function listMatrixPolls(
 ): Promise<readonly Poll[]> {
   const room = await waitForRoom(client, conversationId);
   const polls = [...room.polls.values()];
-  return Promise.all(polls.map(poll => describe(client, room, poll)));
+  return Promise.all(polls.map(poll => describe(client, poll)));
 }
 
-async function describe(
-  client: MatrixClient,
-  room: Room,
-  poll: {
-    pollId: string;
-    pollEvent: { question: { text: string }; answers: readonly { id: string; text: string }[] };
-    isEnded: boolean;
-    getResponses: () => Promise<{
-      getRelations: () => readonly {
-        getSender: () => string | undefined;
-        getContent: () => Record<string, unknown>;
-      }[];
-    }>;
-  }
-): Promise<Poll> {
+async function describe(client: MatrixClient, poll: MatrixPoll): Promise<Poll> {
   const responses = await poll.getResponses();
   // Only the last vote of each person, which is what the protocol says.
   const lastByPerson = new Map<string, string>();
@@ -173,7 +159,7 @@ async function describe(
   const own = lastByPerson.get(client.getSafeUserId());
   return {
     id: poll.pollId,
-    conversationId: room.roomId,
+    conversationId: poll.roomId,
     question: poll.pollEvent.question.text,
     answers,
     startedBy: client.getSafeUserId(),

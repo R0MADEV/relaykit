@@ -177,7 +177,7 @@ export function matrixTypeOf(kind: MessageKind | undefined): MsgType {
  * and none of the plain text a client that knows nothing of places falls back to — and a place that travels
  * with less than it should is a place some clients cannot draw. It says the kind and the body itself.
  */
-function whatIsSaid(body: string, options: SendContent): object {
+function whatIsSaid(body: string, options: SendContent) {
   const { location, kind } = options;
   if (!location) return { msgtype: matrixTypeOf(kind), body };
   return ContentHelpers.makeLocationContent(
@@ -190,12 +190,12 @@ function whatIsSaid(body: string, options: SendContent): object {
 }
 
 /** The same words again as HTML, for whoever can draw them. Nothing, for a message that is only words. */
-function howItIsWritten(formattedBody: string | undefined): object {
+function howItIsWritten(formattedBody: string | undefined) {
   return formattedBody ? { format: "org.matrix.custom.html", formatted_body: formattedBody } : {};
 }
 
 /** Who the message names, which is what decides whose screen lights up for it. */
-function whoIsNamed(mentions: Mentions | undefined): object {
+function whoIsNamed(mentions: Mentions | undefined) {
   if (!mentions) return {};
   return {
     "m.mentions": {
@@ -221,7 +221,7 @@ export function sendMessage(
 }
 
 /** A thread answer carries the thread it belongs to, and a plain answer only points at the message. */
-function relationFor(replyToId: string | undefined, threadId: string | undefined): object | undefined {
+function relationFor(replyToId: string | undefined, threadId: string | undefined) {
   if (threadId) {
     return {
       "m.relates_to": {
