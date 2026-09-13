@@ -2,6 +2,7 @@ import { ClientPrefix, EventType, Method, MsgType, type MatrixClient } from "mat
 import "./matrix-proposals.js";
 import type { EncryptedFile, FileInfo } from "matrix-js-sdk/lib/@types/media.js";
 import type { StickerEventContent } from "matrix-js-sdk/lib/@types/events.js";
+import type { UploadResponse } from "matrix-js-sdk";
 import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
@@ -43,7 +44,7 @@ export interface MatrixAttachmentSource {
  * uploads and stopping one must not stop the other's.
  */
 export class MatrixMedia {
-  private readonly onTheirWay = new Map<string, Promise<unknown>>();
+  private readonly onTheirWay = new Map<string, Promise<UploadResponse>>();
 
   /** The same send, with the upload remembered for as long as it is going. */
   async send(
@@ -64,7 +65,7 @@ export class MatrixMedia {
     const going = this.onTheirWay.get(transactionId);
     if (!going) return false;
     this.onTheirWay.delete(transactionId);
-    return this.client?.cancelUpload(going as Promise<never>) ?? false;
+    return this.client?.cancelUpload(going) ?? false;
   }
 
   /** The client that is doing the uploading, remembered when one starts. */
@@ -83,7 +84,7 @@ export async function sendMatrixAttachment(
   transactionId: string | undefined,
   onProgress: ((fraction: number) => void) | undefined,
   /** Where to leave the upload while it is going, so it can be stopped. */
-  onTheirWay?: Map<string, Promise<unknown>>
+  onTheirWay?: Map<string, Promise<UploadResponse>>
 ): Promise<Message> {
   // Uploading before knowing whether the room is encrypted could publish the file in the clear.
   const room = await waitForRoom(client, conversationId);
@@ -162,7 +163,7 @@ export async function sendMatrixAttachment(
               content as unknown as StickerEventContent,
               transactionId
             )
-        : undefined
+        : () => client.sendMessage(conversationId, content, transactionId)
     );
   const kind = msgTypeFor(file.mimeType);
   if (kind === MsgType.Image) return sent({ ...said, msgtype: MsgType.Image });

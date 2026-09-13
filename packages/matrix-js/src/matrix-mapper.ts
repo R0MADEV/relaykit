@@ -1,4 +1,4 @@
-import type { MatrixEvent } from "matrix-js-sdk";
+import type { IEventRelation, MatrixEvent } from "matrix-js-sdk";
 import {
   MsgType,
   ReceiptType,
@@ -309,7 +309,7 @@ export function mapMessage(event: MatrixEvent): Message | undefined {
   // that is only an answer has no type, and that one stays inside with the text. Reading one place loses half
   // of them, and which half depends on whether the conversation is encrypted.
   const relation = (event.getWireContent()?.["m.relates_to"] ?? content["m.relates_to"]) as
-    MatrixRelation | undefined;
+    IEventRelation | undefined;
   const isEdit = event.isRelation(RelationType.Replace);
   const editedBody = content["m.new_content"]?.body;
   const bodyValue = isEdit && typeof editedBody === "string" ? editedBody : content.body;
@@ -381,14 +381,6 @@ function mapKind(msgtype: string | undefined): { kind: MessageKind } | undefined
 }
 
 /** What a message is about, as it travels: outside the encryption, because the homeserver has to read it. */
-interface MatrixRelation {
-  readonly rel_type?: string;
-  readonly event_id?: string;
-  readonly is_falling_back?: boolean;
-  readonly key?: string;
-  readonly "m.in_reply_to"?: { readonly event_id?: string };
-}
-
 export function isMessageEdit(event: MatrixEvent): boolean {
   return event.isRelation(RelationType.Replace);
 }
@@ -398,7 +390,7 @@ export function mapReaction(event: MatrixEvent): Reaction | undefined {
     return undefined;
   }
 
-  const relation = event.getRelation() as MatrixRelation | null;
+  const relation = event.getRelation();
   const id = event.getId();
   const senderId = event.getSender();
 

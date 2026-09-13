@@ -235,12 +235,16 @@ export function sendMessage(
       info: {},
       msgtype: MsgType.Location as const
     };
-    return sendWithTransaction(client, conversationId, place, options.transactionId);
+    return sendWithTransaction(client, conversationId, place, options.transactionId, () =>
+      client.sendMessage(conversationId, place, options.transactionId)
+    );
   }
   // The SDK tells its content types apart by `msgtype`, and a member of that union cannot be built from a
   // value worked out while the program runs. Each one goes out by name, so each is checked as what it is.
-  const sent = (content: SentContent) =>
-    sendWithTransaction(client, conversationId, content, options.transactionId);
+  const sent = (content: RoomMessageEventContent) =>
+    sendWithTransaction(client, conversationId, content, options.transactionId, () =>
+      client.sendMessage(conversationId, content, options.transactionId)
+    );
   if (kind === "action") return sent({ msgtype: MsgType.Emote, body, ...alsoSaid });
   if (kind === "notice") return sent({ msgtype: MsgType.Notice, body, ...alsoSaid });
   return sent({ msgtype: MsgType.Text, body, ...alsoSaid });
@@ -287,8 +291,7 @@ export async function sendWithTransaction(
    * thing it describes are two places to say one thing, and nothing keeps them agreeing. Whoever built the
    * content is the only one who knows what it is, so they say it once, by choosing this.
    */
-  send: () => Promise<{ event_id: string }> = () =>
-    client.sendMessage(conversationId, content as RoomMessageEventContent, transactionId)
+  send: () => Promise<{ event_id: string }>
 ): Promise<Message> {
   // The room may not be in the local store yet, right after creating it, and sending does not need it.
   const room = client.getRoom(conversationId);

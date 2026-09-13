@@ -157,6 +157,13 @@ test("mapPresence rejects unknown presence states", () => {
 
 const { sendWithTransaction } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
 
+/**
+ * What goes out, and how. Whoever builds the content says how it is sent — a sticker goes under its own
+ * event type — so a caller here says it too, and these check what happens around that: the pending event,
+ * the resend, the transaction that has to survive both.
+ */
+const said = { msgtype: "m.text", body: "hola" };
+
 function sentEvent({ id = "$sent", body = "hola", txnId } = {}) {
   return {
     getType: () => "m.room.message",
@@ -203,7 +210,9 @@ function fakeClient({ pending, eventsById }) {
 test("a first send goes straight to the homeserver and keeps its transaction id", async () => {
   const client = fakeClient({ pending: undefined, eventsById: { $sent: sentEvent() } });
 
-  const message = await sendWithTransaction(client, roomId, { msgtype: "m.text", body: "hola" }, "txn-1");
+  const message = await sendWithTransaction(client, roomId, said, "txn-1", () =>
+    client.sendMessage(roomId, said, "txn-1")
+  );
 
   assert.equal(message.id, "$sent");
   assert.equal(message.transactionId, "txn-1");
@@ -214,7 +223,9 @@ test("retrying a failed send resends the pending event instead of queuing a dupl
   const pending = { ...sentEvent({ id: "$resent" }), status: "not_sent" };
   const client = fakeClient({ pending, eventsById: { $resent: sentEvent({ id: "$resent" }) } });
 
-  const message = await sendWithTransaction(client, roomId, { msgtype: "m.text", body: "hola" }, "txn-1");
+  const message = await sendWithTransaction(client, roomId, said, "txn-1", () =>
+    client.sendMessage(roomId, said, "txn-1")
+  );
 
   assert.equal(message.id, "$resent");
   assert.equal(message.transactionId, "txn-1");
@@ -225,7 +236,9 @@ test("retrying a send that already succeeded returns it without sending again", 
   const pending = { ...sentEvent(), status: "sent" };
   const client = fakeClient({ pending, eventsById: { $sent: sentEvent() } });
 
-  const message = await sendWithTransaction(client, roomId, { msgtype: "m.text", body: "hola" }, "txn-1");
+  const message = await sendWithTransaction(client, roomId, said, "txn-1", () =>
+    client.sendMessage(roomId, said, "txn-1")
+  );
 
   assert.equal(message.id, "$sent");
   assert.deepEqual(client.calls, { sendMessage: 0, resendEvent: 0 });
