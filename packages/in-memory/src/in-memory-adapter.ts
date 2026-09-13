@@ -58,6 +58,7 @@ import type {
 } from "@relaykit/core";
 import { SdkError } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
+import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
 
@@ -92,6 +93,10 @@ export class InMemoryAdapter implements MessagingAdapter {
     () => this.handlers
   );
   private readonly verification = new InMemoryVerification(() => this.handlers);
+  private readonly shares = new InMemoryShares({
+    requireUserId: () => this.requireUserId(),
+    nextId: () => this.nextMessageId++
+  });
   private readonly callsGoingOn = new InMemoryCalls({
     handlers: () => this.handlers,
     requireUserId: () => this.requireUserId(),
@@ -594,11 +599,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private ignoredUsers: readonly UserId[] = [];
   /** Silenced, not ignored: what they say still arrives, it just does not interrupt. */
   private readonly mutedUsers = new Set<UserId>();
-  private readonly polls = new Map<MessageId, Poll>();
-  private readonly liveLocations = new Map<string, LiveLocation>();
   /** Calls still going on that this side walked out of, which are not this side's any more. */
   /** What the next call would be made with. Kept so a test can see that choosing one was taken notice of. */
-  private readonly pollVotes = new Map<MessageId, Map<UserId, string>>();
   /** How far each thread was read, kept apart from how far its conversation was. */
   private readonly threadReads = new Map<string, MessageId>();
   private notificationLevel: NotificationLevel = "all";
@@ -756,84 +758,36 @@ export class InMemoryAdapter implements MessagingAdapter {
     };
   }
 
-  async startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
-    const id = `memory-location-${this.nextMessageId++}`;
-    const sharing: LiveLocation = {
-      id,
-      conversationId,
-      sharedBy: this.requireUserId(),
-      isLive: true,
-      startedAt: Date.now(),
-      durationMs: input.durationMs,
-      ...(input.description ? { description: input.description } : {})
-    };
-    this.liveLocations.set(id, sharing);
-    return sharing;
+  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
+    return this.shares.startLocation(conversationId, input);
   }
 
-  async updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
-    const sharing = this.liveLocations.get(sharingId);
-    if (!sharing) throw new Error("That sharing does not exist");
-    // Stopped or expired takes no more: otherwise somebody who said stop would still be telling where they are.
-    if (!sharing.isLive) throw new SdkError("INVALID_INPUT", "That sharing is no longer live");
-    this.liveLocations.set(sharingId, { ...sharing, lastPosition: position });
+  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
+    return this.shares.updateLocation(sharingId, position);
   }
 
-  async stopLiveLocation(sharingId: string): Promise<void> {
-    const sharing = this.liveLocations.get(sharingId);
-    if (!sharing) throw new Error("That sharing does not exist");
-    this.liveLocations.set(sharingId, { ...sharing, isLive: false });
+  stopLiveLocation(sharingId: string): Promise<void> {
+    return this.shares.stopLocation(sharingId);
   }
 
-  async listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
-    return [...this.liveLocations.values()].filter(sharing => sharing.conversationId === conversationId);
+  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
+    return this.shares.listLocations(conversationId);
   }
 
-  async startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
-    const id = `memory-poll-${this.nextMessageId++}`;
-    const poll: Poll = {
-      id,
-      conversationId,
-      question: input.question,
-      answers: input.answers.map((text, index) => ({ id: `${id}-${index}`, text, votes: 0 })),
-      startedBy: this.requireUserId(),
-      startedAt: Date.now(),
-      isClosed: false
-    };
-    this.polls.set(id, poll);
-    return poll;
+  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
+    return this.shares.startPoll(conversationId, input);
   }
 
-  /** Changing your mind replaces the previous vote, which is what the protocol says: only the last counts. */
-  async voteInPoll(_conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void> {
-    const poll = this.polls.get(pollId);
-    if (!poll) throw new Error("The poll does not exist");
-    const votes = this.pollVotes.get(pollId) ?? new Map<UserId, string>();
-    votes.set(this.requireUserId(), answerId);
-    this.pollVotes.set(pollId, votes);
-    this.polls.set(pollId, this.withVotes(poll, votes));
+  voteInPoll(_conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void> {
+    return this.shares.vote(pollId, answerId);
   }
 
-  async closePoll(_conversationId: ConversationId, pollId: MessageId): Promise<void> {
-    const poll = this.polls.get(pollId);
-    if (!poll) throw new Error("The poll does not exist");
-    this.polls.set(pollId, { ...poll, isClosed: true });
+  closePoll(_conversationId: ConversationId, pollId: MessageId): Promise<void> {
+    return this.shares.closePoll(pollId);
   }
 
-  async listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
-    return [...this.polls.values()].filter(poll => poll.conversationId === conversationId);
-  }
-
-  private withVotes(poll: Poll, votes: Map<UserId, string>): Poll {
-    const chosen = [...votes.values()];
-    return {
-      ...poll,
-      answers: poll.answers.map(answer => ({
-        ...answer,
-        votes: chosen.filter(answerId => answerId === answer.id).length
-      })),
-      ...(votes.get(this.requireUserId()) ? { ownAnswerId: votes.get(this.requireUserId()) as string } : {})
-    };
+  listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
+    return this.shares.listPolls(conversationId);
   }
 
   placeCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
