@@ -34,11 +34,6 @@ import type {
   ThreadSummary,
   LinkPreview,
   MediaLimits,
-  Poll,
-  StartPollInput,
-  LiveLocation,
-  ShareLocationInput,
-  GeoLocation,
   CallingAdapter,
   CryptoAdapter,
   DevicesAdapter,
@@ -115,13 +110,6 @@ import {
   previewMatrixLink,
   askWhatTheHomeserverTakes
 } from "./matrix-media.js";
-import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
-import {
-  listMatrixLiveLocations,
-  startMatrixLiveLocation,
-  stopMatrixLiveLocation,
-  updateMatrixLiveLocation
-} from "./matrix-location.js";
 import {
   getMatrixAvatar,
   searchMatrixUsers,
@@ -132,6 +120,7 @@ import {
 } from "./matrix-profiles.js";
 import { withTranslatedErrors } from "./matrix-errors.js";
 import { MatrixCrypto } from "./matrix-crypto.js";
+import { MatrixShares } from "./matrix-shares.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
   /** Files on their way up, so one can be stopped while it is going. */
@@ -143,6 +132,9 @@ export class MatrixJsAdapter implements MessagingAdapter {
     this.runtime = new MatrixRuntime(options);
     // Built here and not beside the other capabilities: it takes the runtime, which exists as of this line.
     this.crypto = new MatrixCrypto(this.runtime);
+    const shares = new MatrixShares(this.runtime);
+    this.polls = shares;
+    this.location = shares;
   }
 
   async register(credentials: RegisterCredentials): Promise<Session> {
@@ -485,55 +477,13 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(() => searchMatrixUsers(this.runtime.getClient(), query, limit));
   }
 
-  startLiveLocation(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
-    return this.reaching(conversationId, () =>
-      startMatrixLiveLocation(this.runtime.getClient(), conversationId, input)
-    );
-  }
-
-  updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
-    return this.run(() => updateMatrixLiveLocation(this.runtime.getClient(), sharingId, position));
-  }
-
-  stopLiveLocation(sharingId: string): Promise<void> {
-    return this.run(() => stopMatrixLiveLocation(this.runtime.getClient(), sharingId));
-  }
-
-  listLiveLocations(conversationId: ConversationId): Promise<readonly LiveLocation[]> {
-    return this.reaching(conversationId, () =>
-      listMatrixLiveLocations(this.runtime.getClient(), conversationId)
-    );
-  }
-
-  startPoll(conversationId: ConversationId, input: StartPollInput): Promise<Poll> {
-    return this.reaching(conversationId, () =>
-      startMatrixPoll(this.runtime.getClient(), conversationId, input)
-    );
-  }
-
-  voteInPoll(conversationId: ConversationId, pollId: string, answerId: string): Promise<void> {
-    return this.reaching(conversationId, () =>
-      voteInMatrixPoll(this.runtime.getClient(), conversationId, pollId, answerId)
-    );
-  }
-
-  closePoll(conversationId: ConversationId, pollId: string): Promise<void> {
-    return this.reaching(conversationId, () =>
-      closeMatrixPoll(this.runtime.getClient(), conversationId, pollId)
-    );
-  }
-
-  listPolls(conversationId: ConversationId): Promise<readonly Poll[]> {
-    return this.reaching(conversationId, () => listMatrixPolls(this.runtime.getClient(), conversationId));
-  }
-
   /**
    * Conferences. Always offered by this adapter: whether the homeserver can actually hold one is not known
    * until it is asked where they are carried, and that refusal says which homeserver and why.
    */
   /** Everything Matrix does beyond the core, which is all of it. */
-  readonly polls: PollsAdapter = this;
-  readonly location: LocationAdapter = this;
+  readonly polls: PollsAdapter;
+  readonly location: LocationAdapter;
   readonly spaces: SpacesAdapter = this;
   readonly media: MediaAdapter = this;
   readonly push: PushAdapter = this;
