@@ -238,5 +238,4 @@ export class UnavailableAdapter implements MessagingAdapter {
   async setNotificationLevel(): Promise<void> {
     throw new SdkError("NOT_CONFIGURED", "Cannot change how much anything interrupts");
   }
-
 }

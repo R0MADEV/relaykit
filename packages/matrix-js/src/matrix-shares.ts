@@ -15,12 +15,7 @@ import {
   stopMatrixLiveLocation,
   updateMatrixLiveLocation
 } from "./matrix-location.js";
-import {
-  closeMatrixPoll,
-  listMatrixPolls,
-  startMatrixPoll,
-  voteInMatrixPoll
-} from "./matrix-polls.js";
+import { closeMatrixPoll, listMatrixPolls, startMatrixPoll, voteInMatrixPoll } from "./matrix-polls.js";
 import type { MatrixRuntime } from "./matrix-runtime.js";
 
 /**

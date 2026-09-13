@@ -1,10 +1,4 @@
-import type {
-  Conversation,
-  ConversationId,
-  CreateSpaceInput,
-  Space,
-  SpacesAdapter
-} from "@relaykit/core";
+import type { Conversation, ConversationId, CreateSpaceInput, Space, SpacesAdapter } from "@relaykit/core";
 
 /** What the spaces of the double need from the adapter around them, and nothing else of it. */
 export interface InMemorySpacesContext {

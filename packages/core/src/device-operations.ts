@@ -173,7 +173,8 @@ export class DeviceOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get devices(): DevicesAdapter {
     const devices = this.context.adapter.devices;
-    if (!devices) throw new SdkError("NOT_SUPPORTED", "Other devices are not something this homeserver knows about");
+    if (!devices)
+      throw new SdkError("NOT_SUPPORTED", "Other devices are not something this homeserver knows about");
     return devices;
   }
 

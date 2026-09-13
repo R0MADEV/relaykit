@@ -50,9 +50,7 @@ export class MatrixCrypto implements CryptoAdapter {
   }
 
   async setDeviceVerified(userId: string, deviceId: string, verified: boolean): Promise<void> {
-    await withTranslatedErrors(() =>
-      setDeviceVerified(this.runtime.getClient(), userId, deviceId, verified)
-    );
+    await withTranslatedErrors(() => setDeviceVerified(this.runtime.getClient(), userId, deviceId, verified));
   }
 
   async getCryptoStatus(): Promise<CryptoStatus> {

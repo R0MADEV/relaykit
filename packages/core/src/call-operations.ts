@@ -92,7 +92,7 @@ export class CallOperations {
     return this.calling.listCalls();
   }
 
-/**
+  /**
    * The one place that answers whether this adapter holds conferences at all. Asked for before every call,
    * so an application that asks anyway is told plainly instead of meeting a method that is not there.
    */

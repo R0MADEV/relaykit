@@ -45,7 +45,11 @@ export class LocationOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get location(): LocationAdapter {
     const location = this.context.adapter.location;
-    if (!location) throw new SdkError("NOT_SUPPORTED", "Telling where somebody is live is not something this homeserver does");
+    if (!location)
+      throw new SdkError(
+        "NOT_SUPPORTED",
+        "Telling where somebody is live is not something this homeserver does"
+      );
     return location;
   }
 }

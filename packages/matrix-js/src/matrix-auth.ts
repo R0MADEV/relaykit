@@ -55,12 +55,7 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
         "The homeserver did not return a session for the new account"
       );
     }
-    return sessionFrom(
-      credentials.homeserver,
-      response.user_id,
-      response.access_token,
-      response.device_id
-    );
+    return sessionFrom(credentials.homeserver, response.user_id, response.access_token, response.device_id);
   } finally {
     client.stopClient();
   }
@@ -106,12 +101,7 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
 
   try {
     const response = await client.login(AuthType.Password, request);
-    return sessionFrom(
-      credentials.homeserver,
-      response.user_id,
-      response.access_token,
-      response.device_id
-    );
+    return sessionFrom(credentials.homeserver, response.user_id, response.access_token, response.device_id);
   } finally {
     client.stopClient();
   }

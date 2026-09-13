@@ -637,7 +637,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.people.getProfile(userId, conversationId);
   }
 
-  getAvatar(userId: UserId, _conversationId?: ConversationId, _size?: number): Promise<AvatarImage | undefined> {
+  getAvatar(
+    userId: UserId,
+    _conversationId?: ConversationId,
+    _size?: number
+  ): Promise<AvatarImage | undefined> {
     return this.people.getAvatar(userId);
   }
 
@@ -647,9 +651,7 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   /** Sending twice under one transaction is one message: the second ask gets the first answer. */
   private sentAlready(transactionId?: string): Message | undefined {
-    return transactionId
-      ? this.messages.find(item => item.transactionId === transactionId)
-      : undefined;
+    return transactionId ? this.messages.find(item => item.transactionId === transactionId) : undefined;
   }
 
   private requireUserId(): UserId {

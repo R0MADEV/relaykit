@@ -19,7 +19,10 @@ export class PollOperations {
     }
     const answers = input.answers.map(answer => answer.trim()).filter(answer => answer.length > 0);
     if (answers.length < fewestPollAnswers) {
-      throw new SdkError("INVALID_INPUT", `A poll needs at least ${fewestPollAnswers} answers to choose from`);
+      throw new SdkError(
+        "INVALID_INPUT",
+        `A poll needs at least ${fewestPollAnswers} answers to choose from`
+      );
     }
     const maxSelections = input.maxSelections ?? 1;
     if (maxSelections < 1 || maxSelections > answers.length) {

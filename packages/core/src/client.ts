@@ -446,10 +446,7 @@ export class MessagingClient {
   }
 
   /** Signing in and out, starting, stopping, and putting back what was held while it was away. */
-  private lifecycleFor(
-    adapter: MessagingAdapter,
-    storage: MessagingStorage | undefined
-  ): ClientLifecycle {
+  private lifecycleFor(adapter: MessagingAdapter, storage: MessagingStorage | undefined): ClientLifecycle {
     return new ClientLifecycle({
       adapter,
       getSession: () => this.session,
