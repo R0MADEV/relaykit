@@ -127,7 +127,7 @@ Devuelve la función para dejar de escuchar.
 | `presence.changed` | Alguien se conecta o se va |
 | `notification` | Algo que merece avisar |
 | `call.incoming` | **Te llaman**, o una conferencia empieza en una conversación tuya. Aquí es donde una pantalla suena |
-| `call.changed` | La llamada avanza, alguien entra o sale, se silencia, se pone en espera o acaba |
+| `call.changed` | La llamada avanza, alguien entra o sale, se silencia, comparte pantalla o acaba |
 | `call.speaking` | Quién está hablando ahora. Aparte a propósito: cambia varias veces por segundo y solo ilumina un borde |
 | `verification.requested` / `verification.changed` | Verificación de dispositivos |
 | `connection.changed` / `sync.changed` | Estado de la conexión |
@@ -172,8 +172,9 @@ por persona. `remoteMedia` y `remoteScreen` son el atajo para cuando hay exactam
 que son casi todas las llamadas. `isEncrypted` es lo que dibuja el candado, y falta mientras no se sabe (antes
 de entrar). `callerId` es quien la empezó.
 
-`state` es `"ringing" | "connecting" | "connected" | "ended"`. `ringing` es una llamada en marcha en una
-conversación tuya en la que aún no estás; `connected`, que estás en ella — solo, si acabas de empezarla.
+`state` es `"ringing" | "connected" | "ended"`. `ringing` es una llamada en marcha en una conversación tuya
+en la que aún no estás; `connected`, que estás en ella — solo, si acabas de empezarla; `ended`, que se acabó
+para ti.
 
 `ownMedia` y `remoteMedia` son **`MediaStream` del navegador**, listos para un elemento:
 
@@ -195,8 +196,8 @@ no se pueden probar; por eso el contrato las exige al doble y las salta donde We
 **El audio y la imagen llegan cuando llegan**, no cuando la llamada cambia de estado. En vídeo, casi siempre
 después de estar conectada. Escucha `call.changed` y vuelve a asignar `srcObject`.
 
-**Silenciar y la espera no cambian el estado** de la llamada, pero sí la llamada: también llegan por
-`call.changed`.
+**Silenciar, apagar la cámara y compartir pantalla no cambian el estado** de la llamada, pero sí la llamada:
+también llegan por `call.changed`.
 
 **Silenciar el micro y apagar la cámara no son lo mismo por debajo.** Silenciar apaga la pista y volver a
 hablar la enciende. Apagar la cámara **detiene y quita** la pista, así que encenderla obliga a acordar una

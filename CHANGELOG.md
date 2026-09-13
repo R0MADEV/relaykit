@@ -24,6 +24,7 @@ menores; los cambios incompatibles se listan aqui.
   `joinCalls`, el evento `call.transferred`, `CallTransfer`, `Call.kind`, `isOnHold`, `isOnHoldByThem`,
   `talkingTo` y `hasRemoteMedia`. Era vocabulario de teléfono; el teléfono no va por aquí.
 - coturn del entorno de desarrollo: el relé lo trae LiveKit dentro.
+- El estado `connecting` de `Call`: nada lo producía ya. Una llamada suena, está conectada o ha terminado.
 
 ## 0.1.0-alpha.1 - 2026-09-07
 

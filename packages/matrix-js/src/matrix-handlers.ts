@@ -18,8 +18,6 @@ export interface TimelineContext {
   /** The homeserver push rules decide what deserves the user's attention. */
   readonly notificationFor: (event: MatrixEvent) => { readonly notify: boolean; readonly isMention: boolean };
   readonly ownUserId: () => string | undefined;
-  /** Whether what is arriving is happening now, or is being read out of what was missed. */
-  readonly caughtUp: () => boolean;
 }
 
 export function handleTimeline(

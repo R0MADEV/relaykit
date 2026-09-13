@@ -100,18 +100,13 @@ export class MatrixRtc {
     const levels = await this.powerLevelsOf(client, conversationId);
     // A room the homeserver has no power levels for is not one to invent them for.
     if (!levels) return;
-    const everybody = levels.users_default ?? 0;
-    const neededFor = (eventType: string): number => levels.events?.[eventType] ?? levels.state_default ?? 50;
-    const alreadyOpen = membershipEventTypes.every(eventType => neededFor(eventType) <= everybody);
-    if (alreadyOpen) return;
-    const mine = levels.users?.[client.getSafeUserId()] ?? everybody;
-    const mayOpenIt = mine >= neededFor(EventType.RoomPowerLevels);
-    if (!mayOpenIt) return;
+    const door = theDoorToCalls(levels, client.getSafeUserId());
+    if (!door.closed || !door.mayOpen) return;
     const opened: RoomPowerLevelsEventContent = {
       ...levels,
       events: {
         ...levels.events,
-        ...Object.fromEntries(membershipEventTypes.map(eventType => [eventType, everybody]))
+        ...Object.fromEntries(membershipEventTypes.map(eventType => [eventType, door.everybody]))
       }
     };
     await client.sendStateEvent(conversationId, EventType.RoomPowerLevels, opened, "");
@@ -142,12 +137,8 @@ export class MatrixRtc {
       .getStateEvents(EventType.RoomPowerLevels, "")
       ?.getContent<RoomPowerLevelsEventContent>();
     if (!held) return;
-    const everybody = held.users_default ?? 0;
-    const neededFor = (eventType: string): number => held.events?.[eventType] ?? held.state_default ?? 50;
-    const looksClosed = membershipEventTypes.some(eventType => neededFor(eventType) > everybody);
-    const mine = held.users?.[client.getSafeUserId()] ?? everybody;
-    const looksLikeICan = mine >= neededFor(EventType.RoomPowerLevels);
-    if (!looksClosed || !looksLikeICan) return;
+    const door = theDoorToCalls(held, client.getSafeUserId());
+    if (!door.closed || !door.mayOpen) return;
     await this.openTheDoorToCalls(client, room.roomId);
   }
 
@@ -176,6 +167,21 @@ export class MatrixRtc {
     // conference that rang and the conference that is joined the same object with the same memberships.
     return client.matrixRTC.getRoomSession(room);
   }
+}
+
+/**
+ * What a room's power levels say about calls: whether its members may say they are on one, and whether this
+ * account may change that. Read the same way off what the homeserver says and off what is held here.
+ */
+function theDoorToCalls(
+  levels: RoomPowerLevelsEventContent,
+  me: string
+): { closed: boolean; mayOpen: boolean; everybody: number } {
+  const everybody = levels.users_default ?? 0;
+  const neededFor = (eventType: string): number => levels.events?.[eventType] ?? levels.state_default ?? 50;
+  const closed = membershipEventTypes.some(eventType => neededFor(eventType) > everybody);
+  const mine = levels.users?.[me] ?? everybody;
+  return { closed, mayOpen: mine >= neededFor(EventType.RoomPowerLevels), everybody };
 }
 
 /**

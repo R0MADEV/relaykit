@@ -127,7 +127,7 @@ export class MatrixConference {
     // SDK hands over this side's own key the moment it makes one, and a key nobody caught is a call nobody
     // can hear.
     const keys = keysFor(engine);
-    const ownIdentity = `${client.getSafeUserId()}:${client.getDeviceId() ?? ""}`;
+    const ownIdentity = identityOf(client.getSafeUserId(), client.getDeviceId() ?? "");
     let ownKeyIsIn: () => void = () => undefined;
     const ownKey = new Promise<void>(resolve => {
       ownKeyIsIn = resolve;
@@ -259,7 +259,7 @@ export class MatrixConference {
     );
   }
 
-  /** How it is going, read from the browser as it is for a direct call, so a screen can say why. */
+  /** How it is going, read from the browser, so a screen can say why somebody cannot be heard. */
   async quality(callId: string): Promise<CallQuality> {
     const going = this.require(callId);
     const heardFrom = [...going.room.remoteParticipants.values()]
@@ -525,9 +525,14 @@ function callIdFor(conversationId: ConversationId): string {
 
 /**
  * The SFU knows one string per participant and nothing else about them. The service that admits people puts
- * the Matrix user and their device in it, joined by a colon — and a Matrix user id has colons of its own,
- * so it is the last one that separates them.
+ * the Matrix user and their device in it, joined by a colon, and the SDK names key holders the same way.
+ * `identityOf` writes it and `whoIs` reads it back — and a Matrix user id has colons of its own, so it is the
+ * last one that separates them.
  */
+function identityOf(userId: UserId, deviceId: string): string {
+  return `${userId}:${deviceId}`;
+}
+
 function whoIs(identity: string): { userId: UserId; deviceId: string } {
   const separator = identity.lastIndexOf(":");
   const looksLikeAUserWithADevice = identity.startsWith("@") && separator > 0;

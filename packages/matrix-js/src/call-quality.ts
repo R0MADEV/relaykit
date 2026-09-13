@@ -1,9 +1,9 @@
 import type { CallQuality } from "@relaykit/core";
 
 /**
- * How a call is going, read the same way however the call is carried. A direct call negotiates its own media
- * and a conference has an SFU carry it, but both end up asking the same browser the same question and
- * getting the same report back — so reading that report in two places is how the two quietly drift apart.
+ * How a call is going, read off what the browser reports about the connection. Kept apart from the call
+ * itself because it is about the browser's report and nothing else: the shape of that report, and what in it
+ * is worth a number.
  */
 export function qualityFrom(reported: readonly unknown[]): CallQuality {
   const stats = reported.filter(isAnObject);

@@ -3,15 +3,14 @@ const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 const { serve, acceptOwnCertificate, waitFor } = require("./browser-harness.cjs");
 
-// Two browsers ringing each other, which is the only way a call can be checked at all.
+// Real browsers on a real call, which is the only way a call can be checked at all.
 //
-// The other checks prove that placing a call starts one and that hanging up ends it. They cannot prove more,
-// because nobody is on the other side: a call with no answer never leaves `connecting`, so the negotiation
-// that follows an answer is never exercised and `answer` against a real homeserver is never run.
-//
-// Here alice rings and bob answers, and both have to reach `connected`. There is no camera and no microphone
-// on the machine, so Chromium is told to make up a tone and a moving picture of its own. Those behave like
-// devices in every way that matters: they have identifiers, they can be switched off and asked for again.
+// The unit tests prove what the library says; they cannot prove what is heard, because nothing in node has a
+// microphone, a camera or a connection to an SFU. Here alice calls, bob's screen rings and he picks up, both
+// have to end up playing what the other sends, three of them hold a conference with every frame encrypted,
+// and one of them dies in the middle of it. There is no camera and no microphone on the machine, so Chromium
+// is told to make up a tone and a moving picture of its own. Those behave like devices in every way that
+// matters: they have identifiers, they can be switched off and asked for again.
 //
 // This used to hand the page a microphone built inside it, and that quietly cost a feature: turning the
 // camera back on after putting it away needs the media asked for afresh, and a stream made in the page is not

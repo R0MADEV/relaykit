@@ -346,9 +346,9 @@ export interface Call {
   readonly wentWrong?: string;
   readonly isSharingScreen: boolean;
   /**
-   * Whether what is said can be read only by the people on the call. A direct call goes between the two
-   * devices and nothing in the middle can read it; a conference passes through a server that carries frames
-   * it cannot read, once the keys have been shared. Absent while it is not known, which is before joining.
+   * Whether what is said can be read only by the people on the call: every frame leaves each browser
+   * encrypted with keys that travel over Matrix, and the server in the middle carries what it cannot read.
+   * Absent while it is not known, which is before joining.
    */
   readonly isEncrypted?: boolean;
   /**
@@ -375,7 +375,7 @@ export interface Call {
  * `ringing` covers both waiting for an answer and being rung, because a screen draws the same thing either
  * way and knowing which side placed it is what `callerId` is for.
  */
-export type CallState = "ringing" | "connecting" | "connected" | "ended";
+export type CallState = "ringing" | "connected" | "ended";
 
 /**
  * Somebody on a call. The device and not only the person, because the same account can be in from the laptop
@@ -418,7 +418,7 @@ export interface CallQuality {
   readonly roundTripMs?: number;
 }
 
-export const callStates: readonly CallState[] = ["ringing", "connecting", "connected", "ended"];
+export const callStates: readonly CallState[] = ["ringing", "connected", "ended"];
 
 export interface PlaceCallOptions {
   /** A call with video needs room on the screen, so whoever draws it has to be told beforehand. */

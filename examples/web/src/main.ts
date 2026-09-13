@@ -1107,7 +1107,8 @@ class DemoApp {
    * Starting a call: this side is the first one on it, and the room rings everybody else in the
    * conversation. Matrix says who they are; a server that cannot read the picture carries it.
    */
-  private async callThem(video: boolean, into = this.conversationId): Promise<void> {
+  private async callThem(video: boolean): Promise<void> {
+    const into = this.conversationId;
     if (!into) return;
     try {
       this.call = await this.client.calls.place(into, { video });

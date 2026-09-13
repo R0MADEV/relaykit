@@ -164,8 +164,7 @@ export class MatrixRuntime {
         const actions = this.getClient().getPushActionsForEvent(current);
         return { notify: actions?.notify === true, isMention: actions?.tweaks?.highlight === true };
       },
-      ownUserId: () => this.getClient().getUserId() ?? undefined,
-      caughtUp: () => this.getClient().isInitialSyncComplete()
+      ownUserId: () => this.getClient().getUserId() ?? undefined
     });
   }
 

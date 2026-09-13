@@ -111,7 +111,3 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
     client.stopClient();
   }
 }
-
-export async function logoutClient(client: MatrixClient): Promise<void> {
-  await client.logout();
-}
