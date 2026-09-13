@@ -164,12 +164,17 @@ export class OutboxOperations {
     };
   }
 
-  async retry(messageId: MessageId): Promise<Message> {
-    this.context.assertStarted();
+  private async requireStoredMessage(messageId: MessageId): Promise<Message> {
     const message = await this.context.storage?.getMessage(messageId);
     if (!message) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
+    return message;
+  }
+
+  async retry(messageId: MessageId): Promise<Message> {
+    this.context.assertStarted();
+    const message = await this.requireStoredMessage(messageId);
     if (message.status === "sent") {
       return message;
     }
@@ -178,10 +183,7 @@ export class OutboxOperations {
 
   async cancel(messageId: MessageId): Promise<Message> {
     this.context.assertStarted();
-    const message = await this.context.storage?.getMessage(messageId);
-    if (!message) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
-    }
+    const message = await this.requireStoredMessage(messageId);
     // A file still going up is the one case worth stopping in the middle: it has not been said to anybody
     // yet, and what is left of it is the upload, which is the part that costs somebody their connection.
     const wasStopped = this.inFlight.has(message.id)

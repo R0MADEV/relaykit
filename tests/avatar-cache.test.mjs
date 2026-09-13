@@ -154,3 +154,30 @@ test("changing my own picture does not leave the old one being shown", async () 
   assert.equal((await client.users.avatar("alice")).data[0], 9);
   await client.stop();
 });
+
+test("what a conversation held is given back to the budget when the conversation is forgotten", async () => {
+  const adapter = new CountingAdapter();
+  const client = new MessagingClient({
+    adapter,
+    storage: new InMemoryStorage(),
+    session,
+    cache: { avatarBytes: 16 }
+  });
+  await client.start();
+  for (const person of ["bob", "carol", "dave"]) {
+    adapter.setProfile(person, { displayName: person, avatar: picture });
+  }
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  await client.users.avatar("bob", { conversationId: conversation.id });
+
+  // A change to the conversation forgets what was held about it, budget included.
+  await adapter.renameConversation(conversation.id, "otro nombre");
+
+  await client.users.avatar("carol");
+  await client.users.avatar("dave");
+  await client.users.avatar("carol");
+
+  // Both fit in the sixteen bytes: what bob held for the conversation was handed back.
+  assert.equal(adapter.downloads, 3);
+  await client.stop();
+});

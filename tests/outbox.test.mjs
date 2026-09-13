@@ -352,3 +352,18 @@ test("stopping the client cancels a retry that was waiting", async () => {
 
   assert.equal(adapter.sends, sendsBefore, "no retry should happen after stopping");
 });
+
+test("retrying or cancelling something that was never sent says which message is missing", async () => {
+  const adapter = new InMemoryAdapter();
+  const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session });
+  await client.start();
+
+  for (const attempt of [client.messages.retry("no-existe"), client.messages.cancel("no-existe")]) {
+    await assert.rejects(attempt, error => {
+      assert.ok(error instanceof SdkError);
+      assert.equal(error.code, "MESSAGE_NOT_FOUND");
+      return true;
+    });
+  }
+  await client.stop();
+});

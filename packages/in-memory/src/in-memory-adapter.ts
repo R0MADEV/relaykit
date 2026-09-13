@@ -519,13 +519,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     options: SendContent = {}
   ): Promise<Message> {
     const { transactionId, replyToId, threadId, formattedBody, mentions, kind, location } = options;
-    const senderId = this.currentUserId;
-    if (!senderId) {
-      throw new Error("The in-memory adapter is not started");
-    }
-    const alreadySent = transactionId
-      ? this.messages.find(item => item.transactionId === transactionId)
-      : undefined;
+    const senderId = this.requireUserId();
+    const alreadySent = this.sentAlready(transactionId);
     if (alreadySent) {
       return alreadySent;
     }
@@ -553,13 +548,8 @@ export class InMemoryAdapter implements MessagingAdapter {
     transactionId?: string,
     onProgress?: (fraction: number) => void
   ): Promise<Message> {
-    const senderId = this.currentUserId;
-    if (!senderId) {
-      throw new Error("The in-memory adapter is not started");
-    }
-    const alreadySent = transactionId
-      ? this.messages.find(item => item.transactionId === transactionId)
-      : undefined;
+    const senderId = this.requireUserId();
+    const alreadySent = this.sentAlready(transactionId);
     if (alreadySent) {
       return alreadySent;
     }
@@ -706,6 +696,13 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async signOutDevices(deviceIds: readonly string[]): Promise<void> {
     for (const deviceId of deviceIds) this.devices.delete(deviceId);
+  }
+
+  /** Sending twice under one transaction is one message: the second ask gets the first answer. */
+  private sentAlready(transactionId?: string): Message | undefined {
+    return transactionId
+      ? this.messages.find(item => item.transactionId === transactionId)
+      : undefined;
   }
 
   private requireUserId(): UserId {
@@ -1070,34 +1067,30 @@ export class InMemoryAdapter implements MessagingAdapter {
     return message;
   }
 
-  async editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message> {
+  private requireMessage(conversationId: ConversationId, messageId: MessageId): Message {
     const message = this.messages.find(
       item => item.id === messageId && item.conversationId === conversationId
     );
     if (!message) {
       throw new Error("The message does not exist");
     }
+    return message;
+  }
 
-    const updatedMessage: Message = { ...message, body, editedAt: Date.now() };
-    const index = this.messages.indexOf(message);
-    this.messages[index] = updatedMessage;
-    this.handlers.onMessageUpdated?.(updatedMessage);
-    return updatedMessage;
+  private replaceMessage(previous: Message, next: Message): Message {
+    this.messages[this.messages.indexOf(previous)] = next;
+    this.handlers.onMessageUpdated?.(next);
+    return next;
+  }
+
+  async editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message> {
+    const message = this.requireMessage(conversationId, messageId);
+    return this.replaceMessage(message, { ...message, body, editedAt: Date.now() });
   }
 
   async deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message> {
-    const message = this.messages.find(
-      item => item.id === messageId && item.conversationId === conversationId
-    );
-    if (!message) {
-      throw new Error("The message does not exist");
-    }
-
-    const deletedMessage: Message = { ...message, body: "", deletedAt: Date.now() };
-    const index = this.messages.indexOf(message);
-    this.messages[index] = deletedMessage;
-    this.handlers.onMessageUpdated?.(deletedMessage);
-    return deletedMessage;
+    const message = this.requireMessage(conversationId, messageId);
+    return this.replaceMessage(message, { ...message, body: "", deletedAt: Date.now() });
   }
 
   /** Test helper: simulates being invited to a conversation by someone else. */

@@ -82,9 +82,14 @@ export class UserOperations {
    * of the things that can be. What was held about that conversation is dropped so the change shows at once.
    */
   forgetConversation(conversationId: ConversationId): void {
+    this.forgetWhere(key => isAboutConversation(key, conversationId));
+  }
+
+  /** Dropping a picture gives its bytes back to the budget; dropping a name costs nothing to account for. */
+  private forgetWhere(matches: (key: string) => boolean): void {
     for (const held of [this.profiles, this.avatars]) {
       for (const key of [...held.keys()]) {
-        if (!isAboutConversation(key, conversationId)) continue;
+        if (!matches(key)) continue;
         if (held === this.avatars) this.heldBytes -= this.avatars.get(key)?.image?.data.byteLength ?? 0;
         held.delete(key);
       }
@@ -99,13 +104,7 @@ export class UserOperations {
       this.heldBytes = 0;
       return;
     }
-    for (const held of [this.profiles, this.avatars]) {
-      for (const key of [...held.keys()]) {
-        if (!isAboutUser(key, userId)) continue;
-        if (held === this.avatars) this.heldBytes -= this.avatars.get(key)?.image?.data.byteLength ?? 0;
-        held.delete(key);
-      }
-    }
+    this.forgetWhere(key => isAboutUser(key, userId));
   }
 
   /**
