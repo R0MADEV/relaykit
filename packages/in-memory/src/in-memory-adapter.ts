@@ -40,22 +40,17 @@ import type {
   JoinRule,
   KnockOptions,
   Reaction,
-  DeviceVerification,
-  CryptoStatus,
   PresenceUpdate,
-  KeyBackupRestoreSummary,
-  KeyBackupStatus,
   LoginCredentials,
   RegisterCredentials,
-  RecoverySetup,
   Message,
   Session,
   UserId,
-  VerificationRequestOptions,
   VerificationSession
 } from "@relaykit/core";
 import { SdkError } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
+import { InMemoryCrypto } from "./in-memory-crypto.js";
 import { InMemoryPeople } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemorySpaces } from "./in-memory-spaces.js";
@@ -80,7 +75,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly knocks = new Map<ConversationId, { userId: UserId; reason?: string }[]>();
   private readonly reported: { conversationId: ConversationId; messageId: MessageId; reason: string }[] = [];
   private readonly published = new Set<ConversationId>();
-  private readonly rotatedKeys: ConversationId[] = [];
 
   private readonly receipts: ReadReceipt[] = [];
   private readonly attachments = new Map<string, Uint8Array>();
@@ -89,6 +83,9 @@ export class InMemoryAdapter implements MessagingAdapter {
     () => this.handlers
   );
   private readonly verification = new InMemoryVerification(() => this.handlers);
+  private readonly cryptography = new InMemoryCrypto(this.features, this.verification, conversationId =>
+    this.requireConversation(conversationId)
+  );
   private readonly spacesIn = new InMemorySpaces({
     conversations: () => this.conversations,
     nextId: () => this.nextConversationId++
@@ -259,14 +256,9 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.replaceConversation({ ...conversation, participantIds, invitedIds, knockingIds });
   }
 
-  async rotateConversationKeys(conversationId: ConversationId): Promise<void> {
-    this.requireConversation(conversationId);
-    this.rotatedKeys.push(conversationId);
-  }
-
   /** Test helper: the conversations whose key was thrown away. */
   rotatedKeysOf(): readonly ConversationId[] {
-    return this.rotatedKeys;
+    return this.cryptography.rotatedKeys();
   }
 
   async upgradeConversation(conversationId: ConversationId): Promise<Conversation> {
@@ -674,7 +666,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   readonly push: PushAdapter = this.people;
   readonly devices: DevicesAdapter = this.people;
   readonly reactions: ReactionsAdapter = this;
-  readonly crypto: CryptoAdapter = this;
+  readonly crypto: CryptoAdapter = this.cryptography;
 
   /** Test helper: somebody else starts a call in this conversation, which rings here to be joined. */
   startConferenceAs(conversationId: ConversationId, userId: UserId): Call {
@@ -896,65 +888,9 @@ export class InMemoryAdapter implements MessagingAdapter {
     await this.features.removeReaction(reactionId);
   }
 
-  async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification> {
-    return this.features.getDeviceVerification(userId, deviceId);
-  }
-
-  async setDeviceVerified(): Promise<void> {
-    return this.features.setDeviceVerified();
-  }
-
-  async getCryptoStatus(): Promise<CryptoStatus> {
-    return this.features.getCryptoStatus();
-  }
-
-  async getKeyBackupStatus(): Promise<KeyBackupStatus> {
-    return this.features.getKeyBackupStatus();
-  }
-
-  async setupRecovery(): Promise<RecoverySetup> {
-    return this.features.setupRecovery();
-  }
-
-  async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
-    return this.features.recover(recoveryKey);
-  }
-
-  async requestVerification(
-    userId: string,
-    deviceId?: string,
-    options?: VerificationRequestOptions
-  ): Promise<VerificationSession> {
-    return this.verification.request(userId, deviceId, options);
-  }
-
-  async getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined> {
-    return this.verification.qrCode(sessionId);
-  }
-
-  async scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
-    return this.verification.scan(sessionId, code);
-  }
-
   /** Test helper: makes this account one that cannot verify with a code. */
   disableQrCodes(): void {
     this.verification.disableQrCodes();
-  }
-
-  async acceptVerification(sessionId: string): Promise<VerificationSession> {
-    return this.verification.accept(sessionId);
-  }
-
-  async cancelVerification(sessionId: string): Promise<VerificationSession> {
-    return this.verification.cancel(sessionId);
-  }
-
-  async confirmVerification(sessionId: string): Promise<VerificationSession> {
-    return this.verification.confirm(sessionId);
-  }
-
-  async rejectVerification(sessionId: string): Promise<VerificationSession> {
-    return this.verification.reject(sessionId);
   }
 
   /** Test helper: simulates another device asking this one to verify. */
