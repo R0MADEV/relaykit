@@ -3,6 +3,7 @@ import { encodeUri } from "matrix-js-sdk/lib/utils.js";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events.js";
 import { decryptAttachment, encryptAttachment, type IEncryptedFile } from "matrix-encrypt-attachment";
 import type {
+  AvatarImage,
   ConversationId,
   FileInput,
   LinkPreview,
@@ -12,6 +13,20 @@ import type {
   MediaLimits
 } from "@relaykit/core";
 import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
+
+/**
+ * A Uint8Array is usually a window onto a larger buffer, and handing that buffer to a Blob uploads
+ * everything around the picture as well. What goes up is the window and nothing else. Answers with where
+ * the homeserver put it, which is all either caller needs.
+ */
+export async function uploadAvatarImage(client: MatrixClient, image: AvatarImage): Promise<string> {
+  const bytes = image.data.buffer.slice(image.data.byteOffset, image.data.byteOffset + image.data.byteLength);
+  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), {
+    type: image.mimeType,
+    includeFilename: false
+  });
+  return upload.content_uri;
+}
 
 /** What `Attachment.source` carries for the Matrix adapter. */
 export interface MatrixAttachmentSource {

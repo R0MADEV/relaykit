@@ -35,6 +35,7 @@ import type {
 } from "@relaykit/core";
 import { mapConversation, mapMessages } from "./matrix-mapper.js";
 import { waitForRoom } from "./matrix-room-operations.js";
+import { uploadAvatarImage } from "./matrix-media.js";
 
 export async function setMatrixTopic(
   client: MatrixClient,
@@ -52,19 +53,15 @@ export async function setMatrixConversationAvatar(
   conversationId: string,
   image: AvatarImage
 ): Promise<Conversation> {
-  const bytes = image.data.buffer.slice(image.data.byteOffset, image.data.byteOffset + image.data.byteLength);
-  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), {
-    type: image.mimeType,
-    includeFilename: false
-  });
-  await client.sendStateEvent(conversationId, EventType.RoomAvatar, { url: upload.content_uri }, "");
+  const url = await uploadAvatarImage(client, image);
+  await client.sendStateEvent(conversationId, EventType.RoomAvatar, { url }, "");
   const conversation = mapConversation(await waitForRoom(client, conversationId));
   return {
     ...conversation,
     avatar: {
       mimeType: image.mimeType,
       size: image.data.byteLength,
-      source: JSON.stringify({ url: upload.content_uri })
+      source: JSON.stringify({ url })
     }
   };
 }

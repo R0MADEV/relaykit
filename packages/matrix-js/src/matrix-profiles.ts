@@ -1,6 +1,6 @@
 import { MatrixError, type MatrixClient, AuthType } from "matrix-js-sdk";
 import { SdkError } from "@relaykit/core";
-import { downloadFromMediaServer } from "./matrix-media.js";
+import { downloadFromMediaServer, uploadAvatarImage } from "./matrix-media.js";
 import type { AvatarImage, Device, SignOutOptions, User, UserId } from "@relaykit/core";
 
 /**
@@ -66,12 +66,7 @@ export async function searchMatrixUsers(
 
 /** Uploads the picture and points the profile at it, which is two steps in Matrix. */
 export async function setMatrixAvatar(client: MatrixClient, image: AvatarImage): Promise<void> {
-  const bytes = image.data.buffer.slice(image.data.byteOffset, image.data.byteOffset + image.data.byteLength);
-  const upload = await client.uploadContent(new Blob([bytes as ArrayBuffer]), {
-    type: image.mimeType,
-    includeFilename: false
-  });
-  await client.setAvatarUrl(upload.content_uri);
+  await client.setAvatarUrl(await uploadAvatarImage(client, image));
 }
 
 export async function listMatrixDevices(client: MatrixClient): Promise<readonly Device[]> {

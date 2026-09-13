@@ -4,6 +4,11 @@ import type { LoginCredentials, RegisterCredentials, Session } from "@relaykit/c
 
 const passwordOnlyStages = new Set([AuthType.Dummy as string]);
 
+/** Registering and signing in end the same way: the homeserver's answer, read as a session. */
+function sessionFrom(homeserver: string, userId: string, accessToken: string, deviceId?: string): Session {
+  return { homeserver, userId, accessToken, ...(deviceId ? { deviceId } : {}) };
+}
+
 /**
  * What a homeserver is saying, when it is saying something an application can act on. Undefined for anything
  * else, because turning an error nobody understands into one that sounds understood hides it.
@@ -50,12 +55,12 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
         "The homeserver did not return a session for the new account"
       );
     }
-    return {
-      homeserver: credentials.homeserver,
-      userId: response.user_id,
-      accessToken: response.access_token,
-      ...(response.device_id ? { deviceId: response.device_id } : {})
-    };
+    return sessionFrom(
+      credentials.homeserver,
+      response.user_id,
+      response.access_token,
+      response.device_id
+    );
   } finally {
     client.stopClient();
   }
@@ -101,12 +106,12 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
 
   try {
     const response = await client.login(AuthType.Password, request);
-    return {
-      homeserver: credentials.homeserver,
-      userId: response.user_id,
-      accessToken: response.access_token,
-      ...(response.device_id ? { deviceId: response.device_id } : {})
-    };
+    return sessionFrom(
+      credentials.homeserver,
+      response.user_id,
+      response.access_token,
+      response.device_id
+    );
   } finally {
     client.stopClient();
   }
