@@ -68,9 +68,9 @@ import {
   listMatrixConversations,
   listMatrixThread,
   loadMoreMessages,
-  searchMatrixMessages,
-  sendMessage
+  searchMatrixMessages
 } from "./matrix-room-operations.js";
+import { sendMessage } from "./matrix-sending.js";
 import { listMatrixParticipants, readMatrixPermissions, setMatrixRole } from "./matrix-permissions.js";
 import {
   discoverMatrixConversations,

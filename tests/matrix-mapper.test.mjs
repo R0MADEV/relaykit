@@ -156,7 +156,7 @@ test("mapPresence rejects unknown presence states", () => {
 
 // --- sendWithTransaction: retry behaviour with no homeserver involved ---
 
-const { sendWithTransaction } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
+const { sendWithTransaction } = await import("../packages/matrix-js/dist/matrix-sending.js");
 
 /**
  * What goes out, and how. Whoever builds the content says how it is sent — a sticker goes under its own

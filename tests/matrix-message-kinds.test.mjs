@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MsgType } from "matrix-js-sdk";
 
-const { matrixTypeOf } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
+const { matrixTypeOf } = await import("../packages/matrix-js/dist/matrix-sending.js");
 
 /**
  * What Matrix calls each kind of message. Two of ours have a name of their own there, and the third does

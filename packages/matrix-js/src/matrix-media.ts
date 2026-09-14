@@ -16,7 +16,8 @@ import type {
   ThumbnailInput,
   MediaLimits
 } from "@relaykit/core";
-import { sendWithTransaction, waitForRoom } from "./matrix-room-operations.js";
+import { waitForRoom } from "./matrix-room-operations.js";
+import { sendWithTransaction } from "./matrix-sending.js";
 
 /**
  * A Uint8Array is usually a window onto a larger buffer, and handing that buffer to a Blob uploads

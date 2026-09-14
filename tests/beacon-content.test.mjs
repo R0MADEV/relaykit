@@ -37,7 +37,7 @@ test("what is sent to start sharing is what the SDK builds", async () => {
   assert.deepEqual(written, theirs, "the shape sent is not the one the SDK builds");
 });
 
-const { sendMessage } = await import("../packages/matrix-js/dist/matrix-room-operations.js");
+const { sendMessage } = await import("../packages/matrix-js/dist/matrix-sending.js");
 
 /**
  * A place sent in a conversation is the SDK's shape too. Ours said less than the SDK's does: no timestamp, no
