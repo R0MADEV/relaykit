@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MatrixError, MatrixEvent } from "matrix-js-sdk";
 import * as mapper from "../packages/matrix-js/dist/matrix-mapper.js";
+import * as conversations from "../packages/matrix-js/dist/matrix-conversation-mapper.js";
 import {
   mapMessage,
   mapPresence,
@@ -459,7 +460,7 @@ test("a sticker that arrives is told apart from an attachment", () => {
 });
 
 test("a conversation says whether it really is encrypted, not what was asked for", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const cifrada = fakeRoom([]);
   cifrada.hasEncryptionStateEvent = () => true;
   const enClaro = fakeRoom([]);
@@ -472,14 +473,14 @@ test("a conversation says whether it really is encrypted, not what was asked for
 });
 
 test("a conversation somebody left for later says so when it comes back from the homeserver", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([], { accountData: { "m.marked_unread": { unread: true } } });
 
   assert.equal(mapConversation(room).isUnread, true);
 });
 
 test("a conversation nobody left for later does not claim to be unread", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
 
   assert.equal(mapConversation(fakeRoom([])).isUnread, undefined);
   assert.equal(
@@ -489,7 +490,7 @@ test("a conversation nobody left for later does not claim to be unread", () => {
 });
 
 test("a conversation that was replaced points at the one that carries on", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     "m.room.tombstone": { replacement_room: "!nueva:example.org", body: "this room carries on in another" }
   });
@@ -498,7 +499,7 @@ test("a conversation that was replaced points at the one that carries on", () =>
 });
 
 test("a conversation that replaced another points back at it", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     "m.room.create": { predecessor: { room_id: "!vieja:example.org" } }
   });
@@ -507,7 +508,7 @@ test("a conversation that replaced another points back at it", () => {
 });
 
 test("a conversation nobody replaced points nowhere", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
 
   const conversation = mapConversation(fakeRoom([{ userId: "@alice:example.org", membership: "join" }]));
 
@@ -516,7 +517,7 @@ test("a conversation nobody replaced points nowhere", () => {
 });
 
 test("a conversation carries the name people can type", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     "m.room.canonical_alias": { alias: "#soporte:example.org" }
   });
@@ -525,7 +526,7 @@ test("a conversation carries the name people can type", () => {
 });
 
 test("a conversation says where this person stopped reading", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     accountData: { "m.fully_read": { event_id: "$hasta-aqui" } }
   });
@@ -534,7 +535,7 @@ test("a conversation says where this person stopped reading", () => {
 });
 
 test("a conversation nobody has read says nothing about where they stopped", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
 
   const conversation = mapConversation(fakeRoom([{ userId: "@alice:example.org", membership: "join" }]));
 
@@ -599,7 +600,7 @@ test("a voice note is told apart from an audio file somebody attached", () => {
 });
 
 test("a conversation says who may come in and how far back people can read", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     "m.room.join_rules": { join_rule: "knock" },
     "m.room.history_visibility": { history_visibility: "world_readable" }
@@ -612,7 +613,7 @@ test("a conversation says who may come in and how far back people can read", () 
 });
 
 test("people waiting at the door are not participants yet", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([
     { userId: "@alice:example.org", membership: "join" },
     { userId: "@carol:example.org", membership: "knock" }
@@ -625,7 +626,7 @@ test("people waiting at the door are not participants yet", () => {
 });
 
 test("a silenced conversation is read back as silenced", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     pushRules: { global: { override: [{ rule_id: roomId, enabled: true, actions: [] }] } }
   });
@@ -634,7 +635,7 @@ test("a silenced conversation is read back as silenced", () => {
 });
 
 test("a conversation that only speaks up for mentions is read back that way", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     pushRules: { global: { room: [{ rule_id: roomId, enabled: true, actions: [] }] } }
   });
@@ -643,7 +644,7 @@ test("a conversation that only speaks up for mentions is read back that way", ()
 });
 
 test("a conversation nobody silenced says nothing about notifications", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     pushRules: { global: {} }
   });
@@ -652,7 +653,7 @@ test("a conversation nobody silenced says nothing about notifications", () => {
 });
 
 test("a conversation carries the description and the picture the room has", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([{ userId: "@alice:example.org", membership: "join" }], {
     "m.room.topic": { topic: "Lo que hablamos aqui" },
     "m.room.avatar": { url: "mxc://example.org/grupo" }
@@ -665,7 +666,7 @@ test("a conversation carries the description and the picture the room has", () =
 });
 
 test("a conversation without a description or a picture says nothing about them", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
 
   const conversation = mapConversation(fakeRoom([{ userId: "@alice:example.org", membership: "join" }]));
 
@@ -674,7 +675,7 @@ test("a conversation without a description or a picture says nothing about them"
 });
 
 test("the participants of a conversation are those in it, not those who left", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([
     { userId: "@alice:example.org", membership: "join" },
     { userId: "@bob:example.org", membership: "join" },
@@ -721,7 +722,7 @@ test("waiting for a room that never becomes usable fails with a clear reason", a
 });
 
 test("a conversation says who has been invited and has not accepted yet", () => {
-  const { mapConversation } = mapper;
+  const { mapConversation } = conversations;
   const room = fakeRoom([
     { userId: "@alice:example.org", membership: "join" },
     { userId: "@bob:example.org", membership: "join" },

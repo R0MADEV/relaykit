@@ -3,7 +3,6 @@ import { EventType, type Room } from "matrix-js-sdk";
 import type { AdapterHandlers, Message } from "@relaykit/core";
 import {
   isMessageEdit,
-  mapConversation,
   mapMessage,
   mapPresence,
   mapReaction,
@@ -11,6 +10,7 @@ import {
   mapRedactedMessage,
   mapTyping
 } from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 import type { ReactionTracker } from "./reaction-tracker.js";
 
 export interface TimelineContext {

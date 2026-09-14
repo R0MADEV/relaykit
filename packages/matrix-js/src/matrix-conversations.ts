@@ -1,7 +1,8 @@
 import { EventType, Preset, Visibility, type MatrixClient, type Room } from "matrix-js-sdk";
 import { waitForRoom, waitUntilRoomIsUsable } from "./matrix-room-operations.js";
 import type { Conversation, CreateConversationInput } from "@relaykit/core";
-import { mapConversation } from "./matrix-mapper.js";
+import {} from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 
 /**
  * Which events anybody in the conversation may send, and which take an admin.

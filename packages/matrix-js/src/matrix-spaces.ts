@@ -1,6 +1,7 @@
 import { EventType, KnownMembership, Preset, RoomType, Visibility, type MatrixClient } from "matrix-js-sdk";
 import type { Conversation, CreateSpaceInput, Space } from "@relaykit/core";
-import { mapConversation } from "./matrix-mapper.js";
+import {} from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 
 const childEvent = EventType.SpaceChild;
 

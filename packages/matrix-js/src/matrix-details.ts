@@ -33,7 +33,8 @@ import type {
   PublicConversation,
   PushRegistration
 } from "@relaykit/core";
-import { mapConversation, mapMessages } from "./matrix-mapper.js";
+import { mapMessages } from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 import { waitForRoom } from "./matrix-room-operations.js";
 import { uploadAvatarImage } from "./matrix-media.js";
 

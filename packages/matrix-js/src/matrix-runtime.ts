@@ -18,7 +18,7 @@ import {
   handleTimeline,
   handleTyping
 } from "./matrix-handlers.js";
-import { mapConversation } from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 import { ReactionTracker } from "./reaction-tracker.js";
 import { openTheWindow, type ConversationWindow } from "./matrix-window.js";
 import { MatrixConference } from "./matrix-conference.js";

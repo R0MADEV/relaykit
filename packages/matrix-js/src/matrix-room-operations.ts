@@ -29,7 +29,8 @@ import type {
   SendContent,
   MessageKind
 } from "@relaykit/core";
-import { mapConversation, mapMessage, mapMessages } from "./matrix-mapper.js";
+import { mapMessage, mapMessages } from "./matrix-mapper.js";
+import { mapConversation } from "./matrix-conversation-mapper.js";
 import { createMatrixConversation, joinMatrixConversation } from "./matrix-conversations.js";
 import { listMatrixMessages } from "./matrix-timeline.js";
 

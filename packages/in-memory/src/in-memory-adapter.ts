@@ -55,15 +55,10 @@ import { InMemoryCalls } from "./in-memory-calls.js";
 import { InMemoryCrypto } from "./in-memory-crypto.js";
 import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
+import { InMemoryModeration, type Knock } from "./in-memory-moderation.js";
 import { InMemorySpaces } from "./in-memory-spaces.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
-
-/** Somebody waiting at the door of a conversation, and why they say they should be let in. */
-interface Knock {
-  readonly userId: UserId;
-  readonly reason?: string;
-}
 
 /** A message somebody said was worth the homeserver's attention, and what they said about it. */
 interface Report {
@@ -100,7 +95,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   private nextConversationId = 1;
   private nextAttachmentId = 1;
   private readonly unreadCounts = new Map<ConversationId, number>();
-  private readonly knocks = new Map<ConversationId, Knock[]>();
   private readonly reported: Report[] = [];
   private readonly published = new Set<ConversationId>();
   /** How far back each conversation has been read, for a double that hands over the end and keeps the rest. */
@@ -116,6 +110,12 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly cryptography = new InMemoryCrypto(this.features, this.verification, conversationId =>
     this.requireConversation(conversationId)
   );
+  private readonly moderating = new InMemoryModeration({
+    requireUserId: () => this.requireUserId(),
+    currentUserId: () => this.currentUserId,
+    requireConversation: conversationId => this.requireConversation(conversationId),
+    replaceConversation: conversation => this.replaceConversation(conversation)
+  });
   private readonly spacesIn = new InMemorySpaces({
     conversations: () => this.conversations,
     nextId: () => this.nextConversationId++
@@ -363,26 +363,6 @@ export class InMemoryAdapter implements MessagingAdapter {
     });
   }
 
-  async knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void> {
-    const waiting = this.knocks.get(conversationId) ?? [];
-    this.knocks.set(conversationId, [
-      ...waiting,
-      { userId: this.requireUserId(), ...(options.reason ? { reason: options.reason } : {}) }
-    ]);
-  }
-
-  /** Test helper: who has asked to come in to a conversation and is still waiting. */
-  knocksOn(conversationId: ConversationId): readonly Knock[] {
-    return this.knocks.get(conversationId) ?? [];
-  }
-
-  /** Test helper: simulates somebody knocking at a conversation this account is in. */
-  receiveKnock(conversationId: ConversationId, userId: UserId): Conversation {
-    const conversation = this.requireConversation(conversationId);
-    const knockingIds = [...new Set([...(conversation.knockingIds ?? []), userId])];
-    return this.replaceConversation({ ...conversation, knockingIds });
-  }
-
   /** Test helper: simulates someone accepting the invitation to a conversation. */
   acceptInvitation(conversationId: ConversationId, userId: UserId): Conversation {
     const conversation = this.requireConversation(conversationId);
@@ -421,6 +401,53 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async getPresence(userId: UserId): Promise<UserPresence | undefined> {
     return this.features.getPresence(userId);
+  }
+
+  async knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void> {
+    return this.moderating.knockConversation(conversationId, options);
+  }
+
+  /** Test helper: who has asked to come in to a conversation and is still waiting. */
+  knocksOn(conversationId: ConversationId): readonly Knock[] {
+    return this.moderating.knocksOn(conversationId);
+  }
+
+  /** Test helper: simulates somebody knocking at a conversation this account is in. */
+  receiveKnock(conversationId: ConversationId, userId: UserId): Conversation {
+    return this.moderating.receiveKnock(conversationId, userId);
+  }
+
+  /** Test helper: sets what somebody is allowed to do in a conversation. */
+  setPowerLevel(conversationId: ConversationId, userId: UserId, level: number): void {
+    this.moderating.setPowerLevel(conversationId, userId, level);
+  }
+
+  powerLevelOf(conversationId: ConversationId, userId: UserId): number {
+    return this.moderating.powerLevelOf(conversationId, userId);
+  }
+
+  async getPermissions(conversationId: ConversationId): Promise<ConversationPermissions> {
+    return this.moderating.getPermissions(conversationId);
+  }
+
+  async setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void> {
+    return this.moderating.setRole(conversationId, userId, role);
+  }
+
+  async listParticipants(conversationId: ConversationId): Promise<readonly Participant[]> {
+    return this.moderating.listParticipants(conversationId);
+  }
+
+  async removeFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
+    return this.moderating.removeFromConversation(conversationId, userId);
+  }
+
+  async banFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
+    return this.moderating.banFromConversation(conversationId, userId);
+  }
+
+  async unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
+    return this.moderating.unbanFromConversation(conversationId, userId);
   }
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {
@@ -494,56 +521,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   async listThread(conversationId: ConversationId, rootId: MessageId): Promise<readonly Message[]> {
     return this.messages.filter(
       message => message.conversationId === conversationId && message.threadId === rootId
-    );
-  }
-
-  /** Test helper: sets what somebody is allowed to do in a conversation. */
-  setPowerLevel(conversationId: ConversationId, userId: UserId, level: number): void {
-    this.powerLevels.set(`${conversationId}:${userId}`, level);
-  }
-
-  /** Whoever is signed in holds the conversation unless a test says otherwise; everybody else is a member. */
-  powerLevelOf(conversationId: ConversationId, userId: UserId): number {
-    const kept = this.powerLevels.get(`${conversationId}:${userId}`);
-    if (kept !== undefined) return kept;
-    return userId === this.currentUserId ? levels.admin : levels.member;
-  }
-
-  async getPermissions(conversationId: ConversationId): Promise<ConversationPermissions> {
-    const level = this.powerLevelOf(conversationId, this.requireUserId());
-    return {
-      canSend: level >= 0,
-      canInvite: level >= 50,
-      canRemove: level >= 50,
-      canBan: level >= 50,
-      canRename: level >= 50
-    };
-  }
-
-  async setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void> {
-    this.setPowerLevel(conversationId, userId, levels[role]);
-  }
-
-  /**
-   * Everybody the conversation knows about: this account, those in it, those invited, and those shut out —
-   * because letting somebody back in is something only a list that still has them in it can offer.
-   */
-  async listParticipants(conversationId: ConversationId): Promise<readonly Participant[]> {
-    const conversation = this.requireConversation(conversationId);
-    const me = this.requireUserId();
-    const mine = this.powerLevelOf(conversationId, me);
-    const shutOut = [...this.shutOut]
-      .filter(each => each.startsWith(`${conversationId}:`))
-      .map(each => ({ userId: each.slice(conversationId.length + 1), membership: "ban" as const }));
-    const invited = new Set(conversation.invitedIds ?? []);
-    const others = conversation.participantIds
-      .filter(userId => userId !== me)
-      .map(userId => ({ userId, membership: invited.has(userId) ? ("invite" as const) : ("join" as const) }));
-    return [{ userId: me, membership: "join" as const }, ...others, ...shutOut].map(
-      ({ userId, membership }) => {
-        const theirs = this.powerLevelOf(conversationId, userId);
-        return { userId, role: roleOf(theirs), membership, isUnderMe: theirs < mine };
-      }
     );
   }
 
@@ -635,29 +612,6 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** How far each thread was read, kept apart from how far its conversation was. */
   private readonly threadReads = new Map<string, MessageId>();
   private notificationLevel: NotificationLevel = "all";
-  private readonly powerLevels = new Map<string, number>();
-  /** Who has been shut out of what, kept so they can be let back in. */
-  private readonly shutOut = new Set<string>();
-
-  async removeFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
-    const conversation = this.requireConversation(conversationId);
-    return this.replaceConversation({
-      ...conversation,
-      participantIds: conversation.participantIds.filter(participant => participant !== userId),
-      invitedIds: (conversation.invitedIds ?? []).filter(invited => invited !== userId)
-    });
-  }
-
-  async banFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
-    this.shutOut.add(`${conversationId}:${userId}`);
-    return this.removeFromConversation(conversationId, userId);
-  }
-
-  async unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
-    // Lifting a ban only allows somebody back in; it does not put them back.
-    this.shutOut.delete(`${conversationId}:${userId}`);
-    return this.requireConversation(conversationId);
-  }
 
   async setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation> {
     const { isFavourite: _was, ...conversation } = this.requireConversation(conversationId);
@@ -980,13 +934,4 @@ export class InMemoryAdapter implements MessagingAdapter {
   receiveVerificationRequest(userId: string, deviceId?: string): VerificationSession {
     return this.verification.receive(userId, deviceId);
   }
-}
-
-/** What each role is worth, which is the whole of what ranks one person above another. */
-const levels: Record<ConversationRole, number> = { member: 0, moderator: 50, admin: 100 };
-
-function roleOf(level: number): ConversationRole {
-  if (level >= levels.admin) return "admin";
-  if (level >= levels.moderator) return "moderator";
-  return "member";
 }
