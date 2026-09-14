@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { LockedAway } from "./locked-away.js";
 import type {
   FileInput,
   Conversation,
@@ -22,14 +22,12 @@ export interface IndexedDbStorageOptions {
 
 export class IndexedDbStorage implements MessagingStorage {
   private readonly database: Promise<IDBDatabase>;
-  private encryptionKey: Promise<CryptoKey> | undefined;
+  /** What makes a record unreadable to anything but this origin with this secret. */
+  private readonly locked = new LockedAway();
 
   constructor(databaseName = "relaykit", options: IndexedDbStorageOptions = {}) {
     this.database = this.open(databaseName);
-    this.encryptionKey = options.encryptionSecret ? this.createKey(options.encryptionSecret) : undefined;
-    // Held onto until somebody asks for the store, so a failure here is reported then and not as a rejection
-    // nobody was listening for.
-    this.encryptionKey?.catch(() => undefined);
+    this.locked.lockWith(options.encryptionSecret);
   }
 
   /**
@@ -61,11 +59,11 @@ export class IndexedDbStorage implements MessagingStorage {
     }
     const readableDrafts: { id: string; text: string }[] = [];
     for (const stored of drafts) {
-      const text = await this.decrypt(stored.text);
+      const text = await this.locked.decrypt(stored.text);
       if (text !== undefined) readableDrafts.push({ id: stored.id, text });
     }
 
-    this.encryptionKey = this.createKey(newSecret);
+    this.locked.lockWith(newSecret);
 
     await Promise.all(
       [conversationStore, messageStore, outboxStore, draftStore, profileStore].map(name =>
@@ -83,7 +81,7 @@ export class IndexedDbStorage implements MessagingStorage {
     const stored = await this.request<{ text: string } | undefined>(draftStore, "readonly", store =>
       store.get(conversationId)
     );
-    return stored ? this.decrypt(stored.text) : undefined;
+    return stored ? this.locked.decrypt(stored.text) : undefined;
   }
 
   async saveDraft(conversationId: ConversationId, text: string | undefined): Promise<void> {
@@ -91,7 +89,7 @@ export class IndexedDbStorage implements MessagingStorage {
       await this.request(draftStore, "readwrite", store => store.delete(conversationId));
       return;
     }
-    const encrypted = await this.encrypt(text);
+    const encrypted = await this.locked.encrypt(text);
     await this.request(draftStore, "readwrite", store => store.put({ id: conversationId, text: encrypted }));
   }
 
@@ -151,7 +149,7 @@ export class IndexedDbStorage implements MessagingStorage {
     const { attachment } = operation;
     const storedOperation: OutboxOperation = {
       ...operation,
-      body: await this.encrypt(operation.body),
+      body: await this.locked.encrypt(operation.body),
       ...(attachment ? { attachment: await this.lockedAway(attachment) } : {})
     };
     await this.request(outboxStore, "readwrite", store => store.put(storedOperation));
@@ -160,9 +158,9 @@ export class IndexedDbStorage implements MessagingStorage {
   private async restoreOperation(operation: OutboxOperation): Promise<OutboxOperation | undefined> {
     const { attachment } = operation;
     const thumbnail = attachment?.thumbnail;
-    const body = await this.decrypt(operation.body);
-    const data = attachment ? await this.decryptBytes(attachment.data) : undefined;
-    const thumbnailData = thumbnail ? await this.decryptBytes(thumbnail.data) : undefined;
+    const body = await this.locked.decrypt(operation.body);
+    const data = attachment ? await this.locked.decryptBytes(attachment.data) : undefined;
+    const thumbnailData = thumbnail ? await this.locked.decryptBytes(thumbnail.data) : undefined;
     // An operation whose file content cannot be read could never be sent, so it is dropped with the rest.
     const isUnreadable = body === undefined || (attachment !== undefined && data === undefined);
     if (isUnreadable) {
@@ -177,10 +175,10 @@ export class IndexedDbStorage implements MessagingStorage {
 
   /** A file on its way out, put away: its own bytes locked, and the picture standing in for it locked too. */
   private async lockedAway(attachment: FileInput): Promise<FileInput> {
-    const locked = { ...attachment, data: await this.encryptBytes(attachment.data) };
+    const locked = { ...attachment, data: await this.locked.encryptBytes(attachment.data) };
     const { thumbnail } = attachment;
     if (!thumbnail) return locked;
-    return { ...locked, thumbnail: { ...thumbnail, data: await this.encryptBytes(thumbnail.data) } };
+    return { ...locked, thumbnail: { ...thumbnail, data: await this.locked.encryptBytes(thumbnail.data) } };
   }
 
   async getMessage(messageId: MessageId): Promise<Message | undefined> {
@@ -319,104 +317,12 @@ export class IndexedDbStorage implements MessagingStorage {
   }
 
   private async prepareMessage(message: Message): Promise<Message> {
-    return { ...message, body: await this.encrypt(message.body) };
+    return { ...message, body: await this.locked.encrypt(message.body) };
   }
 
   private async restoreMessage(message: Message): Promise<Message | undefined> {
-    const body = await this.decrypt(message.body);
+    const body = await this.locked.decrypt(message.body);
     return body === undefined ? undefined : { ...message, body };
-  }
-
-  private async createKey(secret: string): Promise<CryptoKey> {
-    // Browsers only offer this on a secure origin. Opening the same page over http on a LAN address instead
-    // of localhost is the usual way to end up without it, and saying so beats a TypeError about `undefined`.
-    if (!globalThis.crypto?.subtle) {
-      throw new SdkError(
-        "NOT_CONFIGURED",
-        "Encrypted storage needs a secure origin: serve the page over https, or reach it on localhost"
-      );
-    }
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
-    return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
-  }
-
-  private async encrypt(value: string): Promise<string> {
-    if (!this.encryptionKey) {
-      return value;
-    }
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      await this.encryptionKey,
-      new TextEncoder().encode(value)
-    );
-    return `${this.encode(iv)}.${this.encode(new Uint8Array(encrypted))}`;
-  }
-
-  /** Encrypts raw bytes as `iv (12 bytes) + ciphertext`; file contents queued in the outbox go through here. */
-  private async encryptBytes(value: Uint8Array): Promise<Uint8Array> {
-    if (!this.encryptionKey) {
-      return value;
-    }
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = new Uint8Array(
-      await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await this.encryptionKey, ownBuffer(value))
-    );
-    const stored = new Uint8Array(iv.byteLength + encrypted.byteLength);
-    stored.set(iv);
-    stored.set(encrypted, iv.byteLength);
-    return stored;
-  }
-
-  /** Returns undefined when the stored bytes were written with a different key. */
-  private async decryptBytes(value: Uint8Array): Promise<Uint8Array | undefined> {
-    if (!this.encryptionKey) {
-      return value;
-    }
-    const iv = value.slice(0, 12);
-    const encrypted = ownBuffer(value.subarray(12));
-    try {
-      return new Uint8Array(
-        await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await this.encryptionKey, encrypted)
-      );
-    } catch {
-      return undefined;
-    }
-  }
-
-  /** Returns undefined when the stored value was written with a different key. */
-  private async decrypt(value: string): Promise<string | undefined> {
-    if (!this.encryptionKey || !value.includes(".")) {
-      return value;
-    }
-    const [ivValue, encryptedValue] = value.split(".");
-    if (!ivValue || !encryptedValue) {
-      return value;
-    }
-    try {
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: this.decode(ivValue) },
-        await this.encryptionKey,
-        this.decode(encryptedValue)
-      );
-      return new TextDecoder().decode(decrypted);
-    } catch {
-      return undefined;
-    }
-  }
-
-  private encode(value: Uint8Array): string {
-    return btoa(String.fromCharCode(...value));
-  }
-
-  private decode(value: string): Uint8Array<ArrayBuffer> {
-    const encoded = atob(value);
-    const buffer = new ArrayBuffer(encoded.length);
-    const result = new Uint8Array(buffer);
-    for (let index = 0; index < encoded.length; index += 1) {
-      result[index] = encoded.charCodeAt(index);
-    }
-    return result;
   }
 
   /** Every record in a single transaction, which is the whole point of writing them together. */
@@ -439,7 +345,7 @@ export class IndexedDbStorage implements MessagingStorage {
   ): Promise<Result> {
     // Whoever asked for encrypted storage is told here if it cannot exist, rather than finding out later on
     // the first record that happens to need decrypting, or never, as a rejection nobody picked up.
-    await this.encryptionKey;
+    await this.locked.ready();
     const database = await this.database;
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, mode);
@@ -457,11 +363,6 @@ export class IndexedDbStorage implements MessagingStorage {
  * copied rather than sliced off what is behind it. Slicing copied too; this one says why, and is an
  * ArrayBuffer because it was made as one rather than asserted to be.
  */
-function ownBuffer(value: Uint8Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(value.byteLength);
-  new Uint8Array(buffer).set(value);
-  return buffer;
-}
 
 /** The same file with what was read back put in place of what was stored. */
 function readBack(attachment: FileInput, data: Uint8Array, thumbnailData: Uint8Array | undefined): FileInput {
