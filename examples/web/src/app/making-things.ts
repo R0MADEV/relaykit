@@ -20,6 +20,10 @@ export class MakingThings {
     for (const which of ["create-channel", "invite", "new-message"]) {
       const named = which === "create-channel" ? "create" : which;
       this.picking.set(which, new PickingPeople(named, client, people, () => this.countInvitations()));
+      // What was typed is read as it is submitted, not once the dialog has closed: a `method="dialog"` form
+      // resets itself on the way out, so by then the boxes are empty and the radios are back to their
+      // defaults. What is read here is what somebody actually filled in.
+      dialog(which).addEventListener("submit", () => this.whatWasFilledIn(which));
       dialog(which).addEventListener("close", () => void this.closed(which));
     }
   }
@@ -35,6 +39,18 @@ export class MakingThings {
     element("invite-count").textContent = many === 1 ? "1 invitación" : `${many} invitaciones`;
   }
 
+  /** Kept from the moment of submitting, because the form is empty by the time it has closed. */
+  private filledIn: { readonly title: string; readonly open: boolean } = { title: "", open: true };
+
+  private whatWasFilledIn(which: string): void {
+    if (which !== "create-channel") return;
+    const visibility = document.querySelector('input[name="visibility"]:checked');
+    this.filledIn = {
+      title: input("channel-name").value.trim(),
+      open: visibility instanceof HTMLInputElement && visibility.value === "public"
+    };
+  }
+
   private async closed(which: string): Promise<void> {
     const chose = dialog(which).returnValue;
     const chosen = this.picking.get(which)?.chosen() ?? [];
@@ -45,10 +61,8 @@ export class MakingThings {
 
   /** A public channel anybody can walk into, or a private one that is encrypted because only the invited read it. */
   private async createChannel(participantIds: readonly UserId[]): Promise<void> {
-    const title = input("channel-name").value.trim();
+    const { title, open } = this.filledIn;
     if (!title) return;
-    const chosen = document.querySelector('input[name="visibility"]:checked');
-    const open = chosen instanceof HTMLInputElement && chosen.value === "public";
     const made = await this.client.conversations
       .create({ title, participantIds, public: open, encrypted: !open })
       .catch(this.here.wentWrong);

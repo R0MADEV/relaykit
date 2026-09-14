@@ -28,6 +28,8 @@ export function paintHead(
     ? "Matrix · cifrado extremo a extremo"
     : "Matrix · sin cifrar";
   input("write").placeholder = `Escribe en ${person ? name : `#${name}`}…`;
+  // A conversation you were asked into is not one you are in: nothing arrives until you say yes.
+  element("invited").hidden = conversation.membership !== "invite";
   // A call to join, which is only worth offering to somebody who is not already on it.
   element("room-banner").hidden = !what.going || what.onIt;
   element("room-banner-who").textContent = `${what.going?.participants.length ?? 0} participantes`;

@@ -44,6 +44,11 @@ export class Moderating {
   wire(): void {
     onClick("people-here", () => void this.open());
     element("who-list").addEventListener("click", event => void this.pressed(event));
+    // A rank is a state event: the homeserver has it before this does. Rather than draw what was asked for
+    // and hope, the list is read again when the conversation says it moved.
+    this.client.on("conversation.updated", conversation => {
+      if (dialog("who").open && conversation.id === this.where.openId()) void this.paint();
+    });
   }
 
   private async open(): Promise<void> {

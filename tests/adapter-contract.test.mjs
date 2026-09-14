@@ -70,6 +70,13 @@ function runContract(name, setup) {
     });
 
     after(async () => {
+      // Every room this made is left behind, or a shared account collects one per run for ever — and a
+      // hundred rooms called the same thing is what a person opening the application then has to read.
+      const mine = await adapter.listConversations().catch(() => []);
+      for (const conversation of mine) {
+        if (!conversation.title?.startsWith("RelayKit contract")) continue;
+        await adapter.leaveConversation(conversation.id).catch(() => undefined);
+      }
       await cleanup?.();
     });
 

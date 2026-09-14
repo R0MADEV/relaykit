@@ -1393,3 +1393,9 @@ a.file {
   padding: 5px 9px;
   font-size: 12px;
 }
+
+/* An invitation is not an alarm: it is the same shelf as a live call, in the colour of something waiting. */
+.banner.invited {
+  border-color: #d8d5f5;
+  background: var(--tag);
+}

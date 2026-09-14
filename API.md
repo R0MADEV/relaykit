@@ -43,16 +43,24 @@ contrato, no una casualidad, y varios fallos han salido de ahí.
 
 ```
 list          create        open          join          leave         invite
-rename        remove        ban           unban         setRole       permissions
-setTopic      setAvatar     setAlias      publish       discover      knock
+current       findDirect    search        link          typing
+saveDraft     draft         pin           unpin         pinned
+
+participants  permissions   setRole       remove        ban           unban        knock
+
+rename        setTopic      setAvatar     setAlias      publish       discover
 setJoinRule   setHistoryVisibility        setUnread     setFavourite
-setNotifications            pin           unpin         pinned
-draft         typing        search        findDirect    current
-rotateKeys    upgrade
+setNotifications            rotateKeys    upgrade
 ```
 
 `open(userId)` abre la conversación de dos con esa persona, creándola si no la hay. `create` es para las de
-varios.
+varios. `link(id)` da el enlace `matrix.to` que cualquier otro cliente entiende, y que al mandarlo como
+mensaje llega al otro lado como una invitación.
+
+`participants(id)` dice **quién está y qué es cada uno**: su rango, dónde está (dentro, invitado, esperando,
+fuera, vetado) y si quien pregunta lo supera. Ese último lo decide el adaptador, porque nadie puede expulsar,
+vetar ni recolocar a quien está a su altura o por encima — y un botón que siempre falla es peor que ninguno.
+Quien está vetado sigue en la lista, porque readmitirlo solo lo puede ofrecer una lista que lo tenga.
 
 ### `client.messages`
 
@@ -64,14 +72,21 @@ markRead      readBy        unreadSince   retry         cancel
 ```
 
 `list` devuelve `Message[]`; `loadMore` sigue hacia atrás y devuelve una `MessagePage`, que además dice si
-queda más. Enviar funciona sin conexión: el mensaje se guarda y sale solo cuando vuelve la red.
+queda más. `list(id, { atLeast })` pide **cuánto abrir**: lo que el sync haya traído no es un número que
+nadie eligiera, y una conversación con historia que el homeserver todavía no ha mandado se pide en vez de
+leerse como vacía.
+
+Enviar funciona sin conexión: el mensaje se guarda y sale solo cuando vuelve la red.
+
+`threads(id)` da un resumen por hilo — cuántas respuestas cuelgan y cuáles no has leído — sin abrir ninguno.
+Lo que cuelga de un hilo **no aparece en la conversación**, ni al listar ni al llegar.
 
 ### `client.calls`
 
 ```
 place         join          answer        hangUp        reject
 muteMicrophone              muteCamera    shareScreen
-useMicrophone useCamera     quality       list
+useMicrophone useCamera     quality       list          history
 ```
 
 **Una llamada es una sala, tenga dos personas o diez.** `place` te mete en ella el primero y hace sonar a los
@@ -81,6 +96,11 @@ ti y simplemente dejas de oír hablar de ella.
 
 El audio y el vídeo los lleva un servidor (LiveKit) que **no puede leerlos**: las claves viajan por Matrix y
 cada frame sale cifrado del navegador. Matrix sigue mandando: quién puede estar, quién está, y las claves.
+
+`history(id)` da las llamadas **que ya terminaron**, leídas de la propia conversación y no recordadas por
+quien estaba mirando: entrar en una llamada se escribe en la sala y salir lo borra, y ambas cosas quedan. Así
+la misma historia se ve desde cualquier dispositivo, incluso uno que estaba apagado mientras ocurría. Una
+llamada con un solo nombre es una sala en la que nadie llegó a entrar.
 
 No hay espera, ni transferencia, ni teclas: eso es vocabulario de teléfono, y el teléfono no va por aquí.
 
@@ -95,15 +115,16 @@ La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegado
 
 | Grupo | Qué hay |
 |---|---|
-| `client.reactions` | `add`, `remove` |
+| `client.reactions` | `add`, `remove` — las que ya están llegan **en el mensaje**, en `message.reactions` |
 | `client.polls` | `start`, `vote`, `close`, `list` |
 | `client.location` | `start`, `update`, `stop`, `list` — ubicación en vivo |
 | `client.media` | `download`, `preview` (previsualización de enlaces), `limits` (lo que el servidor acepta) |
-| `client.presence` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
-| `client.devices` | `list`, `rename`, `verify`, `revoke`, `signOut`, `verification` |
+| `client.users` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
+| `client.presence` | `set` (lo que haces tú), `of(userId)` (lo que hace otro) |
+| `client.devices` | `list` (la sesión que usas primero, luego por cuándo se vio cada una), `rename`, `verify`, `revoke`, `signOut`, `verification` |
 | `client.verification` | `request`, `qrCode`, `scan`, `accept`, `confirm`, `reject`, `cancel` |
-| `client.crypto` | `status`, `backupStatus`, `setupRecovery`, `recover` |
-| `client.push` | `register`, `unregister`, `keywords`, `watchFor`, `mute`, `level`, `pending` |
+| `client.crypto` | `standing`, `status`, `backupStatus`, `setupRecovery`, `recover` |
+| `client.push` | `register`, `registered`, `unregister`, `watchFor`, `stopWatchingFor`, `keywords`, `pending`, `mute`, `unmute`, `muted`, `level`, `setLevel` |
 | `client.spaces` | `list`, `create`, `add`, `remove`, `conversations` |
 
 ---
@@ -143,11 +164,19 @@ Devuelve la función para dejar de escuchar.
 ```ts
 id  conversationId  senderId  body  createdAt  status
 editedAt?  deletedAt?  replyToId?  threadId?  attachment?  location?
-formattedBody?  mentions?  kind?  undecryptable?
+formattedBody?  mentions?  kind?  undecryptable?  reactions?  invitesTo?
 ```
 
 `undecryptable` es el caso honesto: el mensaje llegó cifrado y este dispositivo no tiene la clave. El cuerpo
 está vacío y la interfaz debería decirlo, no fingir.
+
+`reactions` son las que ya están puestas, más antiguas primero. **Vienen con el mensaje**, no se piden una por
+línea: viajan en el mismo timeline, así que una pantalla que abre una conversación ya las tiene. Lo que llega
+después son `reaction.added` y `reaction.removed`.
+
+`invitesTo` está cuando el mensaje lleva un enlace a una conversación. Se lee **del enlace**, no de una forma
+inventada aquí, así que una invitación escrita por cualquier otro cliente también se entiende. Qué hace una
+pantalla con eso —una tarjeta con una puerta, en vez de una línea de texto— es cosa suya.
 
 ### `Conversation`
 
@@ -158,6 +187,25 @@ alias?  replacedBy?  replaces?
 ```
 
 `participantIds` **incluye** a los invitados; `invitedIds` es el subconjunto que aún no ha aceptado.
+
+### `Participant`
+
+```ts
+userId  role  membership  isUnderMe
+```
+
+`role` es `"member" | "moderator" | "admin"`. `membership`, dónde está: `"join"`, `"invite"`, `"knock"`,
+`"leave"` o `"ban"`. `isUnderMe` es si quien preguntó lo supera, y es lo único que debería decidir qué botones
+se dibujan.
+
+### `PastCall`
+
+```ts
+id  conversationId  startedAt  endedAt  participantIds
+```
+
+`participantIds` es todo el que estuvo en algún momento, en el orden en que llegó. **Uno solo significa que
+nadie más entró.**
 
 ### `Call`
 

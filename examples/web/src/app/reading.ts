@@ -55,6 +55,20 @@ export class Reading {
   wire(): void {
     element("timeline").addEventListener("scroll", () => void this.scrolled());
     onClick("leave-here", () => void this.leave());
+    onClick("accept-invitation", () => void this.acceptInvitation());
+    onClick("refuse-invitation", () => void this.leave(true));
+  }
+
+  /** Saying yes to an invitation, which is the only way anything in it ever arrives. */
+  private async acceptInvitation(): Promise<void> {
+    const conversationId = this.conversationId;
+    if (!conversationId) return;
+    try {
+      await this.client.conversations.join(conversationId);
+      await this.open(conversationId);
+    } catch (error) {
+      this.around.wentWrong(error);
+    }
   }
 
   openId(): ConversationId | undefined {
@@ -188,9 +202,11 @@ export class Reading {
   }
 
   /** Leaving is not undoable in a conversation nobody can be invited back into, so it is asked for. */
-  private async leave(): Promise<void> {
+  private async leave(refusing = false): Promise<void> {
     const conversationId = this.conversationId;
-    if (!conversationId || !window.confirm("¿Salir de esta conversación?")) return;
+    if (!conversationId) return;
+    // Refusing an invitation is leaving a conversation nothing was ever read in, so nothing is lost by it.
+    if (!refusing && !window.confirm("¿Salir de esta conversación?")) return;
     element("more-menu").hidden = true;
     try {
       await this.client.conversations.leave(conversationId);

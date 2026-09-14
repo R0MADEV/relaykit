@@ -119,6 +119,16 @@
             <button class="button accent small" id="keys-act"></button>
           </div>
 
+          <!-- A conversation somebody asked you into, which you are not in until you say so. -->
+          <div class="banner invited" id="invited" role="status" hidden>
+            <span aria-hidden="true">✉</span>
+            <strong>Te han invitado a esta conversación</strong>
+            <span class="mono faint">no verás nada hasta que entres</span>
+            <div class="spacer"></div>
+            <button class="button" id="refuse-invitation">Rechazar</button>
+            <button class="button accent small" id="accept-invitation">Entrar</button>
+          </div>
+
           <div class="banner" id="room-banner" role="status" hidden>
             <span class="live-dot"></span>
             <strong>Sala activa en este canal</strong>

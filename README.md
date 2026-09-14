@@ -19,6 +19,47 @@ npm install @relaykit/web
 `@relaykit/web` incluye el cliente, el adapter Matrix y el storage IndexedDB cifrado. Para Node o para adapters
 propios, usar `@relaykit/core` directamente.
 
+## Todo lo que hay
+
+| Área | Qué se puede hacer |
+|---|---|
+| **Sesión** | entrar, registrarse, salir, restaurar la sesión de la última vez, sincronizar y reconectar |
+| **Conversaciones** | crear, entrar, salir, invitar, llamar a la puerta, buscar, abrir la de dos con alguien, el enlace que cualquier cliente entiende |
+| **Ajustes de conversación** | nombre, tema, imagen, alias público, publicar en el directorio, quién puede entrar, cuánto historial ve quien llega, favorita, silenciada, marcarla sin leer, actualizarla de versión |
+| **Moderación** | quién está y qué es cada uno, qué puedes hacer tú, dar y quitar moderador, expulsar, vetar, readmitir |
+| **Mensajes** | enviar, editar, borrar, responder, hilos, formato, menciones, reenviar, reportar, fijar, reintentar, descartar |
+| **Contenido** | ficheros, imágenes, vídeo, audio, notas de voz, stickers, ubicación y ubicación en vivo |
+| **Medios** | subir, descargar, miniaturas, adjuntos cifrados, previsualización de enlaces, lo que el servidor acepta |
+| **Reacciones** | poner, quitar — y **las que ya están vienen en el mensaje** |
+| **Lectura** | recibos, hasta dónde ha leído cada uno, contadores, lo que llegó desde la última vez |
+| **Borradores** | lo que estabas escribiendo, guardado en el servidor |
+| **Presencia** | escribiendo, y en línea / ausente / desconectado — **leer y escribir** |
+| **Gente** | perfiles, avatares, buscar en el directorio, tu nombre y tu foto, ignorar |
+| **Llamadas** | de dos o de muchas, vídeo, compartir pantalla, silenciar, calidad, elegir micrófono y cámara, **y las que ya terminaron** |
+| **Cifrado** | extremo a extremo, verificación de dispositivos por emojis, firma cruzada, copia de claves, recuperación, rotación, **y en qué estado está este dispositivo** |
+| **Dispositivos** | tus sesiones, renombrarlas, cerrarlas |
+| **Notificaciones** | push, reglas, palabras clave, silenciar a alguien, nivel por sala y por cuenta, lo que está esperando |
+| **Encuestas** | preguntar, votar, cerrar |
+| **Espacios** | agrupar conversaciones |
+| **Búsqueda** | local y en el servidor |
+| **Listas vivas** | la lista de conversaciones y el timeline de una, al día solos, **y el timeline va hacia atrás** |
+
+[API.md](API.md) tiene el detalle: cada llamada, cada evento y cada forma que devuelve.
+
+### Lo que Matrix tiene y esto todavía no
+
+Dicho para que nadie lo descubra a mitad de una integración:
+
+- **Formas de entrar**: SSO/OIDC, invitados, correo y teléfono. Solo hay usuario y contraseña.
+- **Gestión de cuenta**: cambiar contraseña, dar de baja.
+- **Etiquetas propias** y datos de cuenta arbitrarios. Favorita sí; `m.tag` no.
+- **`forget`**: salir de una sala *y* borrarla de tu historial.
+- **Jerarquía de espacios**: los espacios listan hijos, pero no hay árbol ni orden.
+- **Widgets** y **llamadas 1-a-1 clásicas** (`m.call.*`). Aquí las llamadas van por MatrixRTC.
+- **QR de verificación**: solo emojis.
+
+La API de administración de Synapse no está **ni debería**: administrar un servidor no es cosa de un cliente.
+
 ## Objetivo
 
 ```text
@@ -145,9 +186,16 @@ const conversations = createConversationList(client);
 await conversations.refresh();
 const unsubscribe = conversations.subscribe(() => pintar(conversations.get()));
 
-const timeline = createMessageTimeline(client, conversationId);
+// `atLeast` dice con cuanto abrir. Lo que el sync haya traido no es un numero que nadie eligiera.
+const timeline = createMessageTimeline(client, conversationId, { atLeast: 30 });
 await timeline.refresh();
+
+// Y va hacia atras. Devuelve si queda mas, y nunca quita de la pantalla lo que ya estaba.
+const hayMas = await timeline.loadMore();
 ```
+
+Lo que cuelga de un hilo **no entra en el timeline**, ni al listarlo ni segun llega: un hilo se lee con
+`client.messages.thread(id, rootId)`.
 
 `get()` devuelve la misma referencia mientras el contenido no cambia, asi que sirve tal cual para React:
 
@@ -203,6 +251,17 @@ identificador del servidor. Para pintarlo una sola vez, indexar por `transaction
 const key = message.transactionId ?? message.id;
 ```
 
+## Reacciones
+
+```ts
+await client.reactions.add(conversationId, messageId, "👍");
+await client.reactions.remove(conversationId, reactionId);
+```
+
+Las que **ya estan puestas** vienen con el mensaje, en `message.reactions`, mas antiguas primero. No se piden
+una por linea: viajan en el mismo timeline, asi que una pantalla que abre una conversacion ya las tiene. Lo
+que llega despues son `reaction.added` y `reaction.removed`.
+
 ## Adjuntos
 
 El outbox necesita `storage` para sobrevivir a un reinicio. Sin el, un envio pendiente solo se observa por
@@ -221,6 +280,19 @@ await client.messages.sendFile(conversationId, { name, mimeType, data, thumbnail
 const preview = message.attachment.thumbnail;
 if (preview) image.src = URL.createObjectURL(new Blob([await client.media.download(preview)], { type: preview.mimeType }));
 ```
+
+## En que estado estan las claves de este dispositivo
+
+```ts
+const estado = await client.crypto.standing();
+// "ready"            — todo montado y este dispositivo tiene la clave
+// "locked"           — hay algo en el servidor en lo que no ha entrado: una clave, u otra sesion, lo abre
+// "never-protected"  — esta cuenta nunca protegio sus claves
+```
+
+Tres respuestas porque hay **tres cosas distintas que ofrecer**, y confundirlas sale caro: ofrecerle crear una
+clave de recuperacion a quien ya tiene una **reemplaza la copia de la que dependen sus otros dispositivos**.
+Se decide una vez aqui, no en cada pantalla.
 
 ## Recuperacion E2EE
 
@@ -243,6 +315,17 @@ otra. Una clave creada justo despues puede tardar en llegar al backup hasta el s
 aplicacion.
 
 `logout()` borra el storage local. `stop()` lo conserva para reanudar la sesion.
+
+## Si alguien esta o no
+
+```ts
+await client.presence.set({ presence: "online" });      // lo que haces tu
+const suyo = await client.presence.of(userId);          // lo que hace otro
+client.on("presence.changed", ({ userId, presence }) => { /* lo que cambia mientras miras */ });
+```
+
+Leerlo hace falta porque `presence.changed` solo cuenta **lo que cambio mientras estabas mirando**, y lo que
+no cambio antes de eso sigue siendo verdad: una pantalla llena de caras tiene que poder preguntar.
 
 ## Perfiles
 
@@ -630,7 +713,18 @@ await client.conversations.setFavourite(conversationId, true);
 // Que puede hacer esta persona aqui, para no ofrecer botones que van a fallar.
 const { canRemove, canRename } = await client.conversations.permissions(conversationId);
 await client.conversations.setRole(conversationId, userId, "moderator");
+
+// Y quien esta, y que es cada uno.
+for (const quien of await client.conversations.participants(conversationId)) {
+  quien.role;        // "member" | "moderator" | "admin"
+  quien.membership;  // "join" | "invite" | "knock" | "leave" | "ban"
+  quien.isUnderMe;   // si le superas, que es lo unico que decide si hay boton
+}
 ```
+
+`isUnderMe` lo decide el adaptador, no la pantalla: nadie puede expulsar, vetar ni recolocar a quien esta a
+su altura o por encima —ni a si mismo— y saber eso es saber de niveles de poder. Quien esta vetado **sigue en
+la lista**, porque readmitirlo solo lo puede ofrecer una lista que lo tenga.
 
 ## Autenticacion
 
@@ -665,6 +759,46 @@ Una llamada es una sala, tenga dos personas o diez: la lleva un SFU (LiveKit) al
 quién puede entrar, quién está dentro y las claves con las que cada navegador cifra lo que manda, de modo que
 el servidor reparte lo que no puede leer. Para probarlo en local, [infrastructure/livekit](./infrastructure/livekit/README.md).
 
+## Las llamadas que ya terminaron
+
+```ts
+for (const llamada of await client.calls.history(conversationId, 20)) {
+  llamada.startedAt;       // cuando empezo
+  llamada.endedAt;         // y cuando se quedo vacia
+  llamada.participantIds;  // todo el que estuvo, en el orden en que llego
+}
+```
+
+Se lee **de la propia conversacion**, no de lo que recordara quien estaba mirando: entrar en una llamada se
+escribe en la sala y salir lo borra, y ambas cosas quedan. Asi la misma historia se ve desde cualquier
+dispositivo, incluso uno que estaba apagado mientras ocurria. Una llamada con **un solo nombre** es una sala
+en la que nadie llego a entrar.
+
+## Invitaciones que viajan como mensaje
+
+```ts
+const enlace = await client.conversations.link(conversationId);
+await client.messages.send(otraConversacion, enlace);
+```
+
+Al otro lado llega un mensaje con `invitesTo` puesto. Se lee **del enlace**, no de una forma inventada aqui,
+asi que una invitacion escrita por cualquier otro cliente tambien se entiende — y lo que la pantalla haga con
+eso, una tarjeta con una puerta en vez de una linea de texto, es cosa suya.
+
+## Escribir un adaptador propio
+
+Un backend que no sea Matrix implementa **diecisiete metodos**: entrar, registrarse, arrancar, parar, salir;
+listar, crear, entrar, salir e invitar en conversaciones; listar mensajes, traer mas y enviar; y quien es
+alguien. Eso es lo que la mensajeria *es*.
+
+Todo lo demas son **dieciocho capacidades opcionales** que se declaran por separado y se pueden dejar fuera
+enteras: `moderation`, `conversationSettings`, `threads`, `pins`, `receipts`, `search`, `presence`,
+`editing`, `ignoring`, `calling`, `polls`, `location`, `spaces`, `media`, `push`, `devices`, `reactions`,
+`crypto`.
+
+Un adaptador que no las trae no falla al arrancar: la biblioteca responde `NOT_SUPPORTED` a quien lo pida, en
+un solo sitio. Decirlo **no estando** es mejor que una docena de metodos que existen para negarse.
+
 ## Alcance
 
 RelayKit se encarga de la experiencia de mensajería del cliente:
@@ -676,8 +810,9 @@ RelayKit se encarga de la experiencia de mensajería del cliente:
 - persistencia local
 - eventos tipados
 - multimedia
-- llamadas y videoconferencias cifradas, de dos personas o de muchas
-- integración con E2EE de Matrix
+- llamadas y videoconferencias cifradas, de dos personas o de muchas, y las que ya terminaron
+- moderación: quién está, qué es cada uno y qué puedes hacerle
+- integración con E2EE de Matrix, y en qué estado están las claves de este dispositivo
 
 En el navegador, `@relaykit/web` configura IndexedDB automáticamente cuando existe una sesión identificada. Los cuerpos
 de mensajes del store propio se cifran con AES-GCM usando la sesión como secreto. Los stores de RelayKit y Matrix
