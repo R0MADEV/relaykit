@@ -74,6 +74,13 @@ interface Report {
 export interface InMemoryAdapterOptions {
   readonly conversations?: readonly Conversation[];
   readonly messages?: readonly Message[];
+  /**
+   * How many of a conversation's messages reading it gives, newest last, with the rest reached by going back.
+   *
+   * A homeserver hands over the end of a conversation and keeps the rest until it is asked. Left out, this
+   * double hands over everything, which is what most tests want and what it has always done.
+   */
+  readonly showAtMost?: number;
 }
 
 /** What a message invites into, when it carries a link to somewhere. Nothing, when it carries none. */
@@ -95,6 +102,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly knocks = new Map<ConversationId, Knock[]>();
   private readonly reported: Report[] = [];
   private readonly published = new Set<ConversationId>();
+  /** How far back each conversation has been read, for a double that hands over the end and keeps the rest. */
+  private readonly reached = new Map<ConversationId, number>();
 
   private readonly receipts: ReadReceipt[] = [];
   private readonly attachments = new Map<string, Uint8Array>();
@@ -127,7 +136,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     nextId: () => this.nextMessageId++
   });
 
-  constructor(options: InMemoryAdapterOptions = {}) {
+  constructor(private readonly options: InMemoryAdapterOptions = {}) {
     this.conversations = [...(options.conversations ?? [])];
     this.messages = [...(options.messages ?? [])];
   }
@@ -414,10 +423,19 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async listMessages(conversationId: ConversationId): Promise<readonly Message[]> {
-    // What hangs from a thread lives in the thread, not in the middle of the conversation.
+    return this.said(conversationId).slice(-this.showing(conversationId));
+  }
+
+  /** What was said in a conversation. What hangs from a thread lives in the thread, not in the middle of it. */
+  private said(conversationId: ConversationId): readonly Message[] {
     return this.messages.filter(
       message => message.conversationId === conversationId && message.threadId === undefined
     );
+  }
+
+  /** How far back this conversation has been asked for, which starts at whatever a screen opens with. */
+  private showing(conversationId: ConversationId): number {
+    return this.reached.get(conversationId) ?? this.options.showAtMost ?? Number.MAX_SAFE_INTEGER;
   }
 
   private readonly pinned = new Map<ConversationId, Set<MessageId>>();
@@ -503,9 +521,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.setPowerLevel(conversationId, userId, levels[role]);
   }
 
-  async loadMoreMessages(conversationId: ConversationId, _limit: number): Promise<MessagePage> {
-    // There is no remote history behind this adapter, so the local timeline is always complete.
-    return { messages: await this.listMessages(conversationId), hasMore: false };
+  async loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage> {
+    const said = this.said(conversationId);
+    const reached = Math.min(this.showing(conversationId) + limit, said.length);
+    this.reached.set(conversationId, reached);
+    return { messages: said.slice(-reached), hasMore: reached < said.length };
   }
 
   async sendMessage(

@@ -55,14 +55,6 @@ function asDatasetKey(mark: string): string {
   return mark.replace(/-([a-z])/g, (_whole, letter: string) => letter.toUpperCase());
 }
 
-/** Text on its way into markup. Anybody can call a conversation `<img onerror=…>` and somebody will. */
-export function safe(text: string): string {
-  return text.replace(/[&<>"]/g, character => escapes[character] ?? character);
-}
-
-const escapes: Readonly<Record<string, string>> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;"
-};
+// Escaping lives with the text that needs it, and is handed on from here so nothing has two places
+// to import the same thing from.
+export { safe } from "./writing.js";

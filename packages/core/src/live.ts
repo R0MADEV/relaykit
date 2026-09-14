@@ -96,6 +96,18 @@ class Collection<Item> {
   }
 }
 
+/**
+ * A timeline that can also go backwards.
+ *
+ * Reaching further back is part of reading a conversation, not a separate thing an application has to sew
+ * onto one: without it, a live timeline is only ever the end of the conversation and whoever scrolls up
+ * reloads it by hand and reconciles the result themselves.
+ */
+export interface LiveTimeline extends LiveCollection<Message> {
+  /** Goes back by `limit` more and answers whether there is anything older still. */
+  readonly loadMore: (limit?: number) => Promise<boolean>;
+}
+
 /** The conversations the user takes part in, ordered as `conversations.list` returns them. */
 export function createConversationList(client: MessagingClient): LiveCollection<Conversation> {
   const collection = new Collection<Conversation>(
@@ -132,7 +144,7 @@ export function createMessageTimeline(
   client: MessagingClient,
   conversationId: ConversationId,
   options?: ListMessagesOptions
-): LiveCollection<Message> {
+): LiveTimeline {
   const collection = new Collection<Message>(
     () => client.messages.list(conversationId, options),
     error => client.emitListenerError(error)
@@ -143,8 +155,17 @@ export function createMessageTimeline(
   };
   collection.follow(client.on("message.received", apply));
   collection.follow(client.on("message.updated", apply));
-  return collection;
+  return Object.assign(collection, {
+    loadMore: async (limit = defaultStepBack): Promise<boolean> => {
+      const page = await client.messages.loadMore(conversationId, limit);
+      collection.replace([...page.messages].sort(byOldestFirst));
+      return page.hasMore;
+    }
+  });
 }
+
+/** How much further back to go when nobody says, which is about a screenful. */
+const defaultStepBack = 20;
 
 /** A queued message arrives again with its server id once sent, so the transaction id is what links both. */
 function keyOf(message: Message): string {

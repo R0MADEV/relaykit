@@ -1,6 +1,12 @@
+/**
+ * The list of everything there is to talk in: the channels, and the people.
+ *
+ * What goes where is decided here rather than by whoever hands the list over, because it is one rule read two
+ * ways — a conversation between two people with no name of its own is a person, however it was made.
+ */
 import type { Conversation, ConversationId, UserId } from "@relaykit/web";
 import type { People } from "./people.js";
-import { safe } from "./dom.js";
+import { element, pressedIn, safe } from "./dom.js";
 
 /**
  * What a conversation is called.
@@ -108,4 +114,46 @@ function faceOf(userId: UserId | undefined, people: People): string {
 function dot(userId: UserId | undefined, people: People): string {
   const there = userId ? people.dotFor(userId) : undefined;
   return there ? ` data-there="${there}"` : "";
+}
+
+/** The list itself: painted from the conversations as they stand, and the one thing that opens one. */
+export class Sidebar {
+  constructor(
+    private readonly what: {
+      readonly people: People;
+      readonly me: UserId;
+      readonly conversations: () => readonly Conversation[];
+      readonly openId: () => ConversationId | undefined;
+      readonly liveIn: () => ReadonlySet<ConversationId>;
+      readonly open: (conversationId: ConversationId) => void;
+    }
+  ) {}
+
+  wire(): void {
+    element("lists").addEventListener("click", event => {
+      const conversationId = pressedIn(event, "conversation");
+      if (conversationId) this.what.open(conversationId);
+    });
+  }
+
+  paint(): void {
+    const all = this.what.conversations();
+    const where: Where = {
+      people: this.what.people,
+      me: this.what.me,
+      openId: this.what.openId(),
+      live: this.what.liveIn()
+    };
+    paintChannels(element("channels"), all.filter(notBetweenTwo), where);
+    paintDirects(element("directs"), onePerPerson(all.filter(isBetweenTwo), this.what.me), where);
+    // A conversation with no name of its own is called by who is in it, so those names have to be known.
+    for (const conversation of all) {
+      if (conversation.title ?? conversation.alias) continue;
+      this.what.people.learn(conversation.participantIds.slice(0, 4), conversation.id);
+    }
+  }
+}
+
+function notBetweenTwo(conversation: Conversation): boolean {
+  return !isBetweenTwo(conversation);
 }

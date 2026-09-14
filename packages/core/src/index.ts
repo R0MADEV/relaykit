@@ -30,7 +30,12 @@ export {
   longestLocationShareMs,
   verificationMethods
 } from "./models.js";
-export { createConversationList, createMessageTimeline, type LiveCollection } from "./live.js";
+export {
+  createConversationList,
+  createMessageTimeline,
+  type LiveCollection,
+  type LiveTimeline
+} from "./live.js";
 export type {
   Attachment,
   MediaRef,

@@ -44,7 +44,7 @@
         <aside class="sidebar">
           <div class="sidebar-top">
             <label class="search">
-              <input id="search" type="search" placeholder="Buscar en mensajes" />
+              <input id="search" type="search" placeholder="Buscar en mensajes" autocomplete="off" />
               <span class="search-icon" aria-hidden="true">⌕</span>
             </label>
             <div class="new">
@@ -59,10 +59,14 @@
           </div>
 
           <nav class="lists" id="lists">
-            <p class="list-label">Canales <button class="add" aria-label="Añadir canal">+</button></p>
+            <p class="list-label">
+              Canales
+              <button class="add" data-opens="create-channel" aria-label="Crear canal">+</button>
+            </p>
             <ul id="channels"></ul>
             <p class="list-label">
-              Mensajes directos <button class="add" aria-label="Nuevo mensaje">+</button>
+              Mensajes directos
+              <button class="add" data-opens="new-message" aria-label="Iniciar mensaje nuevo">+</button>
             </p>
             <ul id="directs"></ul>
           </nav>
@@ -83,7 +87,7 @@
               <button class="button accent" id="open-room">
                 <span aria-hidden="true">▭</span> Abrir sala
               </button>
-              <button class="icon-button" aria-label="Buscar aquí">⌕</button>
+              <button class="icon-button" id="search-here" aria-label="Buscar en esta conversación">⌕</button>
             </div>
           </header>
 
@@ -109,16 +113,23 @@
 
           <div class="timeline" id="timeline"></div>
 
+          <!-- What a search turned up, in place of the conversation while there is something to show. -->
+          <div class="timeline results" id="results" hidden>
+            <p class="results-head">
+              <span id="results-said"></span>
+              <button class="button" id="results-close">Volver a la conversación</button>
+            </p>
+            <div id="results-list"></div>
+          </div>
+
           <p class="typing" id="typing"></p>
 
           <form class="composer" id="composer">
-            <div class="tools">
-              <button type="button" aria-label="Negrita"><b>B</b></button>
-              <button type="button" aria-label="Cursiva"><i>I</i></button>
-              <button type="button" aria-label="Código">&lt;/&gt;</button>
-              <button type="button" aria-label="Enlace">🔗</button>
-              <button type="button" aria-label="Mencionar">@</button>
-              <button type="button" aria-label="Responder">↩</button>
+            <div class="tools" id="tools">
+              <button type="button" data-styles="bold" aria-label="Negrita"><b>B</b></button>
+              <button type="button" data-styles="italic" aria-label="Cursiva"><i>I</i></button>
+              <button type="button" data-styles="code" aria-label="Código">&lt;/&gt;</button>
+              <button type="button" data-styles="link" aria-label="Enlace">🔗</button>
             </div>
             <div class="write">
               <input id="write" autocomplete="off" />

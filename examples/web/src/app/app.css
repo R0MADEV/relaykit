@@ -1055,3 +1055,39 @@ body {
   font-size: 26px;
   line-height: 1;
 }
+
+/* --- what a search turned up -------------------------------------------- */
+.results-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.results-head .button {
+  margin-left: auto;
+}
+.found {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.found:hover {
+  background: var(--hover);
+}
+.found-what {
+  display: grid;
+  gap: 3px;
+}
+.tools button[data-styles] {
+  cursor: pointer;
+}
