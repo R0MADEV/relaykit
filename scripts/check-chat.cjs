@@ -1,6 +1,11 @@
 "use strict";
 // Two people using the application, in two real browsers.
 //
+// NOT IN CI YET. Everything up to and including the search passes; the step where the other side sees what
+// was said is failing and the cause is not settled. The library is not it — two clients joining a public
+// room and reading it works outside the browser, checked — so it is this application or this script, and a
+// check nobody has made pass is a check that teaches nothing.
+//
 // The unit tests prove what the library answers and the contract tests prove what the homeserver does.
 // Neither can say whether somebody can attach a picture and have the other side see it, open a thread, find
 // something that was said, take a moderator's rank away, or come back to a half-written message. That is the
@@ -81,6 +86,9 @@ async function main() {
   await Promise.all([signIn(one, alice), signIn(other, bob)]);
 
   const channel = `prueba-${Date.now()}`;
+  // Two, because leaving a conversation and coming back is what a draft has to survive.
+  const somewhereElse = `otra-${Date.now()}`;
+  await makeTheChannel(one, somewhereElse);
   await makeTheChannel(one, channel);
   await openChannel(one, channel, "alice");
   await theOtherWalksIn(other, channel);
@@ -89,7 +97,7 @@ async function main() {
   await aThreadHangsFromIt(one, other);
   await aPictureArrives(one, other);
   await searchingFindsIt(one);
-  await aDraftSurvivesLeaving(one, channel);
+  await aDraftSurvivesLeaving(one, channel, somewhereElse);
 
   server.close();
   report(true, "two people talked, threaded, attached, searched and kept a draft");
@@ -110,17 +118,21 @@ async function makeTheChannel(page, name) {
     `
     document.getElementById("channel-name").value = ${JSON.stringify(name)};
     document.querySelector('input[name="visibility"][value="public"]').checked = true;
-    document.querySelector('#create-channel button[value="create"]').click();
   `
   );
-  detail.channel = name;
-  await new Promise(resolve => setTimeout(resolve, 3000));
   console.log(
-    "after creating:",
-    await read(page, `document.getElementById("channels").textContent.replace(/\\s+/g, " ").slice(0, 200)`)
+    "before clicking:",
+    await read(
+      page,
+      `JSON.stringify({
+    name: document.getElementById("channel-name").value,
+    checked: document.querySelector('input[name="visibility"]:checked')?.value,
+    button: Boolean(document.querySelector('#create-channel button[value="create"]'))
+  })`
+    )
   );
-  console.log("wrong:", await read(page, `document.getElementById("sign-in-wrong").textContent`));
-  console.log("dialog said:", await read(page, `document.getElementById("create-channel").returnValue`));
+  await run(page, `document.querySelector('#create-channel button[value="create"]').click();`);
+  detail.channel = name;
 }
 
 /** The other side finds it in the list of public channels and walks in, which is the whole of that screen. */
@@ -138,8 +150,11 @@ async function theOtherWalksIn(page, name) {
     document.getElementById("explore-search").dispatchEvent(new Event("input"));
   `
   );
-  await waitFor(page, `#${name} to be findable`, `document.querySelector("[data-joins]") !== null`, 90);
-  await run(page, `document.querySelector("[data-joins]").click();`);
+  // By name, not the first row: the homeserver's directory answers loosely and this account has more than
+  // one public channel.
+  const row = `[...document.querySelectorAll("#explore-found li")].find(each => each.textContent.includes(${JSON.stringify(name)}))`;
+  await waitFor(page, `#${name} to be findable`, `Boolean(${row})`, 90);
+  await run(page, `${row}.querySelector("[data-joins]").click();`);
   await waitFor(
     page,
     "the other side to be in",
@@ -225,7 +240,7 @@ async function searchingFindsIt(page) {
   await run(page, `document.getElementById("results-close").click();`);
 }
 
-async function aDraftSurvivesLeaving(page, channel) {
+async function aDraftSurvivesLeaving(page, channel, somewhereElse) {
   const halfWritten = `a medias ${Date.now()}`;
   await run(
     page,
@@ -236,18 +251,14 @@ async function aDraftSurvivesLeaving(page, channel) {
   );
   // Long enough for what is typed to be put away, which is deliberately not on every keystroke.
   await new Promise(resolve => setTimeout(resolve, 1500));
-  // Somewhere else and back again. A fresh account has nowhere else, so the search results stand in for it:
-  // what matters is that the box was left and came back, not where it went.
-  await run(
+  // Somewhere else and back again, which is the whole of what a draft has to survive.
+  await openChannel(page, somewhereElse, "alice");
+  await waitFor(
     page,
-    `
-    document.getElementById("search").value = "nada de nada";
-    document.getElementById("search").dispatchEvent(new Event("input"));
-  `
+    "the other conversation to be empty",
+    `document.getElementById("write").value === ""`,
+    30
   );
-  await waitFor(page, "the conversation to be left", `!document.getElementById("results").hidden`, 30);
-  await run(page, `document.getElementById("results-close").click();`);
-  await run(page, `document.getElementById("write").value = "";`);
   await openChannel(page, channel, "alice");
   await waitFor(
     page,

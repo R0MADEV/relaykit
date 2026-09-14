@@ -52,6 +52,9 @@ jobs:
       - name: Check a call between two browsers
         run: xvfb-run --auto-servernum npm run check:calls
 
+      - name: Check protecting, unlocking and vouching for keys across three devices
+        run: xvfb-run --auto-servernum npm run check:keys
+
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
 

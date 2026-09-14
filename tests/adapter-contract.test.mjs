@@ -67,6 +67,10 @@ function runContract(name, setup) {
       conversationId = conversation.id;
       assert.equal(typeof conversation.id, "string");
       assert.ok(conversation.id.length > 0);
+      // Asserted here, on a freshly started adapter, because that is when it goes wrong: a conversation
+      // described before its own state has arrived comes back with no name and the wrong door, and whoever
+      // paints what was handed to them paints exactly that.
+      assert.equal(conversation.title, "RelayKit contract");
     });
 
     after(async () => {
@@ -906,6 +910,21 @@ function runContract(name, setup) {
         return listed.find(message => message.id === sent.id);
       });
       assert.equal(readBack.formattedBody, `<strong>${body}</strong>`);
+    });
+
+    it("hands back a conversation that already is what it was asked to be", async () => {
+      // If an operation comes back, what it did can be read. A conversation described before its own state
+      // has arrived is a conversation with no name and the wrong door, and whoever painted it painted that.
+      const name = `RelayKit contract named ${Date.now()}`;
+      const made = await adapter.createConversation({
+        participantIds: [],
+        title: name,
+        public: true,
+        encrypted: false
+      });
+
+      assert.equal(made.title, name);
+      assert.equal(made.joinRule, "public");
     });
 
     it("says who is in a conversation, ranks one of them, and shows them the door", async () => {

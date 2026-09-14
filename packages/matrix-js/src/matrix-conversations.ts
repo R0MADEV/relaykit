@@ -1,4 +1,4 @@
-import { EventType, Preset, Visibility, type MatrixClient, type Room } from "matrix-js-sdk";
+import { EventType, JoinRule, Preset, Visibility, type MatrixClient, type Room } from "matrix-js-sdk";
 import { waitForRoom, waitUntilRoomIsUsable } from "./matrix-room-operations.js";
 import type { Conversation, CreateConversationInput } from "@relaykit/core";
 import {} from "./matrix-mapper.js";
@@ -61,10 +61,41 @@ export async function createMatrixConversation(
   // encrypted. And nobody should assume that last one, because encryption cannot be taken off afterwards.
   const room = await waitForRoom(client, response.room_id);
   await waitUntilRoomIsUsable(room);
+  await waitUntilItIsWhatWasAskedFor(room, input);
   // Whether it is encrypted is asked of the server rather than waiting for sync to say so, which comes
   // later. This cannot be assumed, nor answered with "not known yet": encryption cannot be taken off, and
   // whoever creates a conversation so support can read it needs to know then, not later.
   return { ...mapConversation(room), isEncrypted: await isEncryptedOnTheServer(client, response.room_id) };
+}
+
+/**
+ * Waits until the room really is what was asked for.
+ *
+ * The name and the door went out in the same request as the room itself, and they come back in the same sync
+ * — but not necessarily in the same turn as the create event. A conversation handed over before they arrive
+ * is called "Empty room" and is shut to everybody, and whoever paints what was handed to them paints that.
+ * Nothing here asks the homeserver again: it waits for what is already on its way.
+ */
+async function waitUntilItIsWhatWasAskedFor(
+  room: Room,
+  input: CreateConversationInput,
+  timeoutMs = 10000
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const named = !input.title || room.name === input.title;
+    const openToAnybody = !input.public || joinRuleOf(room) === JoinRule.Public;
+    if (named && openToAnybody) return;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  // Not a failure: the conversation exists and is usable. What it is called may simply be slower than this.
+}
+
+function joinRuleOf(room: Room): string | undefined {
+  const rule: unknown = room.currentState
+    .getStateEvents(EventType.RoomJoinRules, "")
+    ?.getContent()?.join_rule;
+  return typeof rule === "string" ? rule : undefined;
 }
 
 async function isEncryptedOnTheServer(client: MatrixClient, conversationId: string): Promise<boolean> {

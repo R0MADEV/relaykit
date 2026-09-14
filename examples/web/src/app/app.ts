@@ -190,10 +190,10 @@ class Deitu {
     // Asked once on the way in, a conversation the homeserver had not finished describing keeps its answer,
     // so it is read again whenever the conversation moves and once catching up is over.
     this.client.on("conversation.updated", conversation => {
-      if (conversation.id === this.reading?.openId()) void this.reading?.reload();
+      if (conversation.id === this.reading?.openId()) void this.reading?.refresh();
     });
     this.client.on("sync.changed", status => {
-      if (status === "synced") void this.reading?.reload();
+      if (status === "synced") void this.reading?.refresh();
     });
     this.client.on("reaction.added", () => void this.reading?.reload());
     this.client.on("reaction.removed", () => void this.reading?.reload());

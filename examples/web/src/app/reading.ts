@@ -105,6 +105,18 @@ export class Reading {
     element("timeline").scrollTop = element("timeline").scrollHeight;
   }
 
+  /**
+   * Reads the timeline again from the adapter, rather than waiting for a message to arrive.
+   *
+   * A conversation just joined has no timeline yet: the state comes first and what was said follows, and
+   * nothing here is listening for "the room finally has history". So when the conversation says it moved,
+   * it is asked again.
+   */
+  async refresh(): Promise<void> {
+    await this.timeline?.refresh();
+    await this.reload();
+  }
+
   /** Everything a conversation shows, read together: what was said, the calls that are over, and the threads. */
   async reload(): Promise<void> {
     const conversationId = this.conversationId;
