@@ -1,4 +1,4 @@
-import { EventType, Preset, RoomType, Visibility, type MatrixClient } from "matrix-js-sdk";
+import { EventType, KnownMembership, Preset, RoomType, Visibility, type MatrixClient } from "matrix-js-sdk";
 import type { Conversation, CreateSpaceInput, Space } from "@relaykit/core";
 import { mapConversation } from "./matrix-mapper.js";
 
@@ -9,7 +9,7 @@ export function listMatrixSpaces(client: MatrixClient): readonly Space[] {
   return client
     .getRooms()
     .filter(room => room.isSpaceRoom())
-    .filter(room => room.getMyMembership() === "join")
+    .filter(room => room.getMyMembership() === KnownMembership.Join)
     .map(room => ({ id: room.roomId, ...(room.name ? { title: room.name } : {}) }));
 }
 

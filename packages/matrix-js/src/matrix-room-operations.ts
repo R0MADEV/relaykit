@@ -3,6 +3,7 @@ import {
   ClientEvent,
   EventStatus,
   EventType,
+  KnownMembership,
   MatrixEvent,
   MsgType,
   type MatrixClient,
@@ -38,7 +39,8 @@ export function listMatrixConversations(client: MatrixClient): readonly Conversa
     // A space groups conversations, so it is not one of them.
     const isSpace = room.isSpaceRoom();
     if (isSpace) continue;
-    if (room.getMyMembership() === "join" || room.getMyMembership() === "invite") {
+    const membership = room.getMyMembership();
+    if (membership === KnownMembership.Join || membership === KnownMembership.Invite) {
       conversations.push(mapConversation(room));
     }
   }
@@ -148,7 +150,7 @@ async function sendOnce(
 export async function waitUntilRoomIsUsable(room: Room, timeoutMs = 15000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const isJoined = room.getMyMembership() === "join";
+    const isJoined = room.getMyMembership() === KnownMembership.Join;
     const hasState = room.currentState.getStateEvents(EventType.RoomCreate, "") !== null;
     if (isJoined && hasState) return;
     await new Promise(resolve => setTimeout(resolve, 100));

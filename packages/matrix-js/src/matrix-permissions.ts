@@ -1,4 +1,4 @@
-import { EventType, type MatrixClient } from "matrix-js-sdk";
+import { EventType, KnownMembership, type MatrixClient, type Membership } from "matrix-js-sdk";
 import type {
   ConversationPermissions,
   ConversationRole,
@@ -57,7 +57,7 @@ export async function listMatrixParticipants(
       membership: membershipOf(member.membership),
       isUnderMe: member.powerLevel < mine
     }))
-    .filter(participant => participant.membership !== "leave");
+    .filter(participant => participant.membership !== KnownMembership.Leave);
 }
 
 function roleOf(level: number): ConversationRole {
@@ -66,8 +66,13 @@ function roleOf(level: number): ConversationRole {
   return "member";
 }
 
-/** Anything the homeserver says that is not one of the five is somebody who is not there. */
-function membershipOf(said: string | undefined): ParticipantMembership {
-  const known: readonly ParticipantMembership[] = ["join", "invite", "knock", "leave", "ban"];
-  return known.find(each => each === said) ?? "leave";
+/**
+ * Anything the homeserver says that the SDK does not know is somebody who is not there.
+ *
+ * The names are the SDK's own, not a list written out again here: `Membership` is deliberately wider than
+ * the five, because a homeserver may say something nobody has heard of yet.
+ */
+function membershipOf(said: Membership | undefined): ParticipantMembership {
+  const known: readonly ParticipantMembership[] = Object.values(KnownMembership);
+  return known.find(each => each === said) ?? KnownMembership.Leave;
 }

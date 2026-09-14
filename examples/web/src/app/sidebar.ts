@@ -11,31 +11,16 @@ import { element, pressedIn, safe } from "./dom.js";
 /**
  * What a conversation is called.
  *
- * Its own name if it has one, then the name people type instead of the identifier, and failing both, whoever
- * is in it — which is what a conversation with no name is to anybody reading. The identifier is never shown:
- * `!xdaZyxIsWTWbfHZvoN:localhost` tells nobody anything.
+ * A conversation always has a name: where nobody gave it one, the adapter works it out from who is in it,
+ * the way the protocol says to. Nothing is invented here on top of that.
  */
-export function titleOf(conversation: Conversation, people: People, me: UserId): string {
-  if (conversation.title) return conversation.title;
-  if (conversation.alias) return conversation.alias;
-  const others = conversation.participantIds.filter(participant => participant !== me);
-  if (others.length === 0) return "Conversación vacía";
-  const named = others.slice(0, 3).map(participant => people.nameOf(participant));
-  const rest = others.length - named.length;
-  return rest > 0 ? `${named.join(", ")} +${rest}` : named.join(", ");
+export function titleOf(conversation: Conversation): string {
+  return conversation.title ?? conversation.alias ?? conversation.id;
 }
 
-/**
- * Whether a conversation is one person talking to another.
- *
- * The flag when there is one, and otherwise what it plainly is: two people and no name is a direct chat,
- * however it was made. A room made by a script without the flag is still two people to whoever reads it, and
- * putting it under channels called by the other person's name is a channel nobody can tell from a person.
- */
+/** Whether a conversation is one person talking to another, which is a thing the protocol records. */
 export function isBetweenTwo(conversation: Conversation): boolean {
-  if (conversation.isDirect) return true;
-  const hasAName = Boolean(conversation.title ?? conversation.alias);
-  return !hasAName && conversation.participantIds.length === 2;
+  return conversation.isDirect === true;
 }
 
 /**
@@ -63,7 +48,7 @@ export function paintChannels(into: HTMLElement, conversations: readonly Convers
   into.innerHTML = conversations
     .map(conversation => {
       const shut = conversation.joinRule !== "public";
-      const name = titleOf(conversation, where.people, where.me);
+      const name = titleOf(conversation);
       return row(
         conversation,
         where,
@@ -79,7 +64,7 @@ export function paintDirects(into: HTMLElement, conversations: readonly Conversa
   into.innerHTML = conversations
     .map(conversation => {
       const other = conversation.participantIds.find(participant => participant !== where.me);
-      const name = titleOf(conversation, where.people, where.me);
+      const name = titleOf(conversation);
       const theirs = other ? face(where.people, other) : '<span class="avatar">·</span>';
       return row(conversation, where, `${theirs}<span class="name">${safe(name)}</span>`);
     })

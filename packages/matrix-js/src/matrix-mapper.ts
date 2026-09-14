@@ -4,6 +4,7 @@ import {
   MsgType,
   ReceiptType,
   EventType,
+  KnownMembership,
   NotificationCountType,
   RelationType,
   type Room,
@@ -197,19 +198,23 @@ export function mapConversation(room: Room): Conversation {
   const lastMessage = messages.at(-1);
   const members = room
     .getMembers()
-    .filter(member => member.membership === "join" || member.membership === "invite");
+    .filter(
+      member => member.membership === KnownMembership.Join || member.membership === KnownMembership.Invite
+    );
   const conversation: Conversation = {
     id: room.roomId,
     title: room.name,
     // Whoever left or was banned is no longer part of the conversation, only those in it or invited to it.
     participantIds: members.map(member => member.userId),
-    invitedIds: members.filter(member => member.membership === "invite").map(member => member.userId),
+    invitedIds: members
+      .filter(member => member.membership === KnownMembership.Invite)
+      .map(member => member.userId),
     // Whoever asked to come in is still at the door, so they are listed apart from the participants.
     knockingIds: room
       .getMembers()
-      .filter(member => member.membership === "knock")
+      .filter(member => member.membership === KnownMembership.Knock)
       .map(member => member.userId),
-    membership: room.getMyMembership() === "invite" ? "invite" : "join",
+    membership: room.getMyMembership() === KnownMembership.Invite ? "invite" : "join",
     unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total),
     ...(isDirectRoom(room) ? { isDirect: true } : {}),
     ...(room.tags?.["m.favourite"] ? { isFavourite: true } : {}),
