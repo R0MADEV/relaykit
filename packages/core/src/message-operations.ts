@@ -13,7 +13,14 @@ export function byOldestFirst(left: Message, right: Message): number {
   return left.createdAt - right.createdAt || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 import { OutboxOperations, type OutboxOperationsContext } from "./outbox-operations.js";
-import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
+import type {
+  MessagingAdapter,
+  MediaAdapter,
+  EditingAdapter,
+  ReceiptsAdapter,
+  SearchAdapter,
+  ThreadsAdapter
+} from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
@@ -128,7 +135,7 @@ export class MessageOperations {
     if (!query.trim()) {
       throw new SdkError("INVALID_INPUT", "Search query cannot be empty");
     }
-    return this.context.adapter.searchMessages(query.trim());
+    return this.searching.searchMessages(query.trim());
   }
 
   /**
@@ -144,7 +151,7 @@ export class MessageOperations {
     const stored = this.context.storage ? await this.context.storage.getMessages(conversationId) : [];
     const storedAnswers = stored.filter(message => message.threadId === root).sort(byOldestFirst);
     try {
-      const answers = await this.context.adapter.listThread(conversationId, root);
+      const answers = await this.threading.listThread(conversationId, root);
       for (const message of answers) this.receivedMessageIds.add(message.id);
       await this.keepThread(answers, storedAnswers);
       return this.merge(storedAnswers, answers);
@@ -294,7 +301,7 @@ export class MessageOperations {
     if (!message) {
       throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
-    await this.context.adapter.reportMessage(message.conversationId, messageId, reason.trim());
+    await this.editing.reportMessage(message.conversationId, messageId, reason.trim());
   }
 
   /** Asks for older messages until there are enough to read, or until the conversation has no more. */
@@ -354,7 +361,7 @@ export class MessageOperations {
    */
   async threads(conversationId: ConversationId): Promise<readonly ThreadSummary[]> {
     this.context.assertStarted();
-    return this.context.adapter.listThreads(conversationId);
+    return this.threading.listThreads(conversationId);
   }
 
   /** Who has read a message, so an application can show it without knowing anything about receipts. */
@@ -363,7 +370,7 @@ export class MessageOperations {
     if (!messageId.trim()) {
       throw new SdkError("INVALID_INPUT", "A message id is required");
     }
-    return this.context.adapter.getReadReceipts(conversationId, messageId);
+    return this.receipts.getReadReceipts(conversationId, messageId);
   }
 
   /**
@@ -379,12 +386,12 @@ export class MessageOperations {
     // A thread is read on its own: saying so does not say the conversation was read, so none of what is
     // remembered about the conversation applies, and neither does the mark somebody left on it.
     if (options.threadId) {
-      await this.context.adapter.markMessageRead(conversationId, messageId, options);
+      await this.receipts.markMessageRead(conversationId, messageId, options);
       return;
     }
     if (this.lastReadByConversation.get(conversationId) === messageId) return;
     try {
-      await this.context.adapter.markMessageRead(conversationId, messageId, options);
+      await this.receipts.markMessageRead(conversationId, messageId, options);
       this.lastReadByConversation.set(conversationId, messageId);
       this.readToTellAbout.delete(conversationId);
       // Somebody reading a conversation is not somebody who left it for later.
@@ -483,5 +490,37 @@ export class MessageOperations {
     const media = this.context.adapter.media;
     if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
     return media;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get editing(): EditingAdapter {
+    const found = this.context.adapter.editing;
+    if (!found)
+      throw new SdkError(
+        "NOT_SUPPORTED",
+        "Editing and deleting messages is not something this homeserver has"
+      );
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get receipts(): ReceiptsAdapter {
+    const found = this.context.adapter.receipts;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Read receipts are not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get searching(): SearchAdapter {
+    const found = this.context.adapter.search;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get threading(): ThreadsAdapter {
+    const found = this.context.adapter.threads;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Threads are not something this homeserver has");
+    return found;
   }
 }

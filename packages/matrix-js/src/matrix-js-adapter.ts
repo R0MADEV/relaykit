@@ -45,7 +45,16 @@ import type {
   PollsAdapter,
   PushAdapter,
   ReactionsAdapter,
-  SpacesAdapter
+  SpacesAdapter,
+  ConversationSettingsAdapter,
+  EditingAdapter,
+  IgnoringAdapter,
+  ModerationAdapter,
+  PinsAdapter,
+  PresenceAdapter,
+  ReceiptsAdapter,
+  SearchAdapter,
+  ThreadsAdapter
 } from "@relaykit/core";
 import { ReceiptType } from "matrix-js-sdk";
 import { loginWithPassword, registerWithPassword } from "./matrix-auth.js";
@@ -128,6 +137,22 @@ import { MatrixShares } from "./matrix-shares.js";
 import { listMatrixPastCalls } from "./matrix-call-history.js";
 
 export class MatrixJsAdapter implements MessagingAdapter {
+  /**
+   * The optional halves this adapter can do, which is all of them.
+   *
+   * `this` rather than an object of its own: the class already has every one of those methods, so it
+   * satisfies each of those shapes as it stands. Saying it here is what tells the library it does.
+   */
+  readonly conversationSettings: ConversationSettingsAdapter = this;
+  readonly editing: EditingAdapter = this;
+  readonly ignoring: IgnoringAdapter = this;
+  readonly moderation: ModerationAdapter = this;
+  readonly pins: PinsAdapter = this;
+  readonly presence: PresenceAdapter = this;
+  readonly receipts: ReceiptsAdapter = this;
+  readonly search: SearchAdapter = this;
+  readonly threads: ThreadsAdapter = this;
+
   /** Files on their way up, so one can be stopped while it is going. */
   private readonly files = new MatrixMedia();
 

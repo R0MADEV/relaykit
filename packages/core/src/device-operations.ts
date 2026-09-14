@@ -1,6 +1,12 @@
 import { SdkError } from "./errors.js";
 import { notificationLevels } from "./models.js";
-import type { MessagingAdapter, CryptoAdapter, DevicesAdapter, PushAdapter } from "./adapter.js";
+import type {
+  MessagingAdapter,
+  CryptoAdapter,
+  DevicesAdapter,
+  IgnoringAdapter,
+  PushAdapter
+} from "./adapter.js";
 import type {
   Device,
   DeviceVerification,
@@ -84,27 +90,27 @@ export class DeviceOperations {
     if (!Number.isInteger(limit) || limit < 1) {
       throw new SdkError("INVALID_INPUT", "How many notifications must be a positive whole number");
     }
-    return this.context.adapter.listPendingNotifications(limit);
+    return this.push.listPendingNotifications(limit);
   }
 
   /** People whose messages arrive as usual but do not interrupt. Silencing somebody is not ignoring them. */
   async muted(): Promise<readonly UserId[]> {
     this.context.assertStarted();
-    return this.context.adapter.listMutedUsers();
+    return this.ignoring.listMutedUsers();
   }
 
   async mute(userId: UserId): Promise<void> {
-    await this.context.adapter.setUserMuted(this.requireUser(userId), true);
+    await this.ignoring.setUserMuted(this.requireUser(userId), true);
   }
 
   async unmute(userId: UserId): Promise<void> {
-    await this.context.adapter.setUserMuted(this.requireUser(userId), false);
+    await this.ignoring.setUserMuted(this.requireUser(userId), false);
   }
 
   /** How much anything at all is allowed to interrupt, for the whole account rather than one conversation. */
   async level(): Promise<NotificationLevel> {
     this.context.assertStarted();
-    return this.context.adapter.getNotificationLevel();
+    return this.push.getNotificationLevel();
   }
 
   async setLevel(level: NotificationLevel): Promise<void> {
@@ -112,7 +118,7 @@ export class DeviceOperations {
     if (!notificationLevels.includes(level)) {
       throw new SdkError("INVALID_INPUT", `There is no such notification level: ${level}`);
     }
-    await this.context.adapter.setNotificationLevel(level);
+    await this.push.setNotificationLevel(level);
   }
 
   private requireUser(userId: UserId): UserId {
@@ -190,6 +196,14 @@ export class DeviceOperations {
     const push = this.context.adapter.push;
     if (!push) throw new SdkError("NOT_SUPPORTED", "Being pushed to is not something this homeserver does");
     return push;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get ignoring(): IgnoringAdapter {
+    const found = this.context.adapter.ignoring;
+    if (!found)
+      throw new SdkError("NOT_SUPPORTED", "Ignoring and muting people is not something this homeserver has");
+    return found;
   }
 }
 

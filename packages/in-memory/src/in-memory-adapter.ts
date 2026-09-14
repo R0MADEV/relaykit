@@ -1,4 +1,5 @@
 import type {
+  PushRegistration,
   AdapterHandlers,
   CallingAdapter,
   CryptoAdapter,
@@ -15,7 +16,16 @@ import type {
   ThreadSummary,
   LinkPreview,
   MediaLimits,
-  Call
+  Call,
+  ConversationSettingsAdapter,
+  EditingAdapter,
+  IgnoringAdapter,
+  ModerationAdapter,
+  PinsAdapter,
+  PresenceAdapter,
+  ReceiptsAdapter,
+  SearchAdapter,
+  ThreadsAdapter
 } from "@relaykit/core";
 import type {
   Attachment,
@@ -86,6 +96,22 @@ function invitation(body: string): { invitesTo?: ConversationId } {
 }
 
 export class InMemoryAdapter implements MessagingAdapter {
+  /**
+   * The optional halves this adapter can do, which is all of them.
+   *
+   * `this` rather than an object of its own: the class already has every one of those methods, so it
+   * satisfies each of those shapes as it stands. Saying it here is what tells the library it does.
+   */
+  readonly conversationSettings: ConversationSettingsAdapter = this;
+  readonly editing: EditingAdapter = this;
+  readonly ignoring: IgnoringAdapter = this;
+  readonly moderation: ModerationAdapter = this;
+  readonly pins: PinsAdapter = this;
+  readonly presence: PresenceAdapter = this;
+  readonly receipts: ReceiptsAdapter = this;
+  readonly search: SearchAdapter = this;
+  readonly threads: ThreadsAdapter = this;
+
   private readonly conversations: Conversation[];
   private readonly messages: Message[];
   private handlers: AdapterHandlers = {};
@@ -100,7 +126,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** How far back each conversation has been read, for a double that hands over the end and keeps the rest. */
   private readonly reached = new Map<ConversationId, number>();
 
-  private readonly receipts: ReadReceipt[] = [];
+  private readonly readBy: ReadReceipt[] = [];
   private readonly attachments = new Map<string, Uint8Array>();
   private readonly features = new InMemoryFeatures(
     () => this.currentUserId,
@@ -695,7 +721,18 @@ export class InMemoryAdapter implements MessagingAdapter {
   readonly location: LocationAdapter = this.shares;
   readonly spaces: SpacesAdapter = this.spacesIn;
   readonly media: MediaAdapter = this;
-  readonly push: PushAdapter = this.people;
+  /** Registrations live with the people; what is waiting and how loud lives here. */
+  readonly push: PushAdapter = {
+    registerPush: (registration: PushRegistration) => this.people.registerPush(registration),
+    listPushRegistrations: () => this.people.listPushRegistrations(),
+    unregisterPush: (deviceToken: string) => this.people.unregisterPush(deviceToken),
+    watchForKeyword: (word: string) => this.people.watchForKeyword(word),
+    stopWatchingForKeyword: (word: string) => this.people.stopWatchingForKeyword(word),
+    listKeywords: () => this.people.listKeywords(),
+    listPendingNotifications: (limit: number) => this.listPendingNotifications(limit),
+    getNotificationLevel: () => this.getNotificationLevel(),
+    setNotificationLevel: (level: NotificationLevel) => this.setNotificationLevel(level)
+  };
   readonly devices: DevicesAdapter = this.people;
   readonly reactions: ReactionsAdapter = this;
   readonly crypto: CryptoAdapter = this.cryptography;
@@ -811,7 +848,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   /** Test helper: simulates another participant reading a message. */
   receiveReadReceipt(conversationId: ConversationId, messageId: MessageId, userId: UserId): ReadReceipt {
     const receipt: ReadReceipt = { conversationId, messageId, userId, readAt: Date.now() };
-    this.receipts.push(receipt);
+    this.readBy.push(receipt);
     this.handlers.onReceiptReceived?.(receipt);
     return receipt;
   }
@@ -820,7 +857,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     conversationId: ConversationId,
     messageId: MessageId
   ): Promise<readonly ReadReceipt[]> {
-    return this.receipts.filter(
+    return this.readBy.filter(
       receipt => receipt.conversationId === conversationId && receipt.messageId === messageId
     );
   }

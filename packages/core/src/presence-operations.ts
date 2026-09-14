@@ -1,4 +1,4 @@
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, PresenceAdapter } from "./adapter.js";
 import { maxStatusMessageLength, presenceStates } from "./models.js";
 import type { PresenceUpdate, UserId, UserPresence } from "./models.js";
 import { SdkError } from "./errors.js";
@@ -22,7 +22,7 @@ export class PresenceOperations {
         `A status message can be at most ${maxStatusMessageLength} characters`
       );
     }
-    await this.context.adapter.setPresence(update);
+    await this.presence.setPresence(update);
   }
 
   /**
@@ -31,6 +31,14 @@ export class PresenceOperations {
    */
   async of(userId: UserId): Promise<UserPresence | undefined> {
     this.context.assertStarted();
-    return this.context.adapter.getPresence(userId);
+    return this.presence.getPresence(userId);
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get presence(): PresenceAdapter {
+    const found = this.context.adapter.presence;
+    if (!found)
+      throw new SdkError("NOT_SUPPORTED", "Presence and typing are not something this homeserver has");
+    return found;
   }
 }

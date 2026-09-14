@@ -6,6 +6,23 @@
  * methods that exist in order to refuse. What stays in `MessagingAdapter` is what messaging *is*.
  */
 import type {
+  Notification,
+  JoinRule,
+  ThreadSummary,
+  ConversationPermissions,
+  MarkReadOptions,
+  ReadReceipt,
+  KnockOptions,
+  AvatarImage,
+  HistoryVisibility,
+  PublicConversation,
+  Participant,
+  ConversationRole,
+  PresenceUpdate,
+  NotificationLevel,
+  UserId,
+  UserPresence,
+  User,
   VerificationSession,
   VerificationRequestOptions,
   RecoverySetupOptions,
@@ -141,6 +158,11 @@ export interface MediaAdapter {
  * out, and saying so by not being there beats a method that exists in order to refuse.
  */
 export interface PushAdapter {
+  /** What the homeserver is holding for this account, which is what a cold start has to show. */
+  listPendingNotifications(limit: number): Promise<readonly Notification[]>;
+  /** How much anything at all is allowed to interrupt, for the whole account. */
+  getNotificationLevel(): Promise<NotificationLevel>;
+  setNotificationLevel(level: NotificationLevel): Promise<void>;
   registerPush(registration: PushRegistration): Promise<void>;
   listPushRegistrations(): Promise<readonly PushRegistration[]>;
   unregisterPush(deviceToken: string): Promise<void>;
@@ -197,4 +219,140 @@ export interface CryptoAdapter {
   cancelVerification(sessionId: string): Promise<VerificationSession>;
   confirmVerification(sessionId: string): Promise<VerificationSession>;
   rejectVerification(sessionId: string): Promise<VerificationSession>;
+}
+
+/**
+ * Deciding who may be in a conversation and what they may do in it.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface ModerationAdapter {
+  removeFromConversation(
+    conversationId: ConversationId,
+    userId: UserId,
+    reason?: string
+  ): Promise<Conversation>;
+  banFromConversation(conversationId: ConversationId, userId: UserId, reason?: string): Promise<Conversation>;
+  unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
+  getPermissions(conversationId: ConversationId): Promise<ConversationPermissions>;
+  setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void>;
+  /** Everybody the conversation knows about and what each of them is in it, for moderating it. */
+  listParticipants(conversationId: ConversationId): Promise<readonly Participant[]>;
+  knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void>;
+}
+
+/**
+ * What a conversation is called, what it looks like, who may come in and how far back they can read.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface ConversationSettingsAdapter {
+  renameConversation(conversationId: ConversationId, title: string): Promise<Conversation>;
+  setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation>;
+  upgradeConversation(conversationId: ConversationId): Promise<Conversation>;
+  setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation>;
+  publishConversation(conversationId: ConversationId, listed: boolean): Promise<void>;
+  setJoinRule(conversationId: ConversationId, rule: JoinRule): Promise<Conversation>;
+  setHistoryVisibility(conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation>;
+  setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation>;
+  setConversationAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation>;
+  setConversationNotifications(
+    conversationId: ConversationId,
+    level: NotificationLevel
+  ): Promise<Conversation>;
+  /** Puts a conversation back to unread, or takes that mark off again. */
+  setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation>;
+}
+
+/**
+ * Answers that hang from a message instead of filling the conversation.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface ThreadsAdapter {
+  listThread(conversationId: ConversationId, rootId: MessageId): Promise<readonly Message[]>;
+  /** The threads of a conversation, so a list of them costs one request instead of one per thread. */
+  listThreads(conversationId: ConversationId): Promise<readonly ThreadSummary[]>;
+}
+
+/**
+ * Messages kept to hand in a conversation.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface PinsAdapter {
+  pinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
+  unpinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
+  listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]>;
+}
+
+/**
+ * Who has read how far.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface ReceiptsAdapter {
+  markMessageRead(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    options?: MarkReadOptions
+  ): Promise<void>;
+  getReadReceipts(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]>;
+}
+
+/**
+ * Looking for something that was said, somebody, or somewhere to join.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface SearchAdapter {
+  searchMessages(query: string): Promise<readonly Message[]>;
+  discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]>;
+  /** Finds people by the name they go by, for whoever does not know their identifier. */
+  searchUsers(query: string, limit: number): Promise<readonly User[]>;
+}
+
+/**
+ * Whether somebody is about, and whether they are writing.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface PresenceAdapter {
+  setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void>;
+  setPresence(update: PresenceUpdate): Promise<void>;
+  /** What somebody is doing, asked for. Nothing when the homeserver has never heard anything about them. */
+  getPresence(userId: UserId): Promise<UserPresence | undefined>;
+}
+
+/**
+ * Changing or taking back something already said.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface EditingAdapter {
+  reportMessage(conversationId: ConversationId, messageId: MessageId, reason: string): Promise<void>;
+  editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message>;
+  deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message>;
+}
+
+/**
+ * Not hearing from somebody any more.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
+ * out, and saying so by not being there beats methods that exist in order to refuse.
+ */
+export interface IgnoringAdapter {
+  listIgnoredUsers(): Promise<readonly UserId[]>;
+  setIgnoredUsers(userIds: readonly UserId[]): Promise<void>;
+  /** People whose messages arrive but do not interrupt. Silencing is not ignoring. */
+  listMutedUsers(): Promise<readonly UserId[]>;
+  setUserMuted(userId: UserId, muted: boolean): Promise<void>;
 }

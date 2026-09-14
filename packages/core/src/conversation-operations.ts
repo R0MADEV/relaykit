@@ -1,4 +1,12 @@
-import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
+import type {
+  MessagingAdapter,
+  CryptoAdapter,
+  ConversationSettingsAdapter,
+  ModerationAdapter,
+  PinsAdapter,
+  PresenceAdapter,
+  SearchAdapter
+} from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   AvatarImage,
@@ -173,7 +181,7 @@ export class ConversationOperations {
     if (!title.trim()) {
       throw new SdkError("INVALID_INPUT", "Conversation title cannot be empty");
     }
-    return this.save(await this.context.adapter.renameConversation(conversationId, title.trim()));
+    return this.save(await this.conversationSettings.renameConversation(conversationId, title.trim()));
   }
 
   /**
@@ -212,21 +220,19 @@ export class ConversationOperations {
   /** Removes somebody from the conversation. They can come back if invited again. */
   async remove(conversationId: string, userId: UserId, reason?: string): Promise<Conversation> {
     return this.save(
-      await this.context.adapter.removeFromConversation(conversationId, this.requireUser(userId), reason)
+      await this.moderation.removeFromConversation(conversationId, this.requireUser(userId), reason)
     );
   }
 
   /** Removes somebody and keeps them out until the ban is lifted. */
   async ban(conversationId: string, userId: UserId, reason?: string): Promise<Conversation> {
     return this.save(
-      await this.context.adapter.banFromConversation(conversationId, this.requireUser(userId), reason)
+      await this.moderation.banFromConversation(conversationId, this.requireUser(userId), reason)
     );
   }
 
   async unban(conversationId: string, userId: UserId): Promise<Conversation> {
-    return this.save(
-      await this.context.adapter.unbanFromConversation(conversationId, this.requireUser(userId))
-    );
+    return this.save(await this.moderation.unbanFromConversation(conversationId, this.requireUser(userId)));
   }
 
   /**
@@ -235,7 +241,7 @@ export class ConversationOperations {
    */
   async setUnread(conversationId: string, unread: boolean): Promise<Conversation> {
     this.context.assertStarted();
-    return this.save(await this.context.adapter.setConversationUnread(conversationId, unread));
+    return this.save(await this.conversationSettings.setConversationUnread(conversationId, unread));
   }
 
   /**
@@ -257,12 +263,12 @@ export class ConversationOperations {
 
   async setFavourite(conversationId: string, favourite: boolean): Promise<Conversation> {
     this.context.assertStarted();
-    return this.save(await this.context.adapter.setConversationFavourite(conversationId, favourite));
+    return this.save(await this.conversationSettings.setConversationFavourite(conversationId, favourite));
   }
 
   async setTopic(conversationId: string, topic: string): Promise<Conversation> {
     this.context.assertStarted();
-    return this.save(await this.context.adapter.setConversationTopic(conversationId, topic.trim()));
+    return this.save(await this.conversationSettings.setConversationTopic(conversationId, topic.trim()));
   }
 
   async setAvatar(conversationId: string, image: AvatarImage): Promise<Conversation> {
@@ -270,13 +276,13 @@ export class ConversationOperations {
     if (image.data.byteLength === 0 || !image.mimeType.trim()) {
       throw new SdkError("INVALID_INPUT", "A picture needs content and a type");
     }
-    return this.save(await this.context.adapter.setConversationAvatar(conversationId, image));
+    return this.save(await this.conversationSettings.setConversationAvatar(conversationId, image));
   }
 
   /** Decides how much a conversation may interrupt, which is what silencing a noisy group means. */
   async setNotifications(conversationId: string, level: NotificationLevel): Promise<Conversation> {
     this.context.assertStarted();
-    return this.save(await this.context.adapter.setConversationNotifications(conversationId, level));
+    return this.save(await this.conversationSettings.setConversationNotifications(conversationId, level));
   }
 
   async pin(conversationId: string, messageId: string): Promise<void> {
@@ -284,19 +290,19 @@ export class ConversationOperations {
     if (!messageId.trim()) {
       throw new SdkError("INVALID_INPUT", "A message id is required");
     }
-    await this.context.adapter.pinMessage(conversationId, messageId.trim());
+    await this.pins.pinMessage(conversationId, messageId.trim());
   }
 
   async unpin(conversationId: string, messageId: string): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.unpinMessage(conversationId, messageId.trim());
+    await this.pins.unpinMessage(conversationId, messageId.trim());
   }
 
   /** Kept to hand, and readable with no homeserver as long as the conversation itself is. */
   async pinned(conversationId: string): Promise<readonly Message[]> {
     this.context.assertStarted();
     try {
-      return await this.context.adapter.listPinnedMessages(conversationId);
+      return await this.pins.listPinnedMessages(conversationId);
     } catch (error) {
       const kept = await this.keptPinned(conversationId);
       if (kept.length === 0) throw error;
@@ -332,7 +338,7 @@ export class ConversationOperations {
    */
   async upgrade(conversationId: string): Promise<Conversation> {
     this.context.assertStarted();
-    return this.save(await this.context.adapter.upgradeConversation(conversationId));
+    return this.save(await this.conversationSettings.upgradeConversation(conversationId));
   }
 
   /** Follows the replacements until the conversation people are actually in. */
@@ -395,7 +401,7 @@ export class ConversationOperations {
     if (!looksLikeAnAlias) {
       throw new SdkError("INVALID_INPUT", "An alias looks like #name:server");
     }
-    return this.save(await this.context.adapter.setConversationAlias(conversationId, wanted));
+    return this.save(await this.conversationSettings.setConversationAlias(conversationId, wanted));
   }
 
   /**
@@ -404,14 +410,14 @@ export class ConversationOperations {
    */
   async publish(conversationId: string, listed: boolean): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.publishConversation(conversationId, listed);
+    await this.conversationSettings.publishConversation(conversationId, listed);
   }
 
   /** What is on that public list, which is how somebody finds a conversation they have not been invited to. */
   async discover(query?: string): Promise<readonly PublicConversation[]> {
     this.context.assertStarted();
     const wanted = query?.trim();
-    return this.context.adapter.discoverConversations(wanted && wanted.length > 0 ? wanted : undefined);
+    return this.searching.discoverConversations(wanted && wanted.length > 0 ? wanted : undefined);
   }
 
   /** Who may come in: only those invited, anybody, or anybody willing to ask first. */
@@ -420,7 +426,7 @@ export class ConversationOperations {
     if (!joinRules.includes(rule)) {
       throw new SdkError("INVALID_INPUT", `Unknown join rule: ${rule}`);
     }
-    return this.save(await this.context.adapter.setJoinRule(conversationId, rule));
+    return this.save(await this.conversationSettings.setJoinRule(conversationId, rule));
   }
 
   /** How far back somebody who arrives late is allowed to read. */
@@ -429,28 +435,28 @@ export class ConversationOperations {
     if (!historyVisibilities.includes(visibility)) {
       throw new SdkError("INVALID_INPUT", `Unknown history visibility: ${visibility}`);
     }
-    return this.save(await this.context.adapter.setHistoryVisibility(conversationId, visibility));
+    return this.save(await this.conversationSettings.setHistoryVisibility(conversationId, visibility));
   }
 
   /** Asks to come in to a conversation that does not let people join on their own. */
   async knock(conversationId: string, options: KnockOptions = {}): Promise<void> {
     this.context.assertStarted();
-    await this.context.adapter.knockConversation(conversationId, options);
+    await this.moderation.knockConversation(conversationId, options);
   }
 
   async permissions(conversationId: string): Promise<ConversationPermissions> {
     this.context.assertStarted();
-    return this.context.adapter.getPermissions(conversationId);
+    return this.moderation.getPermissions(conversationId);
   }
 
   /** Everybody the conversation knows about and what each of them is in it. */
   async participants(conversationId: ConversationId): Promise<readonly Participant[]> {
     this.context.assertStarted();
-    return this.context.adapter.listParticipants(conversationId);
+    return this.moderation.listParticipants(conversationId);
   }
 
   async setRole(conversationId: string, userId: UserId, role: ConversationRole): Promise<void> {
-    await this.context.adapter.setRole(conversationId, this.requireUser(userId), role);
+    await this.moderation.setRole(conversationId, this.requireUser(userId), role);
   }
 
   private requireUser(userId: UserId): UserId {
@@ -482,7 +488,7 @@ export class ConversationOperations {
     if (!isTyping) {
       if (announcedAt === undefined) return;
       this.typingSince.delete(conversationId);
-      await this.context.adapter.setTyping(conversationId, false, timeoutMs);
+      await this.presence.setTyping(conversationId, false, timeoutMs);
       return;
     }
     const now = this.context.now();
@@ -490,7 +496,7 @@ export class ConversationOperations {
     const stillFresh = announcedAt !== undefined && now - announcedAt < (timeoutMs * 2) / 3;
     if (stillFresh) return;
     this.typingSince.set(conversationId, now);
-    await this.context.adapter.setTyping(conversationId, true, timeoutMs);
+    await this.presence.setTyping(conversationId, true, timeoutMs);
   }
 
   /** Who was writing is only true while the client runs, so it does not survive stopping it. */
@@ -503,6 +509,47 @@ export class ConversationOperations {
     const crypto = this.context.adapter.crypto;
     if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
     return crypto;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get conversationSettings(): ConversationSettingsAdapter {
+    const found = this.context.adapter.conversationSettings;
+    if (!found)
+      throw new SdkError(
+        "NOT_SUPPORTED",
+        "Changing what a conversation is is not something this homeserver has"
+      );
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get moderation(): ModerationAdapter {
+    const found = this.context.adapter.moderation;
+    if (!found)
+      throw new SdkError("NOT_SUPPORTED", "Moderating a conversation is not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get pins(): PinsAdapter {
+    const found = this.context.adapter.pins;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Pinning messages is not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get presence(): PresenceAdapter {
+    const found = this.context.adapter.presence;
+    if (!found)
+      throw new SdkError("NOT_SUPPORTED", "Presence and typing are not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get searching(): SearchAdapter {
+    const found = this.context.adapter.search;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    return found;
   }
 }
 

@@ -1,5 +1,5 @@
 import { SdkError } from "./errors.js";
-import type { MessagingAdapter } from "./adapter.js";
+import type { MessagingAdapter, IgnoringAdapter, SearchAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   AvatarImage,
@@ -136,26 +136,26 @@ export class UserOperations {
     if (limit < 1) {
       throw new SdkError("INVALID_INPUT", "A search cannot ask for fewer than one person");
     }
-    return this.context.adapter.searchUsers(wanted, limit);
+    return this.searching.searchUsers(wanted, limit);
   }
 
   /** People whose messages this account does not want to see. */
   async ignored(): Promise<readonly UserId[]> {
     this.context.assertStarted();
-    return this.context.adapter.listIgnoredUsers();
+    return this.ignoring.listIgnoredUsers();
   }
 
   async ignore(userId: UserId): Promise<void> {
     const wanted = this.require(userId);
-    const current = await this.context.adapter.listIgnoredUsers();
+    const current = await this.ignoring.listIgnoredUsers();
     if (current.includes(wanted)) return;
-    await this.context.adapter.setIgnoredUsers([...current, wanted]);
+    await this.ignoring.setIgnoredUsers([...current, wanted]);
   }
 
   async unignore(userId: UserId): Promise<void> {
     const wanted = this.require(userId);
-    const current = await this.context.adapter.listIgnoredUsers();
-    await this.context.adapter.setIgnoredUsers(current.filter(ignored => ignored !== wanted));
+    const current = await this.ignoring.listIgnoredUsers();
+    await this.ignoring.setIgnoredUsers(current.filter(ignored => ignored !== wanted));
   }
 
   async setDisplayName(displayName: string): Promise<void> {
@@ -183,6 +183,21 @@ export class UserOperations {
       throw new SdkError("INVALID_INPUT", "A user id is required");
     }
     return trimmed;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get ignoring(): IgnoringAdapter {
+    const found = this.context.adapter.ignoring;
+    if (!found)
+      throw new SdkError("NOT_SUPPORTED", "Ignoring and muting people is not something this homeserver has");
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get searching(): SearchAdapter {
+    const found = this.context.adapter.search;
+    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    return found;
   }
 }
 

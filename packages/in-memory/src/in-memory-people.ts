@@ -1,7 +1,6 @@
 import type {
   AvatarImage,
   DevicesAdapter,
-  PushAdapter,
   ConversationId,
   Device,
   PushRegistration,
@@ -29,7 +28,7 @@ export interface InMemoryPeopleContext {
  * A name can be one thing everywhere and another inside a conversation, so both are kept and the
  * conversation's wins when there is one. None of this touches the timeline.
  */
-export class InMemoryPeople implements DevicesAdapter, PushAdapter {
+export class InMemoryPeople implements DevicesAdapter {
   private readonly profiles = new Map<UserId, HeldProfile>();
   private readonly names = new Map<string, string>();
   private readonly devices = new Map<string, Device>();

@@ -1,29 +1,17 @@
 import type {
   AvatarImage,
-  ConversationPermissions,
   SendContent,
-  ConversationRole,
-  Participant,
-  NotificationLevel,
   MessagePage,
   Call,
   CallSpeaking,
-  MarkReadOptions,
   Notification,
-  ThreadSummary,
   User,
   UserId,
   Conversation,
   ConversationId,
   CreateConversationInput,
   Message,
-  MessageId,
-  HistoryVisibility,
-  JoinRule,
-  KnockOptions,
-  PublicConversation,
   Reaction,
-  PresenceUpdate,
   ReadReceipt,
   TypingUpdate,
   UserPresence,
@@ -66,10 +54,46 @@ import type {
   PollsAdapter,
   PushAdapter,
   ReactionsAdapter,
-  SpacesAdapter
+  SpacesAdapter,
+  ConversationSettingsAdapter,
+  EditingAdapter,
+  IgnoringAdapter,
+  ModerationAdapter,
+  PinsAdapter,
+  PresenceAdapter,
+  ReceiptsAdapter,
+  SearchAdapter,
+  ThreadsAdapter
 } from "./capabilities.js";
 
 export interface MessagingAdapter {
+  /** Deciding who may be in a conversation and what they may do in it. Absent when this adapter cannot. */
+  readonly moderation?: ModerationAdapter;
+
+  /** What a conversation is called, what it looks like, who may come in and how far back they can read. Absent when this adapter cannot. */
+  readonly conversationSettings?: ConversationSettingsAdapter;
+
+  /** Answers that hang from a message instead of filling the conversation. Absent when this adapter cannot. */
+  readonly threads?: ThreadsAdapter;
+
+  /** Messages kept to hand in a conversation. Absent when this adapter cannot. */
+  readonly pins?: PinsAdapter;
+
+  /** Who has read how far. Absent when this adapter cannot. */
+  readonly receipts?: ReceiptsAdapter;
+
+  /** Looking for something that was said, somebody, or somewhere to join. Absent when this adapter cannot. */
+  readonly search?: SearchAdapter;
+
+  /** Whether somebody is about, and whether they are writing. Absent when this adapter cannot. */
+  readonly presence?: PresenceAdapter;
+
+  /** Changing or taking back something already said. Absent when this adapter cannot. */
+  readonly editing?: EditingAdapter;
+
+  /** Not hearing from somebody any more. Absent when this adapter cannot. */
+  readonly ignoring?: IgnoringAdapter;
+
   login(credentials: LoginCredentials): Promise<Session>;
   register(credentials: RegisterCredentials): Promise<Session>;
   start(session: Session, handlers: AdapterHandlers): Promise<void>;
@@ -81,47 +105,9 @@ export interface MessagingAdapter {
   joinConversation(conversationId: ConversationId, via?: readonly string[]): Promise<Conversation>;
   leaveConversation(conversationId: ConversationId): Promise<void>;
   inviteToConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
-  renameConversation(conversationId: ConversationId, title: string): Promise<Conversation>;
-  removeFromConversation(
-    conversationId: ConversationId,
-    userId: UserId,
-    reason?: string
-  ): Promise<Conversation>;
-  banFromConversation(conversationId: ConversationId, userId: UserId, reason?: string): Promise<Conversation>;
-  unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation>;
-  setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation>;
-  listIgnoredUsers(): Promise<readonly UserId[]>;
-  setIgnoredUsers(userIds: readonly UserId[]): Promise<void>;
-  setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void>;
-  setPresence(update: PresenceUpdate): Promise<void>;
-  /** What somebody is doing, asked for. Nothing when the homeserver has never heard anything about them. */
-  getPresence(userId: UserId): Promise<UserPresence | undefined>;
   listMessages(conversationId: ConversationId): Promise<readonly Message[]>;
   loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage>;
   sendMessage(conversationId: ConversationId, body: string, options: SendContent): Promise<Message>;
-  listThread(conversationId: ConversationId, rootId: MessageId): Promise<readonly Message[]>;
-  searchMessages(query: string): Promise<readonly Message[]>;
-  getPermissions(conversationId: ConversationId): Promise<ConversationPermissions>;
-  setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void>;
-  /** Everybody the conversation knows about and what each of them is in it, for moderating it. */
-  listParticipants(conversationId: ConversationId): Promise<readonly Participant[]>;
-  upgradeConversation(conversationId: ConversationId): Promise<Conversation>;
-  setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation>;
-  publishConversation(conversationId: ConversationId, listed: boolean): Promise<void>;
-  discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]>;
-  reportMessage(conversationId: ConversationId, messageId: MessageId, reason: string): Promise<void>;
-  setJoinRule(conversationId: ConversationId, rule: JoinRule): Promise<Conversation>;
-  setHistoryVisibility(conversationId: ConversationId, visibility: HistoryVisibility): Promise<Conversation>;
-  knockConversation(conversationId: ConversationId, options: KnockOptions): Promise<void>;
-  setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation>;
-  setConversationAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation>;
-  setConversationNotifications(
-    conversationId: ConversationId,
-    level: NotificationLevel
-  ): Promise<Conversation>;
-  pinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
-  unpinMessage(conversationId: ConversationId, messageId: MessageId): Promise<void>;
-  listPinnedMessages(conversationId: ConversationId): Promise<readonly Message[]>;
   /**
    * Conferences, when there are any. Absent when the protocol or the homeserver cannot hold one, which is
    * a thing an application has to be able to find out without asking and being refused.
@@ -146,36 +132,23 @@ export interface MessagingAdapter {
   getProfile(userId: UserId, conversationId?: ConversationId): Promise<User>;
   /** A size in pixels asks the server for a picture already that big, instead of the original. */
   getAvatar(userId: UserId, conversationId?: ConversationId, size?: number): Promise<AvatarImage | undefined>;
-  /** Finds people by the name they go by, for whoever does not know their identifier. */
-  searchUsers(query: string, limit: number): Promise<readonly User[]>;
   setDisplayName(displayName: string): Promise<void>;
   setAvatar(image: AvatarImage): Promise<void>;
-  editMessage(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message>;
-  deleteMessage(conversationId: ConversationId, messageId: MessageId): Promise<Message>;
-  markMessageRead(
-    conversationId: ConversationId,
-    messageId: MessageId,
-    options?: MarkReadOptions
-  ): Promise<void>;
-  /** Puts a conversation back to unread, or takes that mark off again. */
-  setConversationUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation>;
-  /** What the homeserver is holding for this account, which is what a cold start has to show. */
-  listPendingNotifications(limit: number): Promise<readonly Notification[]>;
-  /** The threads of a conversation, so a list of them costs one request instead of one per thread. */
-  listThreads(conversationId: ConversationId): Promise<readonly ThreadSummary[]>;
-  /** People whose messages arrive but do not interrupt. Silencing is not ignoring. */
-  listMutedUsers(): Promise<readonly UserId[]>;
-  setUserMuted(userId: UserId, muted: boolean): Promise<void>;
-  /** How much anything at all is allowed to interrupt, for the whole account. */
-  getNotificationLevel(): Promise<NotificationLevel>;
-  setNotificationLevel(level: NotificationLevel): Promise<void>;
-  getReadReceipts(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]>;
 }
 
 // The optional halves are handed on from here: a backend is one thing to whoever writes one, however many
 // files it is written in.
 export type {
   CallingAdapter,
+  ConversationSettingsAdapter,
+  EditingAdapter,
+  IgnoringAdapter,
+  ModerationAdapter,
+  PinsAdapter,
+  PresenceAdapter,
+  ReceiptsAdapter,
+  SearchAdapter,
+  ThreadsAdapter,
   CryptoAdapter,
   DevicesAdapter,
   LocationAdapter,
