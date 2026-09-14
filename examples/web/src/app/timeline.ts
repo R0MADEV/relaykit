@@ -1,4 +1,4 @@
-import type { Message, MessageId, PastCall, UserId } from "@relaykit/web";
+import type { ConversationId, Message, MessageId, PastCall, UserId } from "@relaykit/web";
 import type { People } from "./people.js";
 import { safe } from "./dom.js";
 import { dayOf, lastedFor, timeOf } from "./when.js";
@@ -12,6 +12,8 @@ export interface Reading {
   readonly people: People;
   /** How many answers hang off each message, so a thread can be opened without counting them again. */
   readonly threads: ReadonlyMap<MessageId, number>;
+  /** What the conversation an invitation points at is called, when this account is already in it. */
+  readonly nameOf: (conversationId: ConversationId) => string | undefined;
 }
 
 /** What was said and what happened, in one stream, with a heading between one day and the next. */
@@ -46,37 +48,41 @@ function said(message: Message, reading: Reading): string {
     <span class="avatar big">${safe(reading.people.initialsOf(message.senderId))}</span>
     <div>
       <p class="who"><strong>${safe(who)}</strong><span class="at">${timeOf(message.createdAt)}</span></p>
-      ${body(message)}${reactions(message)}${thread(message, reading)}
+      ${body(message, reading)}${reactions(message)}${thread(message, reading)}
     </div>
   </div>`;
 }
 
 function saidAgain(message: Message, reading: Reading): string {
   return `<div class="said same"><span class="at">${timeOf(message.createdAt)}</span>
-    <div>${body(message)}${reactions(message)}${thread(message, reading)}</div>
+    <div>${body(message, reading)}${reactions(message)}${thread(message, reading)}</div>
   </div>`;
 }
 
 /** What the message is. A link to a conversation is an invitation, and reads as a way in rather than as text. */
-function body(message: Message): string {
+function body(message: Message, reading: Reading): string {
   if (message.deletedAt) return `<p class="gone">Mensaje borrado</p>`;
   if (message.undecryptable) return `<p class="gone">No se puede leer: falta la clave</p>`;
-  if (message.invitesTo) return invitation(message);
+  if (message.invitesTo) return invitation(message, reading);
   const attachment = message.attachment ? `<p class="file">📎 ${safe(message.attachment.name)}</p>` : "";
   const edited = message.editedAt ? ` <span class="faint">(editado)</span>` : "";
   const sending = message.status === "sending" ? ' data-sending="true"' : "";
   return `<p${sending}>${safe(message.body)}${edited}</p>${attachment}`;
 }
 
-function invitation(message: Message): string {
+function invitation(message: Message, reading: Reading): string {
+  const where = message.invitesTo ?? "";
+  // The link is what travels; what it is called is only known once this account is in it. Until then the
+  // card says what it is, because a matrix.to address is not a name anybody reads.
+  const name = reading.nameOf(where) ?? "Una sala";
   return `<div class="card invite-card">
     <span class="card-icon" aria-hidden="true">▭</span>
     <div>
       <p class="label">Invitación a sala</p>
-      <strong>${safe(message.body)}</strong>
+      <strong>${safe(name)}</strong>
     </div>
     <div class="spacer"></div>
-    <button class="button accent" data-enters="${safe(message.invitesTo ?? "")}">Entrar</button>
+    <button class="button accent" data-enters="${safe(where)}">Entrar</button>
   </div>`;
 }
 

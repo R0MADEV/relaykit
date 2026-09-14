@@ -9,8 +9,13 @@ import { timeOf } from "./when.js";
  * Drawn apart from the timeline on purpose. The same message is in both, and what a thread shows is not what
  * a conversation shows — no day headings, no collapsing, because a thread is one exchange about one thing.
  */
-export function paintThread(into: HTMLElement, messages: readonly Message[], people: People): void {
-  const [root, ...answers] = messages;
+export function paintThread(
+  into: HTMLElement,
+  /** The message the thread hangs from. `messages.thread` gives the answers only: the root is in the timeline. */
+  root: Message | undefined,
+  answers: readonly Message[],
+  people: People
+): void {
   if (!root) {
     into.innerHTML = "";
     return;

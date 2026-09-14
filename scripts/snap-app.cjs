@@ -14,14 +14,17 @@ const root = path.join(__dirname, "..", "examples", "web", "dist");
 const out = process.env.RELAYKIT_SNAP_OUT ?? "/tmp";
 const who = process.env.RELAYKIT_SNAP_WHO ?? "alice";
 const homeserver = process.env.RELAYKIT_SNAP_HOMESERVER ?? "http://localhost:8008";
+const wanted = process.env.RELAYKIT_SNAP_OPEN ?? "incidencias-voz";
 
 /** Each shot: what to do to the page first, and what to call the picture. */
 const shots = [
   { name: "chat", does: "" },
   {
     name: "thread",
-    does: `document.querySelector("[data-opens-thread]")?.click();`,
-    waitsFor: `!document.getElementById("thread").hidden`
+    // The pill only appears once the threads of the conversation have been read, which is a request of its own.
+    needs: `document.querySelector("[data-opens-thread]") !== null`,
+    does: `document.querySelector("[data-opens-thread]").click();`,
+    waitsFor: `document.querySelectorAll("#thread-body .said").length > 1`
   },
   {
     name: "create-channel",
@@ -68,6 +71,7 @@ async function run() {
       rows: document.querySelectorAll("#channels li, #directs li").length,
       current: document.querySelectorAll('[aria-current]').length,
       said: document.querySelectorAll("#timeline .said").length,
+      pills: document.querySelectorAll("[data-opens-thread]").length,
       wrong: document.getElementById("sign-in-wrong").textContent
     })`)
   );
@@ -80,6 +84,7 @@ async function run() {
       await page.webContents.executeJavaScript(
         `document.querySelectorAll("dialog[open]").forEach(each => each.close()); true;`
       );
+      if (shot.needs) await waitFor(page, `${shot.name} to be there`, shot.needs, 30);
       if (shot.does) await page.webContents.executeJavaScript(`${shot.does} true;`);
       if (shot.waitsFor) await waitFor(page, shot.name, shot.waitsFor, shot.seconds ?? 10);
     } catch (wrong) {
@@ -91,6 +96,12 @@ async function run() {
     require("node:fs").writeFileSync(path.join(out, `app-${shot.name}.png`), picture.toPNG());
     console.log(`${shot.name} -> ${path.join(out, `app-${shot.name}.png`)}`);
   }
+  // Hung up before leaving: a call the pictures placed and never ended is a room left open on the homeserver,
+  // and the next run of this would find it in the history of the conversation it is photographing.
+  await page.webContents
+    .executeJavaScript(`document.getElementById("hang-up").click(); true;`)
+    .catch(() => undefined);
+  await settle(page, 1500);
   server.close();
   app.exit(0);
 }
@@ -114,7 +125,12 @@ async function signIn(page) {
     `document.querySelectorAll("#channels li, #directs li").length > 0`,
     60
   );
-  await settle(page, 1500);
+  // The one the seed built, which is the only one with a thread and reactions in it. Whatever the account
+  // happens to open on is not what these pictures are of.
+  const named = `[...document.querySelectorAll("#channels li button")].find(row => row.textContent.includes(${JSON.stringify(wanted)}))`;
+  await waitFor(page, `the ${wanted} channel`, `Boolean(${named})`, 60);
+  await page.webContents.executeJavaScript(`${named}.click(); true;`);
+  await settle(page, 2500);
 }
 
 function settle(page, milliseconds = 400) {

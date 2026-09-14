@@ -1,7 +1,7 @@
 import type { MessagingClient } from "./client.js";
 import { byRecentActivity } from "./conversation-operations.js";
 import { byOldestFirst } from "./message-operations.js";
-import type { Conversation, ConversationId, Message } from "./models.js";
+import type { Conversation, ConversationId, ListMessagesOptions, Message } from "./models.js";
 
 /**
  * A list that keeps itself current while the client runs. It exists so every application stops rewriting the
@@ -122,13 +122,19 @@ export function createConversationList(client: MessagingClient): LiveCollection<
   return collection;
 }
 
-/** The timeline of one conversation, oldest first, with the local echo of each message resolved. */
+/**
+ * The timeline of one conversation, oldest first, with the local echo of each message resolved.
+ *
+ * `options` is handed on to `messages.list` every time it reloads. Asking for `atLeast` is how a screen opens
+ * a conversation with something to read: what the sync happened to bring is not a number anybody chose.
+ */
 export function createMessageTimeline(
   client: MessagingClient,
-  conversationId: ConversationId
+  conversationId: ConversationId,
+  options?: ListMessagesOptions
 ): LiveCollection<Message> {
   const collection = new Collection<Message>(
-    () => client.messages.list(conversationId),
+    () => client.messages.list(conversationId, options),
     error => client.emitListenerError(error)
   );
   const apply = (message: Message): void => {

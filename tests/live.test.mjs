@@ -151,3 +151,22 @@ test("a live list that cannot reload says so instead of failing silently", async
   conversations.stop();
   await client.stop();
 });
+
+test("a timeline can be asked to open with enough to read, and says so every time it reloads", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  const asked = [];
+  const list = client.messages.list.bind(client.messages);
+  client.messages.list = (id, options) => {
+    asked.push(options);
+    return list(id, options);
+  };
+
+  const timeline = createMessageTimeline(client, conversation.id, { atLeast: 30 });
+  await timeline.refresh();
+  await timeline.refresh();
+
+  assert.deepEqual(asked, [{ atLeast: 30 }, { atLeast: 30 }]);
+  timeline.stop();
+  await client.stop();
+});

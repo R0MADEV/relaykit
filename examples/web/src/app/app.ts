@@ -15,6 +15,7 @@ import { People } from "./people.js";
 import { isBetweenTwo, onePerPerson, paintChannels, paintDirects, titleOf } from "./sidebar.js";
 import { paintThread } from "./thread.js";
 import { paintTimeline, type Entry } from "./timeline.js";
+import { Typing } from "./typing.js";
 import { SigningIn } from "./signing-in.js";
 import { show } from "./views.js";
 
@@ -34,6 +35,7 @@ class Deitu {
   private threads = new Map<MessageId, number>();
   private entries: readonly Entry[] = [];
   private making: MakingThings | undefined;
+  private typing: Typing | undefined;
 
   /** Either straight in with the session kept from last time, or the form until somebody answers it. */
   async open(): Promise<void> {
@@ -45,6 +47,8 @@ class Deitu {
     document.title = `Deitu · ${this.people.nameOf(session.userId)}`;
     this.calls = new CallScreen(this.client, this.people, this.me, () => this.backToChat());
     this.calls.wire();
+    this.typing = new Typing(this.client, this.people, this.me, () => this.openId);
+    this.typing.wire();
     this.making = new MakingThings(this.client, this.people, {
       openId: () => this.openId,
       opened: conversationId => void this.openConversation(conversationId),
@@ -77,6 +81,15 @@ class Deitu {
     this.client.on("call.incoming", () => void this.calls?.heard());
     this.client.on("call.changed", () => void this.calls?.heard());
     this.client.on("presence.changed", presence => this.people.heard(presence));
+    // What hangs off a conversation — its threads, the calls that are over — is read alongside the timeline.
+    // Asked once on the way in, a conversation the homeserver had not finished describing keeps its answer,
+    // so it is read again whenever the conversation moves and once catching up is over.
+    this.client.on("conversation.updated", conversation => {
+      if (conversation.id === this.openId) void this.reload();
+    });
+    this.client.on("sync.changed", status => {
+      if (status === "synced") void this.reload();
+    });
     this.client.on("reaction.added", () => void this.reload());
     this.client.on("reaction.removed", () => void this.reload());
     this.client.on("error", error => this.wentWrong(error));
@@ -117,10 +130,13 @@ class Deitu {
   // --- what is open ---------------------------------------------------------
 
   private async openConversation(conversationId: ConversationId): Promise<void> {
+    this.typing?.stop();
     this.openId = conversationId;
     this.closeThread();
     this.timeline?.stop();
-    const timeline = createMessageTimeline(this.client, conversationId);
+    // Enough to fill a screen, rather than whatever the sync happened to bring: a conversation opened with
+    // two lines in it looks like a conversation with two lines in it.
+    const timeline = createMessageTimeline(this.client, conversationId, { atLeast: 30 });
     this.timeline = timeline;
     timeline.subscribe(() => void this.reload());
     this.backToChat();
@@ -133,11 +149,15 @@ class Deitu {
   private async reload(): Promise<void> {
     const conversationId = this.openId;
     if (!conversationId) return;
-    const messages = this.timeline?.get() ?? [];
     const [over, threads] = await Promise.all([
       this.client.calls.history(conversationId, 20).catch(() => []),
       this.client.messages.threads(conversationId).catch(() => [])
     ]);
+    // Whoever is open now, and what is on screen now. Several of these run at once while a conversation is
+    // still arriving, and one that started with three messages must not finish last and put the other three
+    // back. Reading after asking instead of before means every pass paints what is current when it paints.
+    if (this.openId !== conversationId) return;
+    const messages = this.timeline?.get() ?? [];
     this.threads = new Map(threads.map(thread => [thread.rootId, thread.replyCount]));
     const said: Entry[] = messages.map(message => ({ kind: "message", at: message.createdAt, message }));
     const ended: Entry[] = over.map(call => ({ kind: "call", at: call.endedAt, call }));
@@ -152,8 +172,18 @@ class Deitu {
     if (!conversationId) return;
     const conversation = this.conversations?.get().find(each => each.id === conversationId);
     if (conversation) this.paintHead(conversation);
-    paintTimeline(element("timeline"), this.entries, { people: this.people, threads: this.threads });
+    paintTimeline(element("timeline"), this.entries, {
+      people: this.people,
+      threads: this.threads,
+      nameOf: id => this.nameOfConversation(id)
+    });
     void this.paintThread();
+  }
+
+  /** What a conversation is called, for anywhere that has an identifier and needs a name. */
+  private nameOfConversation(conversationId: ConversationId): string | undefined {
+    const known = this.conversations?.get().find(each => each.id === conversationId);
+    return known ? titleOf(known, this.people, this.me) : undefined;
   }
 
   private paintHead(conversation: Conversation): void {
@@ -206,12 +236,13 @@ class Deitu {
     const conversationId = this.openId;
     if (!body || !conversationId) return;
     where.value = "";
+    this.typing?.stop();
     const options = threadId ? { threadId } : {};
     await this.client.messages.send(conversationId, body, options).catch(error => this.wentWrong(error));
   }
 
   private pressedInTimeline(event: Event): void {
-    const rootId = pressedIn(event, "opensThread");
+    const rootId = pressedIn(event, "opens-thread");
     if (rootId) return this.openThread(rootId);
     const entersId = pressedIn(event, "enters");
     if (entersId) return void this.enterRoomOf(entersId);
@@ -234,12 +265,20 @@ class Deitu {
     element("thread").hidden = true;
   }
 
+  /** One of the messages already on screen, by its identifier. */
+  private messageCalled(messageId: MessageId): Message | undefined {
+    for (const entry of this.entries) {
+      if (entry.kind === "message" && entry.message.id === messageId) return entry.message;
+    }
+    return undefined;
+  }
+
   private async paintThread(): Promise<void> {
     const rootId = this.threadRootId;
     const conversationId = this.openId;
     if (!rootId || !conversationId) return;
-    const messages = await this.client.messages.thread(conversationId, rootId).catch(() => []);
-    paintThread(element("thread-body"), messages, this.people);
+    const answers = await this.client.messages.thread(conversationId, rootId).catch(() => []);
+    paintThread(element("thread-body"), this.messageCalled(rootId), answers, this.people);
   }
 
   // --- rooms ----------------------------------------------------------------

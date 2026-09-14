@@ -47,7 +47,12 @@ export function pressedIn(event: Event, mark: string): string | undefined {
   if (!(target instanceof Element)) return undefined;
   const row = target.closest(`[data-${mark}]`);
   if (!(row instanceof HTMLElement)) return undefined;
-  return row.dataset[mark];
+  return row.dataset[asDatasetKey(mark)];
+}
+
+/** `data-opens-thread` in the markup is `opensThread` in the dataset, and the two have to be kept in step. */
+function asDatasetKey(mark: string): string {
+  return mark.replace(/-([a-z])/g, (_whole, letter: string) => letter.toUpperCase());
 }
 
 /** Text on its way into markup. Anybody can call a conversation `<img onerror=…>` and somebody will. */

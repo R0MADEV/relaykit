@@ -16,6 +16,7 @@
     "matrix:up": "sh infrastructure/matrix/up.sh",
     "livekit:up": "sh infrastructure/livekit/up.sh",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run build",
+    "seed:design": "node scripts/seed-design.mjs",
     "smoke:matrix": "node scripts/smoke-matrix.mjs",
     "smoke:relaykit": "node scripts/smoke-relaykit.mjs",
     "smoke:recovery": "node scripts/smoke-recovery.mjs",

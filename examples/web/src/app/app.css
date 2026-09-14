@@ -965,3 +965,12 @@ body {
   width: 100%;
   margin-bottom: 8px;
 }
+
+/* Somebody at the other end, mid-sentence. Kept out of the flow so the composer never jumps as it appears. */
+.typing {
+  height: 18px;
+  margin: 0;
+  padding: 0 22px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
