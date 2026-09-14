@@ -148,7 +148,7 @@ export class MessagingClient {
     saveDraft: async (conversationId: ConversationId, text: string): Promise<void> => {
       await this.conversationOperations.saveDraft(conversationId, text);
       // Something was written here, so the next message sent has a draft to clear.
-      this.messageOperations.draftWritten(conversationId);
+      this.messageOperations.sending.draftWritten(conversationId);
     },
     draft: (conversationId: ConversationId): Promise<string | undefined> =>
       this.conversationOperations.draft(conversationId),
@@ -179,28 +179,29 @@ export class MessagingClient {
     threads: (id: ConversationId): Promise<readonly ThreadSummary[]> => this.messageOperations.threads(id),
     searchRemote: (query: string): Promise<readonly Message[]> => this.messageOperations.searchRemote(query),
     send: (id: ConversationId, body: string, options?: SendMessageOptions): Promise<Message> =>
-      this.messageOperations.sendMessage(id, body, options),
+      this.messageOperations.sending.sendMessage(id, body, options),
     sendFile: (id: ConversationId, file: FileInput, options?: SendFileOptions): Promise<Message> =>
-      this.messageOperations.sendFile(id, file, options),
+      this.messageOperations.sending.sendFile(id, file, options),
     sendSticker: (id: ConversationId, sticker: FileInput): Promise<Message> =>
-      this.messageOperations.sendSticker(id, sticker),
+      this.messageOperations.sending.sendSticker(id, sticker),
     sendLocation: (id: ConversationId, location: GeoLocation): Promise<Message> =>
-      this.messageOperations.sendLocation(id, location),
+      this.messageOperations.sending.sendLocation(id, location),
     sendVoice: (id: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message> =>
-      this.messageOperations.sendVoice(id, file, voice),
+      this.messageOperations.sending.sendVoice(id, file, voice),
     report: (id: MessageId, reason: string): Promise<void> => this.messageOperations.report(id, reason),
-    unreadSince: (id: ConversationId): Promise<readonly Message[]> => this.messageOperations.unreadSince(id),
+    unreadSince: (id: ConversationId): Promise<readonly Message[]> =>
+      this.messageOperations.reading.unreadSince(id),
     forward: (id: MessageId, toConversationId: ConversationId): Promise<Message> =>
-      this.messageOperations.forward(id, toConversationId),
-    retry: (id: MessageId): Promise<Message> => this.messageOperations.retryMessage(id),
-    cancel: (id: MessageId): Promise<Message> => this.messageOperations.cancelMessage(id),
+      this.messageOperations.sending.forward(id, toConversationId),
+    retry: (id: MessageId): Promise<Message> => this.messageOperations.sending.retryMessage(id),
+    cancel: (id: MessageId): Promise<Message> => this.messageOperations.sending.cancelMessage(id),
     markRead: (
       conversationId: ConversationId,
       messageId: MessageId,
       options?: MarkReadOptions
-    ): Promise<void> => this.messageOperations.markRead(conversationId, messageId, options),
+    ): Promise<void> => this.messageOperations.reading.markRead(conversationId, messageId, options),
     readBy: (conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]> =>
-      this.messageOperations.readBy(conversationId, messageId),
+      this.messageOperations.reading.readBy(conversationId, messageId),
     edit: (id: ConversationId, messageId: MessageId, body: string): Promise<Message> =>
       this.messageMutations.edit(id, messageId, body),
     delete: (id: ConversationId, messageId: MessageId): Promise<Message> =>
@@ -470,9 +471,9 @@ export class MessagingClient {
         this.session = session;
       },
       flushPending: async () => {
-        await this.messageOperations.flushPending();
+        await this.messageOperations.sending.flushPending();
         // What was read while there was nobody to tell is told now, and so is everything else that waited.
-        await this.messageOperations.tellWhatWasRead();
+        await this.messageOperations.reading.tellWhatWasRead();
         await this.waiting.runWhatIsWaiting(error => this.emitError(error));
       },
       purgeStorage: async () => {

@@ -1,3 +1,5 @@
+import { MessageReadState } from "./message-read-state.js";
+import { MessageSending } from "./message-sending.js";
 import { SdkError } from "./errors.js";
 import { byRecentActivity } from "./conversation-operations.js";
 import { RecentIds } from "./recent-ids.js";
@@ -13,30 +15,16 @@ export function byOldestFirst(left: Message, right: Message): number {
   return left.createdAt - right.createdAt || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 import { OutboxOperations, type OutboxOperationsContext } from "./outbox-operations.js";
-import type {
-  MessagingAdapter,
-  MediaAdapter,
-  EditingAdapter,
-  ReceiptsAdapter,
-  SearchAdapter,
-  ThreadsAdapter
-} from "./adapter.js";
+import type { MessagingAdapter, EditingAdapter, SearchAdapter, ThreadsAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
-  FileInput,
-  GeoLocation,
   ListMessagesOptions,
-  VoiceInfo,
   Message,
   MessageId,
   MessagePage,
   MessageSearchOptions,
-  ReadReceipt,
-  SendFileOptions,
-  SendMessageOptions,
   Session,
-  MarkReadOptions,
   ThreadSummary,
   MediaLimits
 } from "./models.js";
@@ -61,13 +49,19 @@ export interface MessageOperationsContext {
 }
 
 export class MessageOperations {
-  private readonly lastReadByConversation = new Map<ConversationId, MessageId>();
-  private readonly readToTellAbout = new Map<ConversationId, MessageId>();
+  /** Putting something on the wire, and what happens to it when the wire is not there. */
+  readonly sending: MessageSending;
+  /** How far this person has read, and telling the others about it. */
+  readonly reading: MessageReadState;
 
   private readonly receivedMessageIds: RecentIds;
   private readonly outbox: OutboxOperations;
 
   constructor(private readonly context: MessageOperationsContext) {
+    this.reading = new MessageReadState(context, {
+      listMessages: conversationId => this.listMessages(conversationId),
+      localConversations: () => this.localConversations()
+    });
     this.receivedMessageIds = new RecentIds(context.rememberedMessages);
     const baseContext: OutboxOperationsContext = {
       adapter: context.adapter,
@@ -78,6 +72,7 @@ export class MessageOperations {
     };
     const outboxContext = context.storage ? { ...baseContext, storage: context.storage } : baseContext;
     this.outbox = new OutboxOperations(outboxContext, this.receivedMessageIds);
+    this.sending = new MessageSending(context, this.outbox, messageId => this.findMessage(messageId));
   }
 
   async listMessages(
@@ -199,7 +194,7 @@ export class MessageOperations {
     return results.sort((left, right) => right.createdAt - left.createdAt);
   }
 
-  private localConversations() {
+  localConversations() {
     const { storage, adapter } = this.context;
     return storage ? storage.getConversations() : adapter.listConversations();
   }
@@ -207,88 +202,6 @@ export class MessageOperations {
   private localMessages(conversationId: ConversationId) {
     const { storage, adapter } = this.context;
     return storage ? storage.getMessages(conversationId) : adapter.listMessages(conversationId);
-  }
-
-  sendMessage(
-    conversationId: ConversationId,
-    body: string,
-    options: SendMessageOptions = {}
-  ): Promise<Message> {
-    return this.outbox.send(conversationId, body, options);
-  }
-
-  async sendFile(
-    conversationId: ConversationId,
-    file: FileInput,
-    options: SendFileOptions = {}
-  ): Promise<Message> {
-    await this.refuseWhatIsTooBig(file);
-    return this.outbox.sendFile(conversationId, file, options);
-  }
-
-  /**
-   * Refused here rather than after sending it. Every homeserver has a limit and says what it is; without
-   * asking, the only way to find out is to upload something over a phone connection and be told no at the
-   * end, with nothing to show for it.
-   */
-  private async refuseWhatIsTooBig(file: FileInput): Promise<void> {
-    const allowed = (await this.context.whatTheHomeserverTakes()).maxUploadBytes;
-    const size = file.data.byteLength;
-    if (size <= allowed) return;
-    throw new SdkError(
-      "INVALID_INPUT",
-      `This homeserver takes files up to ${allowed} bytes and this one is ${size}`
-    );
-  }
-
-  sendSticker(conversationId: ConversationId, sticker: FileInput): Promise<Message> {
-    return this.outbox.sendSticker(conversationId, sticker);
-  }
-
-  sendLocation(conversationId: ConversationId, location: GeoLocation): Promise<Message> {
-    return this.outbox.sendLocation(conversationId, location);
-  }
-
-  sendVoice(conversationId: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message> {
-    return this.outbox.sendVoice(conversationId, file, voice);
-  }
-
-  /**
-   * Passes a message on to another conversation. A file is fetched and sent again rather than pointed at, because
-   * the copy in one conversation is locked with a key the other conversation does not have.
-   */
-  async forward(messageId: MessageId, toConversationId: ConversationId): Promise<Message> {
-    this.context.assertStarted();
-    const original = await this.findMessage(messageId);
-    if (!original) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
-    }
-    if (original.undecryptable || original.deletedAt) {
-      throw new SdkError("INVALID_INPUT", "A message that cannot be read cannot be passed on");
-    }
-    const { attachment } = original;
-    if (attachment) {
-      const data = await this.media.downloadAttachment(attachment);
-      return this.outbox.sendFile(
-        toConversationId,
-        {
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          data: new Uint8Array(data),
-          ...(attachment.width !== undefined ? { width: attachment.width } : {}),
-          ...(attachment.height !== undefined ? { height: attachment.height } : {}),
-          ...(attachment.voice ? { voice: attachment.voice } : {})
-        },
-        {}
-      );
-    }
-    if (original.location) {
-      return this.outbox.sendLocation(toConversationId, original.location);
-    }
-    return this.outbox.send(toConversationId, original.body, {
-      ...(original.formattedBody ? { formattedBody: original.formattedBody } : {}),
-      ...(original.kind ? { kind: original.kind } : {})
-    });
   }
 
   /** Hands a message to whoever runs the homeserver, which is what somebody does about abuse. */
@@ -321,7 +234,7 @@ export class MessageOperations {
   }
 
   /** Looks in what is already here first, and asks the conversation only when it is not. */
-  private async findMessage(messageId: MessageId): Promise<Message | undefined> {
+  async findMessage(messageId: MessageId): Promise<Message | undefined> {
     const stored = await this.context.storage?.getMessage(messageId);
     if (stored) return stored;
     for (const conversation of await this.localConversations()) {
@@ -329,30 +242,6 @@ export class MessageOperations {
       if (found) return found;
     }
     return undefined;
-  }
-
-  /** What arrived after the point this person had read, which is what an application draws a line above. */
-  async unreadSince(conversationId: ConversationId): Promise<readonly Message[]> {
-    this.context.assertStarted();
-    const messages = await this.listMessages(conversationId);
-    const conversations = await this.localConversations();
-    const lastRead = conversations.find(item => item.id === conversationId)?.lastReadMessageId;
-    if (lastRead === undefined) return messages;
-    const index = messages.findIndex(message => message.id === lastRead);
-    // A marker pointing at something no longer here says nothing about what is, so nothing is hidden.
-    return index === -1 ? messages : messages.slice(index + 1);
-  }
-
-  draftWritten(conversationId: ConversationId): void {
-    this.outbox.draftWritten(conversationId);
-  }
-
-  retryMessage(messageId: MessageId): Promise<Message> {
-    return this.outbox.retry(messageId);
-  }
-
-  cancelMessage(messageId: MessageId): Promise<Message> {
-    return this.outbox.cancel(messageId);
   }
 
   /**
@@ -364,57 +253,9 @@ export class MessageOperations {
     return this.threading.listThreads(conversationId);
   }
 
-  /** Who has read a message, so an application can show it without knowing anything about receipts. */
-  async readBy(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]> {
-    this.context.assertStarted();
-    if (!messageId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A message id is required");
-    }
-    return this.receipts.getReadReceipts(conversationId, messageId);
-  }
-
-  /**
-   * Applications call this every time a conversation is opened. Saying again that the same message was read
-   * tells nobody anything, so it does not go out: it would be a request per open on a busy screen.
-   */
-  async markRead(
-    conversationId: ConversationId,
-    messageId: MessageId,
-    options: MarkReadOptions = {}
-  ): Promise<void> {
-    this.context.assertStarted();
-    // A thread is read on its own: saying so does not say the conversation was read, so none of what is
-    // remembered about the conversation applies, and neither does the mark somebody left on it.
-    if (options.threadId) {
-      await this.receipts.markMessageRead(conversationId, messageId, options);
-      return;
-    }
-    if (this.lastReadByConversation.get(conversationId) === messageId) return;
-    try {
-      await this.receipts.markMessageRead(conversationId, messageId, options);
-      this.lastReadByConversation.set(conversationId, messageId);
-      this.readToTellAbout.delete(conversationId);
-      // Somebody reading a conversation is not somebody who left it for later.
-      await this.context.wasRead?.(conversationId);
-    } catch {
-      // Reading with no homeserver is still reading. It is remembered and told when there is one again, rather
-      // than thrown at somebody who only opened a conversation. Only the furthest point matters.
-      this.readToTellAbout.set(conversationId, messageId);
-    }
-  }
-
-  /** Says how far each conversation was read, for whatever could not be told at the time. */
-  async tellWhatWasRead(): Promise<void> {
-    for (const [conversationId, messageId] of [...this.readToTellAbout]) {
-      this.readToTellAbout.delete(conversationId);
-      await this.markRead(conversationId, messageId);
-    }
-  }
-
   /** What was already said out loud is only true while the client runs. */
   forget(): void {
-    this.lastReadByConversation.clear();
-    this.readToTellAbout.clear();
+    this.reading.forget();
     this.outbox.forgetWhatWasCleared();
   }
 
@@ -438,10 +279,6 @@ export class MessageOperations {
   updateMessage(message: Message): void {
     this.receivedMessageIds.add(message.id);
     void this.persistAndEmit(message, this.context.emitMessageUpdated);
-  }
-
-  flushPending(): Promise<void> {
-    return this.outbox.flush();
   }
 
   clear(): void {
@@ -486,13 +323,6 @@ export class MessageOperations {
   }
 
   /** The one place that answers whether this adapter does this at all. */
-  private get media(): MediaAdapter {
-    const media = this.context.adapter.media;
-    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
-    return media;
-  }
-
-  /** The one place that answers whether this adapter does this at all. */
   private get editing(): EditingAdapter {
     const found = this.context.adapter.editing;
     if (!found)
@@ -500,13 +330,6 @@ export class MessageOperations {
         "NOT_SUPPORTED",
         "Editing and deleting messages is not something this homeserver has"
       );
-    return found;
-  }
-
-  /** The one place that answers whether this adapter does this at all. */
-  private get receipts(): ReceiptsAdapter {
-    const found = this.context.adapter.receipts;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Read receipts are not something this homeserver has");
     return found;
   }
 
