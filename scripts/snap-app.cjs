@@ -57,8 +57,8 @@ async function run() {
   const server = await serve(root);
   const page = new BrowserWindow({
     show: false,
-    width: 1440,
-    height: 900,
+    width: Number(process.env.RELAYKIT_SNAP_WIDTH ?? 1440),
+    height: Number(process.env.RELAYKIT_SNAP_HEIGHT ?? 900),
     webPreferences: { partition: `persist:snap-${who}` }
   });
   acceptOwnCertificate(page.webContents.session);

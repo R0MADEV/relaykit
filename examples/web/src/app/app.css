@@ -998,6 +998,7 @@ body {
 }
 .banner.keys > div:first-of-type {
   display: grid;
+  flex: 1 1 240px;
   gap: 2px;
 }
 .banner.keys p {
@@ -1248,4 +1249,93 @@ body {
 /* Whoever is talking, so a room of faces says who to look at without repainting any of them. */
 .seat[data-speaking] {
   outline: 2px solid var(--green);
+}
+
+/* --- reachable by keyboard ---------------------------------------------- */
+/* One visible ring everywhere, and only for whoever is navigating by keyboard: a mouse leaves no trail. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.lists li button:focus-visible,
+.found:focus-visible {
+  outline-offset: -2px;
+}
+
+/* --- narrow ------------------------------------------------------------- */
+.drawer {
+  display: none;
+  position: fixed;
+  z-index: 3;
+  top: 10px;
+  left: 10px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+@media (width <= 900px) {
+  /* The list becomes a drawer over the conversation rather than a column beside it: at this width a column
+     leaves the conversation too narrow to read, and reading is what this is for. */
+  .drawer {
+    display: block;
+  }
+  .sidebar {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / 12%);
+  }
+  .shell[data-list-open] .sidebar {
+    transform: none;
+  }
+  .head {
+    padding-left: 58px;
+  }
+  /* A thread beside a conversation this narrow is two things too narrow to read, so it takes the screen. */
+  .thread {
+    position: fixed;
+    z-index: 2;
+    inset: 0;
+    width: auto;
+  }
+  .call-bar,
+  .banner,
+  .banner.keys {
+    flex-wrap: wrap;
+  }
+  /* A heading that wraps onto four lines pushes everything worth reading off the screen. */
+  /* A heading that wraps onto four lines pushes everything worth reading off the screen. */
+  .head h1,
+  .head-under > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .head > div:first-child {
+    min-width: 0;
+  }
+  .button {
+    white-space: nowrap;
+  }
+  .mini {
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .modal {
+    width: calc(100vw - 24px);
+  }
 }

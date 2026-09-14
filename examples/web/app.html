@@ -22,7 +22,7 @@
         ><input id="password" type="password" autocomplete="current-password"
       /></label>
       <button class="button accent" type="submit">Entrar</button>
-      <p class="wrong" id="sign-in-wrong" hidden></p>
+      <p class="wrong" id="sign-in-wrong" role="alert" hidden></p>
     </form>
 
     <!--
@@ -42,6 +42,7 @@
       </div>
 
       <div class="body">
+        <button class="drawer" id="drawer" aria-label="Ver la lista de conversaciones">☰</button>
         <aside class="sidebar">
           <div class="sidebar-top">
             <label class="search">
@@ -105,7 +106,7 @@
           </header>
 
           <!-- What this device can do with what was said before it existed. -->
-          <div class="banner keys" id="keys" hidden>
+          <div class="banner keys" id="keys" role="status" hidden>
             <span class="keys-icon" aria-hidden="true">🔒</span>
             <div>
               <strong id="keys-title"></strong>
@@ -116,7 +117,7 @@
             <button class="button accent small" id="keys-act"></button>
           </div>
 
-          <div class="banner" id="room-banner" hidden>
+          <div class="banner" id="room-banner" role="status" hidden>
             <span class="live-dot"></span>
             <strong>Sala activa en este canal</strong>
             <span class="mono faint" id="room-banner-who"></span>
@@ -142,7 +143,7 @@
             <span aria-hidden="true">✕</span>
           </button>
 
-          <p class="typing" id="typing"></p>
+          <p class="typing" id="typing" role="status" aria-live="polite"></p>
 
           <form class="composer" id="composer">
             <div class="tools" id="tools">
@@ -190,7 +191,7 @@
               <button class="button" id="minimise">Minimizar</button>
             </div>
           </header>
-          <div class="grid" id="grid"></div>
+          <div class="grid" id="grid" role="list" aria-label="Participantes de la sala"></div>
           <div class="call-controls">
             <button class="round" id="mute-microphone">
               <span aria-hidden="true">🎙</span><small>Silenciar</small>

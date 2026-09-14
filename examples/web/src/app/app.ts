@@ -181,6 +181,8 @@ class Deitu {
       const inside = event.target instanceof Element && event.target.closest(".new");
       if (!inside) menu.hidden = true;
     });
+    // The list is a drawer at narrow widths, and opening a conversation from it puts it away again.
+    onClick("drawer", () => element("shell").toggleAttribute("data-list-open"));
     const more = element("more-menu");
     onClick("more-button", () => {
       more.hidden = !more.hidden;
@@ -239,6 +241,7 @@ class Deitu {
   /** Opening a conversation, which is the one thing every part of this asks the shell to do. */
   private async openConversation(conversationId: ConversationId): Promise<void> {
     this.typing?.stop();
+    element("shell").removeAttribute("data-list-open");
     await this.reading?.open(conversationId);
   }
 
