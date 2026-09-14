@@ -241,8 +241,15 @@ export function sendMessage(
       client.sendMessage(conversationId, place, options.transactionId)
     );
   }
-  // The SDK tells its content types apart by `msgtype`, and a member of that union cannot be built from a
-  // value worked out while the program runs. Each one goes out by name, so each is checked as what it is.
+  /**
+   * Built here rather than asked of `ContentHelpers.makeTextMessage` and its html cousins, which make exactly
+   * these three.
+   *
+   * Those are declared as returning the whole `RoomMessageEventContent` union, and spreading a union to add
+   * the mentions and the relation gives every key not shared by every member the type `never`, which nothing
+   * accepts. Using them means asserting the result back into shape, and an assertion is a lie the compiler
+   * stops checking. So each goes out as one member of the sdk's own union, named, and the sdk checks it.
+   */
   const sent = (content: RoomMessageEventContent) =>
     sendWithTransaction(client, conversationId, content, options.transactionId, () =>
       client.sendMessage(conversationId, content, options.transactionId)

@@ -2,6 +2,7 @@ import { MatrixError, SecretStorage, type AuthDict, type MatrixClient, AuthType 
 import type { CryptoCallbacks } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key.js";
 import { SdkError } from "@relaykit/core";
+import { stringAt } from "./reading-content.js";
 import type {
   CryptoStatus,
   DeviceVerification,
@@ -180,7 +181,7 @@ async function proveWhoYouAre(
     if (!password) {
       throw new SdkError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
     }
-    const session = (error.data as { session?: string }).session;
+    const session = stringAt(error.data, "session");
     // Built as the one kind of auth this asks for, rather than assembled and then said to be some kind of
     // auth: what the SDK takes is a union, and a spread of one member plus a key belongs to none of them.
     await makeRequest(passwordAuth(client, password, session));

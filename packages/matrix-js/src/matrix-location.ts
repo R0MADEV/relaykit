@@ -1,4 +1,5 @@
 import { M_BEACON, M_BEACON_INFO, type MatrixClient, ContentHelpers, LocationAssetType } from "matrix-js-sdk";
+import { placeAt } from "./geo-uri.js";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
@@ -91,7 +92,7 @@ export async function listMatrixLiveLocations(
   return [...room.currentState.beacons.values()].map(beacon => {
     const content = beacon.beaconInfo;
     const position = beacon.latestLocationState?.uri;
-    const place = position ? parseGeoUri(position) : undefined;
+    const place = position ? placeAt(position) : undefined;
     return {
       id: `${conversationId}|${beacon.beaconInfoOwner}`,
       conversationId,
@@ -130,11 +131,4 @@ function splitSharingId(sharingId: string): { conversationId: string; sharedBy: 
   const divide = sharingId.lastIndexOf("|");
   if (divide < 1) throw new Error(`That is not something being shared: ${sharingId}`);
   return { conversationId: sharingId.slice(0, divide), sharedBy: sharingId.slice(divide + 1) };
-}
-
-/** `geo:43.26,-2.93` is how the protocol says a place, and what has to be undone to get back to numbers. */
-function parseGeoUri(uri: string): GeoLocation | undefined {
-  const [latitude, longitude] = uri.replace(/^geo:/, "").split(";")[0]?.split(",").map(Number) ?? [];
-  const isSomewhere = Number.isFinite(latitude) && Number.isFinite(longitude);
-  return isSomewhere ? { latitude: latitude as number, longitude: longitude as number } : undefined;
 }

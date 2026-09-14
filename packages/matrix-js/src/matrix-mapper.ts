@@ -30,6 +30,8 @@ import type {
   UserPresence
 } from "@relaykit/core";
 import { isDirectRoom } from "./matrix-conversations.js";
+import { placeAt } from "./geo-uri.js";
+import { numberAt, numbersAt, stringAt } from "./reading-content.js";
 
 import { presenceStates } from "@relaykit/core";
 
@@ -105,13 +107,10 @@ function mapAttachment(content: MatrixMessageContent, name: string): Attachment 
 function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefined {
   const record: Record<string, unknown> = { ...content };
   if (record["org.matrix.msc3245.voice"] === undefined) return undefined;
-  const audio = (record["org.matrix.msc1767.audio"] ?? {}) as { duration?: unknown; waveform?: unknown };
-  const fallback = (content.info as { duration?: unknown } | undefined)?.duration;
-  const duration = typeof audio.duration === "number" ? audio.duration : fallback;
-  if (typeof duration !== "number") return undefined;
-  const waveform = Array.isArray(audio.waveform)
-    ? audio.waveform.filter(value => typeof value === "number")
-    : [];
+  const audio = record["org.matrix.msc1767.audio"];
+  const duration = numberAt(audio, "duration") ?? numberAt(content.info, "duration");
+  if (duration === undefined) return undefined;
+  const waveform = numbersAt(audio, "waveform");
   return { voice: { durationMs: duration, ...(waveform.length > 0 ? { waveform } : {}) } };
 }
 
@@ -119,20 +118,11 @@ function mapVoice(content: MatrixMessageContent): { voice: VoiceInfo } | undefin
 function mapLocation(content: MatrixMessageContent): { location: GeoLocation } | undefined {
   if (content.msgtype !== MsgType.Location) return undefined;
   const record: Record<string, unknown> = { ...content };
-  const asset = (record[M_LOCATION.name] ?? {}) as { uri?: unknown; description?: unknown };
-  const uri = typeof asset.uri === "string" ? asset.uri : record["geo_uri"];
-  if (typeof uri !== "string" || !uri.startsWith("geo:")) return undefined;
-  const [latitude, longitude] = uri.slice(4).split(";")[0]?.split(",").map(Number) ?? [];
-  if (
-    latitude === undefined ||
-    longitude === undefined ||
-    Number.isNaN(latitude) ||
-    Number.isNaN(longitude)
-  ) {
-    return undefined;
-  }
-  const description = typeof asset.description === "string" ? asset.description : undefined;
-  return { location: { latitude, longitude, ...(description ? { description } : {}) } };
+  const asset = record[M_LOCATION.name];
+  const where = placeAt(stringAt(asset, "uri") ?? record["geo_uri"]);
+  if (!where) return undefined;
+  const description = stringAt(asset, "description");
+  return { location: { ...where, ...(description ? { description } : {}) } };
 }
 
 function mapThumbnail(info: NonNullable<MatrixMessageContent["info"]>): MediaRef | undefined {

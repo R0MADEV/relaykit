@@ -8,6 +8,7 @@ import {
   RelationType
 } from "matrix-js-sdk";
 import type { Poll as MatrixPoll } from "matrix-js-sdk/lib/models/poll.js";
+import { stringsAt } from "./reading-content.js";
 import type { ConversationId, MessageId, Poll, PollAnswer, StartPollInput } from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
@@ -146,8 +147,7 @@ async function describe(client: MatrixClient, poll: MatrixPoll): Promise<Poll> {
   const lastByPerson = new Map<string, string>();
   for (const response of responses.getRelations()) {
     const sender = response.getSender();
-    const chosen = (response.getContent()[M_POLL_RESPONSE.name] as { answers?: string[] } | undefined)
-      ?.answers?.[0];
+    const chosen = stringsAt(response.getContent()[M_POLL_RESPONSE.name], "answers")[0];
     if (sender && chosen) lastByPerson.set(sender, chosen);
   }
   const chosen = [...lastByPerson.values()];
