@@ -33,6 +33,7 @@ const shots = [
     does: `document.getElementById("keys-act").click();`,
     waitsFor: `document.getElementById("recovery").open`
   },
+  { name: "account", does: `document.getElementById("me").click();` },
   {
     name: "create-channel",
     does: `document.getElementById("new-button").click();

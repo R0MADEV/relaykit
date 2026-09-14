@@ -654,8 +654,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: another device of this account, which is not another person. */
-  addDevice(deviceId: string, displayName?: string): void {
-    this.people.addDevice(deviceId, displayName);
+  addDevice(deviceId: string, displayName?: string, lastSeenAt?: number): void {
+    this.people.addDevice(deviceId, displayName, lastSeenAt);
   }
 
   setDisplayName(displayName: string): Promise<void> {

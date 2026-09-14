@@ -9,6 +9,7 @@ import {
   type MessageId,
   type Session
 } from "@relaykit/web";
+import { Account } from "./account.js";
 import { CallScreen } from "./call-screen.js";
 import { Composing } from "./composing.js";
 import { element, input, onClick, pressedIn } from "./dom.js";
@@ -21,7 +22,7 @@ import { Sidebar, titleOf } from "./sidebar.js";
 import { ThreadPanel } from "./thread.js";
 import { paintTimeline, type Entry } from "./timeline.js";
 import { Typing } from "./typing.js";
-import { SigningIn } from "./signing-in.js";
+import { forgetAndStartOver, SigningIn } from "./signing-in.js";
 import { show } from "./views.js";
 
 class Deitu {
@@ -44,6 +45,7 @@ class Deitu {
   private keys: ProtectingKeys | undefined;
   private searching: Searching | undefined;
   private sidebar: Sidebar | undefined;
+  private account: Account | undefined;
   private more = true;
   private readUpTo: MessageId | undefined;
 
@@ -88,6 +90,9 @@ class Deitu {
       open: conversationId => void this.openConversation(conversationId)
     });
     this.sidebar.wire();
+    this.account = new Account(this.client, this.people, this.me, () => forgetAndStartOver());
+    this.account.wire();
+    this.account.paintWhoYouAre();
     this.making = new MakingThings(this.client, this.people, {
       openId: () => this.openId,
       opened: conversationId => void this.openConversation(conversationId),
@@ -205,6 +210,7 @@ class Deitu {
 
   private repaint(): void {
     this.sidebar?.paint();
+    this.account?.paintWhoYouAre();
     const conversationId = this.openId;
     if (!conversationId) return;
     const conversation = this.conversations?.get().find(each => each.id === conversationId);

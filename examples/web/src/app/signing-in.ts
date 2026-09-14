@@ -89,3 +89,14 @@ function isSession(value: unknown): value is Session {
   const enough: readonly (keyof Session)[] = ["homeserver", "userId", "accessToken"];
   return enough.every(key => typeof said[key] === "string");
 }
+
+/**
+ * The way out: the session goes, and the page starts over.
+ *
+ * Reloading rather than unpicking what a running application has on screen. Signing out is rare, and a
+ * client that is stopped is not a client anybody should be shown the inside of.
+ */
+export function forgetAndStartOver(): void {
+  localStorage.removeItem(remembered);
+  location.reload();
+}

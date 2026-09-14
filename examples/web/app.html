@@ -70,6 +70,12 @@
             </p>
             <ul id="directs"></ul>
           </nav>
+          <!-- Who you are here, and the sessions that are you somewhere else. -->
+          <button class="me" id="me">
+            <span class="avatar" id="me-face"></span>
+            <span class="me-name" id="me-name"></span>
+            <span class="mono faint" id="me-connection"></span>
+          </button>
         </aside>
 
         <!-- What is open: a channel, a direct message, or the rooms. -->
@@ -284,6 +290,28 @@
           <div class="spacer"></div>
           <button class="button" id="verifying-no" type="button" hidden></button>
           <button class="button accent" id="verifying-yes" type="button" hidden></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Your account: the sessions that can read what is said to you, and the way out. -->
+    <dialog class="modal" id="account">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2 id="account-who"></h2>
+            <p class="faint">Las sesiones que pueden leer lo que te escriben</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <p class="label">Tus sesiones</p>
+        <ul class="sessions" id="sessions"></ul>
+        <p class="wrong" id="account-wrong" hidden></p>
+        <footer class="modal-foot">
+          <button class="button danger" id="sign-out" type="button">Cerrar sesión</button>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
         </footer>
       </form>
     </dialog>

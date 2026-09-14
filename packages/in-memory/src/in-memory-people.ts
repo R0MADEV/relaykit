@@ -49,8 +49,10 @@ export class InMemoryPeople implements DevicesAdapter, PushAdapter {
   }
 
   /** Test helper: another device of this account, which is not another person. */
-  addDevice(deviceId: string, displayName?: string): void {
-    this.devices.set(deviceId, { id: deviceId, isCurrent: false, ...(displayName ? { displayName } : {}) });
+  addDevice(deviceId: string, displayName?: string, lastSeenAt?: number): void {
+    const named = displayName ? { displayName } : {};
+    const seen = lastSeenAt === undefined ? {} : { lastSeenAt };
+    this.devices.set(deviceId, { id: deviceId, isCurrent: false, ...named, ...seen });
   }
 
   async setDisplayName(displayName: string): Promise<void> {

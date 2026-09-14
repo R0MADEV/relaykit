@@ -34,9 +34,16 @@ export class DeviceOperations {
   }
 
   /** Every session open on this account, so a person can see where they are signed in. */
+  /**
+   * The sessions of this account, the one being used first and the rest by when they were last heard from.
+   *
+   * Ordered here rather than left as the homeserver returned them, for the same reason conversations are:
+   * every screen that shows this wants the same order, and a screen where "which one am I" is somewhere in
+   * the middle is a screen nobody can scan. A session nobody has heard from is not thereby more interesting.
+   */
   async list(): Promise<readonly Device[]> {
     this.context.assertStarted();
-    return this.devices.listDevices();
+    return [...(await this.devices.listDevices())].sort(byWhatMatters);
   }
 
   /** Stops trusting a device, which is what somebody does when a device is lost or was never theirs. */
@@ -184,4 +191,9 @@ export class DeviceOperations {
     if (!push) throw new SdkError("NOT_SUPPORTED", "Being pushed to is not something this homeserver does");
     return push;
   }
+}
+
+function byWhatMatters(left: Device, right: Device): number {
+  if (left.isCurrent !== right.isCurrent) return left.isCurrent ? -1 : 1;
+  return (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0);
 }

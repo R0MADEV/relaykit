@@ -15,8 +15,9 @@ export function paintHead(
   }
 ): void {
   const name = titleOf(conversation, what.people, what.me);
-  const written = isBetweenTwo(conversation) ? name : `# ${name}`;
-  element("open-title").textContent = written;
+  const person = isBetweenTwo(conversation);
+  // A heading is read on its own and gets the space; a placeholder is read as one word and does not.
+  element("open-title").textContent = person ? name : `# ${name}`;
   element("open-topic").textContent = conversation.topic ?? "";
   // The identifier is not an address anybody can use, so a conversation without an alias says nothing.
   element("open-address").textContent = conversation.alias ?? "";
@@ -26,7 +27,7 @@ export function paintHead(
   element("foot").textContent = conversation.isEncrypted
     ? "Matrix · cifrado extremo a extremo"
     : "Matrix · sin cifrar";
-  input("write").placeholder = `Escribe en ${written}…`;
+  input("write").placeholder = `Escribe en ${person ? name : `#${name}`}…`;
   // A call to join, which is only worth offering to somebody who is not already on it.
   element("room-banner").hidden = !what.going || what.onIt;
   element("room-banner-who").textContent = `${what.going?.participants.length ?? 0} participantes`;

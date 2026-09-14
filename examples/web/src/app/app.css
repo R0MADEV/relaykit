@@ -1091,3 +1091,58 @@ body {
 .tools button[data-styles] {
   cursor: pointer;
 }
+
+/* --- who you are here ---------------------------------------------------- */
+.me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: auto;
+  padding: 12px 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.me:hover {
+  background: var(--hover);
+}
+.me-name {
+  font-weight: 600;
+}
+#me-connection {
+  margin-left: auto;
+  color: var(--red);
+}
+
+.sessions {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sessions li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.sessions p {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+.tag.danger {
+  background: #fdecec;
+  color: var(--red);
+}
+.button.danger {
+  border-color: #f3c9ca;
+  color: var(--red);
+}
