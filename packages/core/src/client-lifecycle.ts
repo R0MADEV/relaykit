@@ -4,8 +4,9 @@ import {
   validateRegisterCredentials,
   validateSession
 } from "./session-validation.js";
-import type { MessagingAdapter, AdapterHandlers } from "./adapter.js";
+import type { MessagingAdapter, AdapterHandlers, SsoAdapter } from "./adapter.js";
 import type {
+  WayIn,
   ConnectionStatus,
   LoginCredentials,
   RegisterCredentials,
@@ -46,6 +47,49 @@ export class ClientLifecycle {
   private sync: SyncStatus = "idle";
 
   constructor(private readonly context: ClientLifecycleContext) {}
+
+  /**
+   * The ways in this homeserver offers besides a password.
+   *
+   * Asked of a homeserver by name, not of a session: there is nothing signed in yet. Empty is a real answer
+   * and means "only a password", not "something went wrong".
+   */
+  async waysIn(homeserver: string): Promise<readonly WayIn[]> {
+    return this.sso.listWaysIn(whereThatIs(homeserver));
+  }
+
+  /**
+   * Where to send the browser, and where it should come back to.
+   *
+   * `comeBackTo` is this application's own address. The homeserver bounces back to it with a one-time token
+   * in the query, and that token is what `finishSigningIn` takes.
+   */
+  async wayInAddress(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string> {
+    if (!comeBackTo.trim()) {
+      throw new SdkError("INVALID_INPUT", "Where to come back to is required");
+    }
+    return this.sso.wayInAddress(whereThatIs(homeserver), comeBackTo.trim(), wayInId);
+  }
+
+  /** The one-time token the homeserver came back with, turned into a session. */
+  async finishSigningIn(homeserver: string, token: string): Promise<Session> {
+    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before signing in again");
+    if (!token.trim()) {
+      throw new SdkError("INVALID_INPUT", "A sign in token is required");
+    }
+    const session = await this.sso.signInWithToken(whereThatIs(homeserver), token.trim());
+    this.context.setSession(session);
+    return session;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get sso(): SsoAdapter {
+    const found = this.context.adapter.sso;
+    if (!found) {
+      throw new SdkError("NOT_SUPPORTED", "Signing in elsewhere is not something this homeserver has");
+    }
+    return found;
+  }
 
   async register(credentials: RegisterCredentials): Promise<Session> {
     if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before registering");
@@ -204,4 +248,12 @@ export class ClientLifecycle {
     this.setSync("idle");
     this.setConnection("disconnected");
   }
+}
+
+/** A homeserver has to be somewhere. Said here so all three ways in refuse the same way. */
+function whereThatIs(homeserver: string): string {
+  if (!homeserver.trim()) {
+    throw new SdkError("INVALID_INPUT", "A homeserver address is required");
+  }
+  return homeserver.trim();
 }

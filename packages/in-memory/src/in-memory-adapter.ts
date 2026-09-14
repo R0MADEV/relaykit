@@ -1,4 +1,5 @@
 import type {
+  WayIn,
   PushRegistration,
   AdapterHandlers,
   CallingAdapter,
@@ -67,6 +68,7 @@ import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemoryModeration, type Knock } from "./in-memory-moderation.js";
 import { InMemorySpaces } from "./in-memory-spaces.js";
+import { InMemorySso } from "./in-memory-sso.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
 
@@ -105,6 +107,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   readonly conversationSettings: ConversationSettingsAdapter = this;
   readonly editing: EditingAdapter = this;
   readonly ignoring: IgnoringAdapter = this;
+  readonly sso = new InMemorySso({
+    signIn: userId => {
+      const session = { homeserver: "memory://test", userId, accessToken: `memory-token-${userId}` };
+      this.currentUserId = userId;
+      return session;
+    }
+  });
   readonly moderation: ModerationAdapter = this;
   readonly pins: PinsAdapter = this;
   readonly presence: PresenceAdapter = this;
@@ -664,6 +673,11 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   /** Test helper: another device of this account, which is not another person. */
+  /** Test helper: what this homeserver offers besides a password. */
+  offerSignInWith(waysIn: readonly WayIn[]): void {
+    this.sso.offer(waysIn);
+  }
+
   addDevice(deviceId: string, displayName?: string, lastSeenAt?: number): void {
     this.people.addDevice(deviceId, displayName, lastSeenAt);
   }

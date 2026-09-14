@@ -55,6 +55,7 @@ import type {
   KeyStanding,
   User,
   UserPresence,
+  WayIn,
   FileInput,
   SendFileOptions,
   SendMessageOptions,
@@ -248,6 +249,18 @@ export class MessagingClient {
     backupStatus: () => this.cryptoOperations.backupStatus(),
     setupRecovery: (options?: RecoverySetupOptions) => this.cryptoOperations.setupRecovery(options),
     recover: (recoveryKey: string) => this.cryptoOperations.recover(recoveryKey)
+  };
+  /**
+   * Signing in somewhere else and coming back: an organisation's single sign-on, or Google.
+   *
+   * All three happen before there is a session, so the homeserver is named each time.
+   */
+  readonly sso = {
+    waysIn: (homeserver: string): Promise<readonly WayIn[]> => this.lifecycle.waysIn(homeserver),
+    startAt: (homeserver: string, comeBackTo: string, wayInId?: string): Promise<string> =>
+      this.lifecycle.wayInAddress(homeserver, comeBackTo, wayInId),
+    finish: (homeserver: string, token: string): Promise<Session> =>
+      this.lifecycle.finishSigningIn(homeserver, token)
   };
   readonly presence = {
     set: (update: PresenceUpdate): Promise<void> => this.presenceOperations.set(update),

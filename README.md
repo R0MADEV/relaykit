@@ -23,7 +23,7 @@ propios, usar `@relaykit/core` directamente.
 
 | Área | Qué se puede hacer |
 |---|---|
-| **Sesión** | entrar, registrarse, salir, restaurar la sesión de la última vez, sincronizar y reconectar |
+| **Sesión** | entrar con contraseña **o con el SSO de la organización**, registrarse, salir, restaurar la sesión de la última vez, sincronizar y reconectar |
 | **Conversaciones** | crear, entrar, salir, invitar, llamar a la puerta, buscar, abrir la de dos con alguien, el enlace que cualquier cliente entiende |
 | **Ajustes de conversación** | nombre, tema, imagen, alias público, publicar en el directorio, quién puede entrar, cuánto historial ve quien llega, favorita, silenciada, marcarla sin leer, actualizarla de versión |
 | **Moderación** | quién está y qué es cada uno, qué puedes hacer tú, dar y quitar moderador, expulsar, vetar, readmitir |
@@ -50,7 +50,7 @@ propios, usar `@relaykit/core` directamente.
 
 Dicho para que nadie lo descubra a mitad de una integración:
 
-- **Formas de entrar**: SSO/OIDC, invitados, correo y teléfono. Solo hay usuario y contraseña.
+- **Invitados**, y entrar con correo o teléfono. SSO sí hay.
 - **Gestión de cuenta**: cambiar contraseña, dar de baja.
 - **Etiquetas propias** y datos de cuenta arbitrarios. Favorita sí; `m.tag` no.
 - **`forget`**: salir de una sala *y* borrarla de tu historial.
@@ -315,6 +315,31 @@ otra. Una clave creada justo despues puede tardar en llegar al backup hasta el s
 aplicacion.
 
 `logout()` borra el storage local. `stop()` lo conserva para reanudar la sesion.
+
+## Entrar con el SSO de la organizacion
+
+```ts
+// Que acepta este homeserver aparte de una contrasena. Vacio significa que solo acepta contrasena.
+const formas = await client.sso.waysIn("https://matrix.example");
+
+// A donde mandar el navegador, y a donde tiene que volver.
+const adonde = await client.sso.startAt("https://matrix.example", location.href, formas[0].id);
+location.assign(adonde);
+
+// Al volver, el homeserver deja un token de un solo uso en la direccion.
+const token = new URLSearchParams(location.search).get("loginToken");
+const session = await client.sso.finish("https://matrix.example", token);
+```
+
+Las tres ocurren **antes de que haya sesion**, asi que el homeserver se nombra cada vez: no hay nada dentro a
+quien preguntar. `waysIn` devuelve `id`, `name` y, cuando el servidor lo dice, `brand` (`google`, `github`…)
+e `icon`, que es lo que hace falta para dibujar un boton reconocible.
+
+**Un boton que no lleva a ningun sitio es peor que ninguno**: pedir una direccion a un homeserver que no
+ofrece esta forma de entrar se rechaza, en vez de devolver un enlace muerto.
+
+El ejemplo lo tiene montado: `examples/web` dibuja un boton por forma debajo del formulario, se va, vuelve y
+limpia el token de la direccion — un token de un solo uso en una URL es uno que alguien comparte sin querer.
 
 ## Si alguien esta o no
 

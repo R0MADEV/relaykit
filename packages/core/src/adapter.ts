@@ -63,11 +63,14 @@ import type {
   PresenceAdapter,
   ReceiptsAdapter,
   SearchAdapter,
+  SsoAdapter,
   ThreadsAdapter
 } from "./capabilities.js";
 
 export interface MessagingAdapter {
   /** Deciding who may be in a conversation and what they may do in it. Absent when this adapter cannot. */
+  /** Signing in somewhere else and coming back. Absent when this adapter cannot. */
+  readonly sso?: SsoAdapter;
   readonly moderation?: ModerationAdapter;
 
   /** What a conversation is called, what it looks like, who may come in and how far back they can read. Absent when this adapter cannot. */
@@ -148,6 +151,7 @@ export type {
   PresenceAdapter,
   ReceiptsAdapter,
   SearchAdapter,
+  SsoAdapter,
   ThreadsAdapter,
   CryptoAdapter,
   DevicesAdapter,

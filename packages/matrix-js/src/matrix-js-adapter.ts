@@ -135,6 +135,7 @@ import {
 } from "./matrix-profiles.js";
 import { withTranslatedErrors } from "./matrix-errors.js";
 import { MatrixCrypto } from "./matrix-crypto.js";
+import { MatrixSso } from "./matrix-sso.js";
 import { MatrixShares } from "./matrix-shares.js";
 import { listMatrixPastCalls } from "./matrix-call-history.js";
 
@@ -148,6 +149,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
   readonly conversationSettings: ConversationSettingsAdapter = this;
   readonly editing: EditingAdapter = this;
   readonly ignoring: IgnoringAdapter = this;
+  /** Signing in elsewhere happens before there is a session, so it is its own small thing. */
+  readonly sso = new MatrixSso();
   readonly moderation: ModerationAdapter = this;
   readonly pins: PinsAdapter = this;
   readonly presence: PresenceAdapter = this;

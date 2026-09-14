@@ -1399,3 +1399,33 @@ a.file {
   border-color: #d8d5f5;
   background: var(--tag);
 }
+
+/* --- las otras formas de entrar ---------------------------------------- */
+.ways-in {
+  display: grid;
+  gap: 10px;
+}
+/* Una raya con la palabra encima, para que no parezca que sobra un boton. */
+.or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+.or::before,
+.or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+#ways-in-list {
+  display: grid;
+  gap: 8px;
+}
+#ways-in-list .button {
+  justify-content: center;
+  padding: 10px;
+}

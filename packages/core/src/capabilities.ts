@@ -6,6 +6,8 @@
  * methods that exist in order to refuse. What stays in `MessagingAdapter` is what messaging *is*.
  */
 import type {
+  Session,
+  WayIn,
   Notification,
   JoinRule,
   ThreadSummary,
@@ -355,4 +357,24 @@ export interface IgnoringAdapter {
   /** People whose messages arrive but do not interrupt. Silencing is not ignoring. */
   listMutedUsers(): Promise<readonly UserId[]>;
   setUserMuted(userId: UserId, muted: boolean): Promise<void>;
+}
+
+/**
+ * Signing in somewhere else and coming back: an organisation's single sign-on, or Google.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: a homeserver that only takes a password has
+ * none of this, and a backend that is not a homeserver may have none either.
+ *
+ * All three happen **before there is a session**, so the homeserver is named each time: there is nothing
+ * signed in yet to ask.
+ */
+export interface SsoAdapter {
+  /** The ways in this homeserver offers besides a password. Empty when it offers none. */
+  listWaysIn(homeserver: string): Promise<readonly WayIn[]>;
+  /**
+   * Where to send the browser. `comeBackTo` is this application's own address: the homeserver bounces back
+   * to it with a one-time token in the query, and that token is what `signInWithToken` takes.
+   */
+  wayInAddress(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string>;
+  signInWithToken(homeserver: string, token: string): Promise<Session>;
 }

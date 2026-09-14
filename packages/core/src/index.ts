@@ -1,6 +1,7 @@
 export type {
   AdapterHandlers,
   CallingAdapter,
+  SsoAdapter,
   ThreadsAdapter,
   SearchAdapter,
   ReceiptsAdapter,
@@ -102,6 +103,7 @@ export type {
   TypingUpdate,
   UserPresence,
   Session,
+  WayIn,
   SyncStatus,
   User,
   UserId,

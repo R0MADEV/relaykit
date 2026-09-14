@@ -912,6 +912,29 @@ function runContract(name, setup) {
       assert.equal(readBack.formattedBody, `<strong>${body}</strong>`);
     });
 
+    it("says what this homeserver takes besides a password, and where to send the browser", async () => {
+      // Empty is a real answer: it means only a password. What must not happen is throwing, or inventing one.
+      const waysIn = await adapter.sso.listWaysIn(homeserverOf(adapter));
+      assert.ok(Array.isArray(waysIn));
+      for (const wayIn of waysIn) {
+        assert.equal(typeof wayIn.id, "string");
+        assert.ok(wayIn.name.length > 0);
+      }
+
+      const asking = adapter.sso.wayInAddress(homeserverOf(adapter), "https://deitu.example/vuelta");
+      if (waysIn.length === 0) {
+        // Nowhere to send anybody is not an address: it is a refusal, and saying so beats a dead link.
+        await assert.rejects(asking);
+        return;
+      }
+      // Wherever it points, it has to carry where to come back to, or nobody ever gets back.
+      assert.match(await asking, /deitu\.example/);
+    });
+
+    it("refuses a sign in token nobody issued", async () => {
+      await assert.rejects(adapter.sso.signInWithToken(homeserverOf(adapter), "inventado"));
+    });
+
     it("hands back a conversation that already is what it was asked to be", async () => {
       // If an operation comes back, what it did can be read. A conversation described before its own state
       // has arrived is a conversation with no name and the wrong door, and whoever painted it painted that.
@@ -968,4 +991,9 @@ runContract("in-memory", inMemorySetup);
 
 if (process.env.RELAYKIT_CONTRACT_MATRIX === "1") {
   runContract("matrix", matrixSetup);
+}
+
+/** The double lives in memory and the Matrix adapter against the development homeserver. */
+function homeserverOf(adapter) {
+  return adapter.constructor.name === "InMemoryAdapter" ? "memory://test" : homeserver;
 }

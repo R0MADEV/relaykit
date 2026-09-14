@@ -121,6 +121,7 @@ La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegado
 | `client.media` | `download`, `preview` (previsualización de enlaces), `limits` (lo que el servidor acepta) |
 | `client.users` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
 | `client.presence` | `set` (lo que haces tú), `of(userId)` (lo que hace otro) |
+| `client.sso` | `waysIn`, `startAt`, `finish` — entrar con el SSO de la organización, Google, GitHub |
 | `client.devices` | `list` (la sesión que usas primero, luego por cuándo se vio cada una), `rename`, `verify`, `revoke`, `signOut`, `verification` |
 | `client.verification` | `request`, `qrCode`, `scan`, `accept`, `confirm`, `reject`, `cancel` |
 | `client.crypto` | `standing`, `status`, `backupStatus`, `setupRecovery`, `recover` |
