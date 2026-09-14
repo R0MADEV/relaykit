@@ -101,49 +101,50 @@ export class MessagingClient {
     invite: (conversationId: ConversationId, userId: string): Promise<Conversation> =>
       this.conversationOperations.invite(conversationId, userId),
     rename: (conversationId: ConversationId, title: string): Promise<Conversation> =>
-      this.conversationOperations.rename(conversationId, title),
+      this.conversationOperations.settings.rename(conversationId, title),
     remove: (conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> =>
-      this.conversationOperations.remove(conversationId, userId, reason),
+      this.conversationOperations.moderating.remove(conversationId, userId, reason),
     ban: (conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation> =>
-      this.conversationOperations.ban(conversationId, userId, reason),
+      this.conversationOperations.moderating.ban(conversationId, userId, reason),
     unban: (conversationId: ConversationId, userId: string): Promise<Conversation> =>
-      this.conversationOperations.unban(conversationId, userId),
+      this.conversationOperations.moderating.unban(conversationId, userId),
     setUnread: (conversationId: ConversationId, unread: boolean): Promise<Conversation> =>
-      this.conversationOperations.setUnread(conversationId, unread),
+      this.conversationOperations.settings.setUnread(conversationId, unread),
     setFavourite: (conversationId: ConversationId, favourite: boolean): Promise<Conversation> =>
-      this.conversationOperations.setFavourite(conversationId, favourite),
+      this.conversationOperations.settings.setFavourite(conversationId, favourite),
     setTopic: (conversationId: ConversationId, topic: string): Promise<Conversation> =>
-      this.conversationOperations.setTopic(conversationId, topic),
+      this.conversationOperations.settings.setTopic(conversationId, topic),
     setAvatar: (conversationId: ConversationId, image: AvatarImage): Promise<Conversation> =>
-      this.conversationOperations.setAvatar(conversationId, image),
+      this.conversationOperations.settings.setAvatar(conversationId, image),
     setNotifications: (conversationId: ConversationId, level: NotificationLevel): Promise<Conversation> =>
-      this.conversationOperations.setNotifications(conversationId, level),
+      this.conversationOperations.settings.setNotifications(conversationId, level),
     pin: (conversationId: ConversationId, messageId: MessageId): Promise<void> =>
-      this.conversationOperations.pin(conversationId, messageId),
+      this.conversationOperations.settings.pin(conversationId, messageId),
     unpin: (conversationId: ConversationId, messageId: MessageId): Promise<void> =>
-      this.conversationOperations.unpin(conversationId, messageId),
+      this.conversationOperations.settings.unpin(conversationId, messageId),
     rotateKeys: (conversationId: ConversationId): Promise<void> =>
       this.conversationOperations.rotateKeys(conversationId),
     upgrade: (conversationId: ConversationId): Promise<Conversation> =>
-      this.conversationOperations.upgrade(conversationId),
+      this.conversationOperations.settings.upgrade(conversationId),
     current: (conversationId: ConversationId): Promise<Conversation> =>
       this.conversationOperations.current(conversationId),
     link: (conversationId: ConversationId): Promise<string> =>
       this.conversationOperations.link(conversationId),
     setAlias: (conversationId: ConversationId, alias: string): Promise<Conversation> =>
-      this.conversationOperations.setAlias(conversationId, alias),
+      this.conversationOperations.settings.setAlias(conversationId, alias),
     publish: (conversationId: ConversationId, listed: boolean): Promise<void> =>
-      this.conversationOperations.publish(conversationId, listed),
+      this.conversationOperations.settings.publish(conversationId, listed),
     discover: (query?: string): Promise<readonly PublicConversation[]> =>
       this.conversationOperations.discover(query),
     setJoinRule: (conversationId: ConversationId, rule: JoinRule): Promise<Conversation> =>
-      this.conversationOperations.setJoinRule(conversationId, rule),
+      this.conversationOperations.settings.setJoinRule(conversationId, rule),
     setHistoryVisibility: (
       conversationId: ConversationId,
       visibility: HistoryVisibility
-    ): Promise<Conversation> => this.conversationOperations.setHistoryVisibility(conversationId, visibility),
+    ): Promise<Conversation> =>
+      this.conversationOperations.settings.setHistoryVisibility(conversationId, visibility),
     knock: (conversationId: ConversationId, options?: KnockOptions): Promise<void> =>
-      this.conversationOperations.knock(conversationId, options),
+      this.conversationOperations.moderating.knock(conversationId, options),
     saveDraft: async (conversationId: ConversationId, text: string): Promise<void> => {
       await this.conversationOperations.saveDraft(conversationId, text);
       // Something was written here, so the next message sent has a draft to clear.
@@ -152,13 +153,13 @@ export class MessagingClient {
     draft: (conversationId: ConversationId): Promise<string | undefined> =>
       this.conversationOperations.draft(conversationId),
     pinned: (conversationId: ConversationId): Promise<readonly Message[]> =>
-      this.conversationOperations.pinned(conversationId),
+      this.conversationOperations.settings.pinned(conversationId),
     participants: (conversationId: ConversationId): Promise<readonly Participant[]> =>
-      this.conversationOperations.participants(conversationId),
+      this.conversationOperations.moderating.participants(conversationId),
     permissions: (conversationId: ConversationId): Promise<ConversationPermissions> =>
-      this.conversationOperations.permissions(conversationId),
+      this.conversationOperations.moderating.permissions(conversationId),
     setRole: (conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> =>
-      this.conversationOperations.setRole(conversationId, userId, role),
+      this.conversationOperations.moderating.setRole(conversationId, userId, role),
     findDirect: (userId: string): Promise<Conversation | undefined> =>
       this.conversationOperations.findDirect(userId),
     search: (query: string): Promise<readonly Conversation[]> => this.conversationOperations.search(query),
@@ -375,7 +376,7 @@ export class MessagingClient {
       emitMessageUpdated: message => this.events.emit("message.updated", message),
       emitMessageReceived: message => this.events.emit("message.received", message),
       // Built after this one, so it is reached when it is needed rather than when this is put together.
-      wasRead: conversationId => this.conversationOperations.clearUnreadMark(conversationId),
+      wasRead: conversationId => this.conversationOperations.settings.clearUnreadMark(conversationId),
       whatTheHomeserverTakes: () => this.mediaOperations.limits(),
       cachedMessagesPerConversation: config.cache?.messagesPerConversation ?? defaultCachedMessages,
       rememberedMessages: config.cache?.seenMessages ?? defaultRememberedMessages,
