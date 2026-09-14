@@ -1,6 +1,6 @@
 import type { ConversationId, Message, MessageId, PastCall, UserId } from "@relaykit/web";
 import { grouped } from "./reacting.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 import { safe } from "./dom.js";
 import { dayOf, lastedFor, timeOf } from "./when.js";
 
@@ -50,7 +50,7 @@ export function paintTimeline(into: HTMLElement, entries: readonly Entry[], read
 function said(message: Message, reading: Reading): string {
   const who = reading.people.nameOf(message.senderId);
   return `<div class="said">${whatCanBeDone(message, reading)}
-    <span class="avatar big">${safe(reading.people.initialsOf(message.senderId))}</span>
+    ${face(reading.people, message.senderId, true)}
     <div>
       <p class="who"><strong>${safe(who)}</strong><span class="at">${timeOf(message.createdAt)}</span></p>
       ${body(message, reading)}${reactions(message, reading)}${thread(message, reading)}

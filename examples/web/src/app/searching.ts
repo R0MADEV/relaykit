@@ -1,6 +1,6 @@
 import type { ConversationId, Message, MessagingClient } from "@relaykit/web";
 import { element, input, onClick, pressedIn, safe } from "./dom.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 import { dayOf, timeOf } from "./when.js";
 
 /** Long enough that a search is worth making, short enough that nobody has to press anything. */
@@ -91,7 +91,7 @@ export class Searching {
   private row(message: Message): string {
     const where = this.where.nameOf(message.conversationId) ?? message.conversationId;
     return `<button class="found" data-found-in="${safe(message.conversationId)}">
-      <span class="avatar big">${safe(this.people.initialsOf(message.senderId))}</span>
+      ${face(this.people, message.senderId, true)}
       <span class="found-what">
         <span class="who">
           <strong>${safe(this.people.nameOf(message.senderId))}</strong>

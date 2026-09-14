@@ -1,6 +1,6 @@
 import type { MessagingClient, User, UserId } from "@relaykit/web";
 import { element, input, pressedIn, safe } from "./dom.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 
 /**
  * Choosing people: a box to look them up in and a list to tick them off.
@@ -79,10 +79,8 @@ export class PickingPeople {
 
   private row(person: User): string {
     const picked = this.ticked.has(person.id);
-    const there = this.people.dotFor(person.id);
-    const dot = there ? ` data-there="${there}"` : "";
     return `<li data-picks="${safe(person.id)}"${picked ? " data-picked" : ""}>
-      <span class="avatar"${dot}>${safe(this.people.initialsOf(person.id))}</span>
+      ${face(this.people, person.id)}
       <span class="who-name">${safe(this.people.nameOf(person.id))}</span>
       <span class="mono faint">${safe(person.id)}</span>
       <input type="checkbox" tabindex="-1" ${picked ? "checked" : ""} />

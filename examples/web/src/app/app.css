@@ -1224,3 +1224,28 @@ body {
 .answering-bar .spacer {
   flex: 1;
 }
+
+/* A face with a picture is the picture, cropped to the same circle the initials sit in. */
+.avatar[data-has-picture] {
+  background: none;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* A menu hanging off something on the right has to open leftwards, or it opens off the screen. */
+.menu.right {
+  right: 0;
+  left: auto;
+}
+.head-actions .new {
+  position: relative;
+}
+
+/* Whoever is talking, so a room of faces says who to look at without repainting any of them. */
+.seat[data-speaking] {
+  outline: 2px solid var(--green);
+}

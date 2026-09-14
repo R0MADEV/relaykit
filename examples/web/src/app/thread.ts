@@ -1,6 +1,6 @@
 import type { ConversationId, Message, MessageId, MessagingClient } from "@relaykit/web";
 import { element, onClick, safe } from "./dom.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 import { timeOf } from "./when.js";
 
 /**
@@ -64,7 +64,7 @@ export class ThreadPanel {
 
 function said(message: Message, people: People): string {
   return `<div class="said">
-    <span class="avatar big">${safe(people.initialsOf(message.senderId))}</span>
+    ${face(people, message.senderId, true)}
     <div>
       <p class="who">
         <strong>${safe(people.nameOf(message.senderId))}</strong>

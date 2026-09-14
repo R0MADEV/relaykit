@@ -1,4 +1,5 @@
 import type { ConversationId, MessagingClient, User, UserId, UserPresence } from "@relaykit/web";
+import { safe } from "./dom.js";
 
 /**
  * What is known about the people on screen: how they are called and whether they are about.
@@ -11,6 +12,8 @@ export class People {
   private readonly known = new Map<UserId, User>();
   private readonly there = new Map<UserId, UserPresence>();
   private readonly asking = new Set<UserId>();
+  /** Pictures already fetched, as addresses this page can draw. Made once each and kept for as long as it runs. */
+  private readonly faces = new Map<UserId, string>();
 
   constructor(
     private readonly client: MessagingClient,
@@ -28,6 +31,11 @@ export class People {
     const first = words[0]?.[0] ?? "?";
     const second = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";
     return (first + second).toUpperCase();
+  }
+
+  /** The picture of somebody, when they have one and it has arrived. */
+  faceOf(userId: UserId): string | undefined {
+    return this.faces.get(userId);
   }
 
   /** The dot on a face. Nothing at all while it is unknown, which is not the same as being away. */
@@ -56,6 +64,17 @@ export class People {
     void Promise.all(missing.map(userId => this.ask(userId, inside))).then(() => this.arrived());
   }
 
+  /** A size in pixels asks the homeserver for a picture already that big, rather than the original. */
+  private async face(userId: UserId, inside: ConversationId | undefined): Promise<void> {
+    const picture = await this.client.users
+      .avatar(userId, { size: 96, ...(inside ? { conversationId: inside } : {}) })
+      .catch(() => undefined);
+    if (!picture) return;
+    // Copied into a buffer of its own: what came back may be a view on shared memory, which a Blob will not take.
+    const bytes = new Uint8Array(picture.data);
+    this.faces.set(userId, URL.createObjectURL(new Blob([bytes.buffer], { type: picture.mimeType })));
+  }
+
   private async ask(userId: UserId, inside: ConversationId | undefined): Promise<void> {
     // Somebody who cannot be described is still somebody to talk to: the identifier stands in, and asking
     // again on the next repaint would be a request a second for a homeserver that has already said no.
@@ -65,10 +84,25 @@ export class People {
     this.known.set(userId, profile ?? { id: userId });
     const presence = await this.client.presence.of(userId).catch(() => undefined);
     if (presence) this.there.set(userId, presence);
+    await this.face(userId, inside);
   }
 }
 
 /** `@ana:example.org` is Ana to anybody reading, until the homeserver says what she calls herself. */
 function bareName(userId: UserId): string {
   return userId.replace(/^@/, "").split(":")[0] ?? userId;
+}
+
+/**
+ * The markup of one face: the picture where there is one, and the initials where there is not.
+ *
+ * Written once because it is drawn in six places — a row of the list, beside a message, in a search result,
+ * in a box of a call — and six spellings of the same thing drift apart.
+ */
+export function face(people: People, userId: UserId, big = false): string {
+  const picture = people.faceOf(userId);
+  const there = people.dotFor(userId);
+  const marks = `class="avatar${big ? " big" : ""}"${there ? ` data-there="${there}"` : ""}`;
+  if (!picture) return `<span ${marks}>${safe(people.initialsOf(userId))}</span>`;
+  return `<span ${marks} data-has-picture><img src="${safe(picture)}" alt="" /></span>`;
 }

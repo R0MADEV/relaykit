@@ -53,7 +53,8 @@ export class DoingToMessages {
     if (edits) return this.edit(conversationId, edits);
     const deletes = pressedIn(event, "deletes");
     if (deletes) return this.delete(conversationId, deletes);
-    const hangs = pressedIn(event, "hangs-from");
+    // The pill under a message and the button in its row mean the same thing: open the thread hanging here.
+    const hangs = pressedIn(event, "hangs-from") ?? pressedIn(event, "opens-thread");
     if (hangs) this.where.hangFrom(hangs);
   }
 

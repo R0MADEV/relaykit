@@ -5,7 +5,7 @@
  * ways — a conversation between two people with no name of its own is a person, however it was made.
  */
 import type { Conversation, ConversationId, UserId } from "@relaykit/web";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 import { element, pressedIn, safe } from "./dom.js";
 
 /**
@@ -80,12 +80,8 @@ export function paintDirects(into: HTMLElement, conversations: readonly Conversa
     .map(conversation => {
       const other = conversation.participantIds.find(participant => participant !== where.me);
       const name = titleOf(conversation, where.people, where.me);
-      return row(
-        conversation,
-        where,
-        `<span class="avatar"${dot(other, where.people)}>${safe(faceOf(other, where.people))}</span>
-        <span class="name">${safe(name)}</span>`
-      );
+      const theirs = other ? face(where.people, other) : '<span class="avatar">·</span>';
+      return row(conversation, where, `${theirs}<span class="name">${safe(name)}</span>`);
     })
     .join("");
 }
@@ -105,15 +101,6 @@ function row(conversation: Conversation, where: Where, inside: string): string {
   const unread = conversation.unreadCount ?? 0;
   const badge = unread > 0 ? `<span class="badge">${unread}</span>` : "";
   return `<li><button data-conversation="${safe(conversation.id)}"${open}>${inside}${live}${badge}</button></li>`;
-}
-
-function faceOf(userId: UserId | undefined, people: People): string {
-  return userId ? people.initialsOf(userId) : "·";
-}
-
-function dot(userId: UserId | undefined, people: People): string {
-  const there = userId ? people.dotFor(userId) : undefined;
-  return there ? ` data-there="${there}"` : "";
 }
 
 /** The list itself: painted from the conversations as they stand, and the one thing that opens one. */

@@ -35,6 +35,7 @@
         <strong id="call-bar-title">Sala · Post-mortem incidencia voz</strong>
         <span class="mono" id="call-bar-time">00:26</span>
         <span class="mono faint">LIVEKIT</span>
+        <span class="mono faint" id="call-bar-quality"></span>
         <div class="spacer"></div>
         <button class="button accent" id="call-bar-back">Volver a la sala</button>
         <button class="icon-button danger" id="call-bar-leave" aria-label="Salir de la sala">✕</button>
@@ -54,6 +55,7 @@
                 <button data-opens="new-message">
                   <span aria-hidden="true">◍</span> Iniciar mensaje nuevo
                 </button>
+                <button data-opens="explore"><span aria-hidden="true">⌕</span> Explorar canales</button>
               </div>
             </div>
           </div>
@@ -71,11 +73,7 @@
             <ul id="directs"></ul>
           </nav>
           <!-- Who you are here, and the sessions that are you somewhere else. -->
-          <button class="me" id="me">
-            <span class="avatar" id="me-face"></span>
-            <span class="me-name" id="me-name"></span>
-            <span class="mono faint" id="me-connection"></span>
-          </button>
+          <button class="me" id="me"></button>
         </aside>
 
         <!-- What is open: a channel, a direct message, or the rooms. -->
@@ -94,6 +92,15 @@
                 <span aria-hidden="true">▭</span> Abrir sala
               </button>
               <button class="icon-button" id="search-here" aria-label="Buscar en esta conversación">⌕</button>
+              <div class="new">
+                <button class="icon-button" id="more-button" aria-label="Más">⋯</button>
+                <div class="menu right" id="more-menu" hidden>
+                  <button data-opens="invite" id="invite-here">
+                    <span aria-hidden="true">◍</span> Invitar usuarios
+                  </button>
+                  <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
+                </div>
+              </div>
             </div>
           </header>
 
@@ -304,6 +311,29 @@
     </dialog>
 
     <!-- Your account: the sessions that can read what is said to you, and the way out. -->
+    <!-- The channels of this homeserver anybody may walk into. -->
+    <dialog class="modal" id="explore">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">⌕</span>
+          <div>
+            <h2>Explorar canales</h2>
+            <p class="faint">Los canales públicos de este servidor</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="search wide">
+          <input id="explore-search" type="search" placeholder="Buscar canales" />
+          <span class="search-icon" aria-hidden="true">⌕</span>
+        </label>
+        <ul class="people" id="explore-found"></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="account">
       <form method="dialog">
         <header class="modal-head">

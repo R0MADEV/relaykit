@@ -1,6 +1,6 @@
 import type { Device, MessagingClient, UserId } from "@relaykit/web";
 import { dialog, element, onClick, pressedIn, safe } from "./dom.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 
 /**
  * Your account: the sessions that can read what is said to you, and the way out.
@@ -10,6 +10,8 @@ import type { People } from "./people.js";
  * account password, which is why it is asked for here and nowhere else.
  */
 export class Account {
+  private connection = "";
+
   constructor(
     private readonly client: MessagingClient,
     private readonly people: People,
@@ -26,13 +28,18 @@ export class Account {
     });
     // Whether there is a homeserver to talk to at all belongs beside who you are: both are about this session.
     this.client.on("connection.changed", status => {
-      element("me-connection").textContent = status === "connected" ? "" : whatIsWrong(status);
+      this.connection = status === "connected" ? "" : whatIsWrong(status);
+      element("me-connection").textContent = this.connection;
     });
   }
 
   paintWhoYouAre(): void {
-    element("me-face").textContent = this.people.initialsOf(this.me);
-    element("me-name").textContent = this.people.nameOf(this.me);
+    // Painted whole rather than piece by piece: a face is a picture or two letters, which are not the same
+    // element. The listener lives on the button around it, so repainting the inside costs nothing.
+    element("me").innerHTML =
+      `${face(this.people, this.me)}` +
+      `<span class="me-name">${safe(this.people.nameOf(this.me))}</span>` +
+      `<span class="mono faint" id="me-connection">${safe(this.connection)}</span>`;
     element("account-who").textContent = this.me;
   }
 

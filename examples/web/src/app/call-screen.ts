@@ -1,6 +1,6 @@
 import type { Call, ConversationId, MessagingClient, UserId } from "@relaykit/web";
 import { element, input, onClick } from "./dom.js";
-import type { People } from "./people.js";
+import { face, type People } from "./people.js";
 import { paintGrid } from "./room.js";
 import { runningFor } from "./when.js";
 import { show, showing } from "./views.js";
@@ -25,6 +25,15 @@ export class CallScreen {
     private readonly backToChat: () => void
   ) {
     window.setInterval(() => this.tick(), 1000);
+    // Apart from call.changed on purpose: this arrives several times a second, and lighting up one border
+    // must not repaint every face.
+    this.client.on("call.speaking", ({ callId, userIds }) => {
+      if (callId !== this.on?.id) return;
+      for (const seat of element("grid").querySelectorAll(".seat")) {
+        const whose = seat instanceof HTMLElement ? (seat.dataset.seat ?? "").split("/")[0] : undefined;
+        seat.toggleAttribute("data-speaking", Boolean(whose && userIds.includes(whose)));
+      }
+    });
   }
 
   wire(): void {
@@ -118,10 +127,7 @@ export class CallScreen {
     element("lobby-tags").innerHTML =
       `<span class="tag">${call.isEncrypted ? "Cifrada" : "Sin cifrar"}</span>`;
     element("lobby-in-room").innerHTML = call.participants
-      .map(
-        person =>
-          `<li><span class="avatar" data-there="here">${this.people.initialsOf(person.userId)}</span> ${this.people.nameOf(person.userId)}</li>`
-      )
+      .map(person => `<li>${face(this.people, person.userId)} ${this.people.nameOf(person.userId)}</li>`)
       .join("");
     element("lobby-foot").textContent = alone
       ? "Abierta ahora · solo tú dentro"
@@ -142,6 +148,16 @@ export class CallScreen {
     element("call-bar-time").textContent = going;
     const inside = this.on.participants.length;
     element("mini-under").textContent = `${going} · ${inside} en sala`;
+    void this.howItIsGoing();
+  }
+
+  /** How the call is actually travelling, said in words rather than in numbers nobody reads. */
+  private async howItIsGoing(): Promise<void> {
+    const call = this.on;
+    if (!call) return;
+    const quality = await this.client.calls.quality(call.id).catch(() => undefined);
+    const trip = quality?.roundTripMs;
+    element("call-bar-quality").textContent = trip === undefined ? "" : howItTravels(trip);
   }
 
   /** The room a call is in, once there is one to show. Alone in it is the lobby. */
@@ -170,4 +186,11 @@ export class CallScreen {
     await what(going).catch(() => undefined);
     await this.heard();
   }
+}
+
+/** A round trip somebody would notice, said as what they would notice rather than as a number. */
+function howItTravels(roundTripMs: number): string {
+  if (roundTripMs < 150) return "buena";
+  if (roundTripMs < 400) return "regular";
+  return "mala";
 }

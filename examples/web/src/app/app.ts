@@ -1,27 +1,23 @@
 import {
   createConversationList,
-  createMessageTimeline,
   type Conversation,
   type ConversationId,
   type LiveCollection,
-  type LiveTimeline,
-  type Message,
-  type MessageId,
   type Session
 } from "@relaykit/web";
 import { Account } from "./account.js";
 import { DoingToMessages } from "./doing-to-messages.js";
+import { Exploring } from "./exploring.js";
 import { CallScreen } from "./call-screen.js";
 import { Composing } from "./composing.js";
 import { element, input, onClick, pressedIn } from "./dom.js";
 import { MakingThings } from "./making-things.js";
 import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
-import { paintHead } from "./conversation-head.js";
+import { Reading } from "./reading.js";
 import { Searching } from "./searching.js";
-import { Sidebar, titleOf } from "./sidebar.js";
+import { Sidebar } from "./sidebar.js";
 import { ThreadPanel } from "./thread.js";
-import { paintTimeline, type Entry } from "./timeline.js";
 import { Typing } from "./typing.js";
 import { forgetAndStartOver, SigningIn } from "./signing-in.js";
 import { show } from "./views.js";
@@ -33,14 +29,11 @@ class Deitu {
   );
   private readonly client = this.signingIn.client;
   private me = "";
-  private people = new People(this.client, () => this.repaint());
+  private people = new People(this.client, () => this.reading?.repaint());
   private calls: CallScreen | undefined;
   private conversations: LiveCollection<Conversation> | undefined;
-  private timeline: LiveTimeline | undefined;
-  private openId: ConversationId | undefined;
+  private reading: Reading | undefined;
   private thread: ThreadPanel | undefined;
-  private threads = new Map<MessageId, number>();
-  private entries: readonly Entry[] = [];
   private making: MakingThings | undefined;
   private typing: Typing | undefined;
   private keys: ProtectingKeys | undefined;
@@ -48,8 +41,7 @@ class Deitu {
   private sidebar: Sidebar | undefined;
   private account: Account | undefined;
   private doing: DoingToMessages | undefined;
-  private more = true;
-  private readUpTo: MessageId | undefined;
+  private exploring: Exploring | undefined;
 
   /** Either straight in with the session kept from last time, or the form until somebody answers it. */
   async open(): Promise<void> {
@@ -61,12 +53,12 @@ class Deitu {
     document.title = `Deitu · ${this.people.nameOf(session.userId)}`;
     this.calls = new CallScreen(this.client, this.people, this.me, () => this.backToChat());
     this.calls.wire();
-    this.typing = new Typing(this.client, this.people, this.me, () => this.openId);
+    this.typing = new Typing(this.client, this.people, this.me, () => this.reading?.openId());
     this.typing.wire();
     this.keys = new ProtectingKeys(this.client, this.me, error => this.wentWrong(error));
     this.keys.wire();
     new Composing(this.client, {
-      openId: () => this.openId,
+      openId: () => this.reading?.openId(),
       threadRootId: () => this.thread?.rootId(),
       answering: () => this.doing?.answeringWhat(),
       stopAnswering: () => this.doing?.stopAnswering(),
@@ -74,14 +66,14 @@ class Deitu {
       wentWrong: error => this.wentWrong(error)
     }).wire();
     this.searching = new Searching(this.client, this.people, {
-      openId: () => this.openId,
-      nameOf: id => this.nameOfConversation(id),
+      openId: () => this.reading?.openId(),
+      nameOf: id => this.reading?.nameOf(id),
       open: id => void this.openConversation(id)
     });
     this.searching.wire();
     this.thread = new ThreadPanel(this.client, this.people, {
-      openId: () => this.openId,
-      messageCalled: messageId => this.messageCalled(messageId),
+      openId: () => this.reading?.openId(),
+      messageCalled: messageId => this.reading?.messageCalled(messageId),
       nameOfOpen: () => element("open-title").textContent ?? ""
     });
     this.thread.wire();
@@ -89,7 +81,7 @@ class Deitu {
       people: this.people,
       me: this.me,
       conversations: () => this.conversations?.get() ?? [],
-      openId: () => this.openId,
+      openId: () => this.reading?.openId(),
       liveIn: () => this.calls?.liveIn() ?? new Set(),
       open: conversationId => void this.openConversation(conversationId)
     });
@@ -98,14 +90,40 @@ class Deitu {
     this.account.wire();
     this.account.paintWhoYouAre();
     this.doing = new DoingToMessages(this.client, {
-      openId: () => this.openId,
-      said: messageId => this.messageCalled(messageId)?.body,
+      openId: () => this.reading?.openId(),
+      said: messageId => this.reading?.messageCalled(messageId)?.body,
       hangFrom: messageId => this.thread?.open(messageId),
       wentWrong: error => this.wentWrong(error)
     });
     this.doing.wire();
+    this.exploring = new Exploring(this.client, {
+      joined: conversationId => void this.openConversation(conversationId),
+      wentWrong: error => this.wentWrong(error)
+    });
+    this.exploring.wire();
+    this.reading = new Reading(this.client, this.people, this.me, {
+      conversations: () => this.conversations?.get() ?? [],
+      goingIn: conversationId => this.calls?.goingIn(conversationId),
+      onACallIn: conversationId => Boolean(this.calls?.onACallIn(conversationId)),
+      opened: () => this.backToChat(),
+      repaintTheRest: () => {
+        this.sidebar?.paint();
+        this.account?.paintWhoYouAre();
+      },
+      repaintTheThread: () => void this.thread?.repaint(),
+      closeTheThread: () => this.thread?.close(),
+      wentWrong: error => this.wentWrong(error)
+    });
+    this.reading.wire();
+    // Saying you are about, and saying you are not when this window goes away. A dot that never changes is
+    // a dot nobody reads.
+    void this.client.presence.set({ presence: "online" }).catch(() => undefined);
+    document.addEventListener("visibilitychange", () => {
+      const presence = document.hidden ? "unavailable" : "online";
+      void this.client.presence.set({ presence }).catch(() => undefined);
+    });
     this.making = new MakingThings(this.client, this.people, {
-      openId: () => this.openId,
+      openId: () => this.reading?.openId(),
       opened: conversationId => void this.openConversation(conversationId),
       wentWrong: error => this.wentWrong(error)
     });
@@ -130,7 +148,7 @@ class Deitu {
   /** The first conversation opens on its own, as soon as there is one. Nobody wants to arrive at nothing. */
   private somethingToRead(): void {
     this.sidebar?.paint();
-    if (this.openId) return;
+    if (this.reading?.openId()) return;
     const first = this.conversations?.get()[0];
     if (first) void this.openConversation(first.id);
   }
@@ -143,13 +161,13 @@ class Deitu {
     // Asked once on the way in, a conversation the homeserver had not finished describing keeps its answer,
     // so it is read again whenever the conversation moves and once catching up is over.
     this.client.on("conversation.updated", conversation => {
-      if (conversation.id === this.openId) void this.reload();
+      if (conversation.id === this.reading?.openId()) void this.reading?.reload();
     });
     this.client.on("sync.changed", status => {
-      if (status === "synced") void this.reload();
+      if (status === "synced") void this.reading?.reload();
     });
-    this.client.on("reaction.added", () => void this.reload());
-    this.client.on("reaction.removed", () => void this.reload());
+    this.client.on("reaction.added", () => void this.reading?.reload());
+    this.client.on("reaction.removed", () => void this.reading?.reload());
     this.client.on("error", error => this.wentWrong(error));
     void this.calls?.heard();
   }
@@ -163,144 +181,37 @@ class Deitu {
       const inside = event.target instanceof Element && event.target.closest(".new");
       if (!inside) menu.hidden = true;
     });
+    const more = element("more-menu");
+    onClick("more-button", () => {
+      more.hidden = !more.hidden;
+    });
+    document.addEventListener("click", event => {
+      const inside = event.target instanceof Element && event.target.closest(".head-actions .new");
+      if (!inside) more.hidden = true;
+    });
     for (const opener of document.querySelectorAll("[data-opens]")) {
       const which = opener instanceof HTMLElement ? opener.dataset.opens : undefined;
       if (!which) continue;
       opener.addEventListener("click", () => {
         menu.hidden = true;
-        this.making?.open(which);
+        more.hidden = true;
+        if (which === "explore") this.exploring?.open();
+        else this.making?.open(which);
       });
     }
-
-    element("timeline").addEventListener("click", event => this.pressedInTimeline(event));
+    // An invitation card in the timeline is a way into a conversation this account may not be in yet.
+    element("timeline").addEventListener("click", event => {
+      const conversationId = pressedIn(event, "enters");
+      if (conversationId) void this.enterRoomOf(conversationId);
+    });
     onClick("open-room", () => void this.openRoom());
     onClick("room-banner-join", () => void this.openRoom());
-    element("timeline").addEventListener("scroll", () => void this.scrolled());
-  }
-
-  // --- what is open ---------------------------------------------------------
-
-  private async openConversation(conversationId: ConversationId): Promise<void> {
-    this.typing?.stop();
-    this.openId = conversationId;
-    this.more = true;
-    this.readUpTo = undefined;
-    this.thread?.close();
-    this.timeline?.stop();
-    // Enough to fill a screen, rather than whatever the sync happened to bring: a conversation opened with
-    // two lines in it looks like a conversation with two lines in it.
-    const timeline = createMessageTimeline(this.client, conversationId, { atLeast: 30 });
-    this.timeline = timeline;
-    timeline.subscribe(() => void this.reload());
-    this.backToChat();
-    await timeline.refresh();
-    await this.reload();
-    element("timeline").scrollTop = element("timeline").scrollHeight;
-  }
-
-  /** Everything a conversation shows, read together: what was said, the calls that are over, and the threads. */
-  private async reload(): Promise<void> {
-    const conversationId = this.openId;
-    if (!conversationId) return;
-    const [over, threads] = await Promise.all([
-      this.client.calls.history(conversationId, 20).catch(() => []),
-      this.client.messages.threads(conversationId).catch(() => [])
-    ]);
-    // Whoever is open now, and what is on screen now. Several of these run at once while a conversation is
-    // still arriving, and one that started with three messages must not finish last and put the other three
-    // back. Reading after asking instead of before means every pass paints what is current when it paints.
-    if (this.openId !== conversationId) return;
-    const messages = this.timeline?.get() ?? [];
-    this.threads = new Map(threads.map(thread => [thread.rootId, thread.replyCount]));
-    const said: Entry[] = messages.map(message => ({ kind: "message", at: message.createdAt, message }));
-    const ended: Entry[] = over.map(call => ({ kind: "call", at: call.endedAt, call }));
-    this.entries = [...said, ...ended].sort((left, right) => left.at - right.at);
-    this.people.learn(messages.map(message => message.senderId));
-    this.repaint();
-  }
-
-  private repaint(): void {
-    this.sidebar?.paint();
-    this.account?.paintWhoYouAre();
-    const conversationId = this.openId;
-    if (!conversationId) return;
-    const conversation = this.conversations?.get().find(each => each.id === conversationId);
-    if (conversation) {
-      paintHead(conversation, {
-        people: this.people,
-        me: this.me,
-        going: this.calls?.goingIn(conversationId),
-        onIt: Boolean(this.calls?.onACallIn(conversationId))
-      });
-    }
-    paintTimeline(element("timeline"), this.entries, {
-      people: this.people,
-      me: this.me,
-      threads: this.threads,
-      nameOf: id => this.nameOfConversation(id),
-      answered: messageId => this.messageCalled(messageId)?.body
-    });
-    void this.thread?.repaint();
-  }
-
-  /** What a conversation is called, for anywhere that has an identifier and needs a name. */
-  private nameOfConversation(conversationId: ConversationId): string | undefined {
-    const known = this.conversations?.get().find(each => each.id === conversationId);
-    return known ? titleOf(known, this.people, this.me) : undefined;
-  }
-
-  // --- talking --------------------------------------------------------------
-
-  /**
-   * Reaching the top goes back for more, and reaching the bottom says the conversation has been read.
-   *
-   * Both are what somebody scrolling means, rather than a button they have to find: nobody presses "I have
-   * read this", and a badge that never comes down is a badge nobody believes.
-   */
-  private async scrolled(): Promise<void> {
-    const timeline = element("timeline");
-    const atTheBottom = timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 40;
-    if (atTheBottom) this.readIt();
-    // Near the top of something there is room to scroll in. A conversation shorter than the screen is
-    // already showing all of itself, and asking for more of it on the way in is asking for nothing.
-    const isRoomToScroll = timeline.scrollHeight > timeline.clientHeight + 40;
-    const nearTheTop = timeline.scrollTop < 60;
-    if (!isRoomToScroll || !nearTheTop || !this.more || !this.timeline) return;
-    // Held so the conversation does not jump: going back adds above whatever is being read.
-    const was = timeline.scrollHeight;
-    this.more = await this.timeline.loadMore().catch(() => false);
-    await this.reload();
-    timeline.scrollTop += timeline.scrollHeight - was;
-  }
-
-  /** The newest is on screen, so it has been read. Told once: saying it again on every scroll is noise. */
-  private readIt(): void {
-    const conversationId = this.openId;
-    const newest = this.entries.at(-1);
-    if (!conversationId || newest?.kind !== "message" || newest.message.id === this.readUpTo) return;
-    this.readUpTo = newest.message.id;
-    void this.client.messages.markRead(conversationId, newest.message.id).catch(() => undefined);
-  }
-
-  private pressedInTimeline(event: Event): void {
-    const rootId = pressedIn(event, "opens-thread");
-    if (rootId) return this.thread?.open(rootId);
-    const entersId = pressedIn(event, "enters");
-    if (entersId) void this.enterRoomOf(entersId);
-  }
-
-  /** One of the messages already on screen, by its identifier. */
-  private messageCalled(messageId: MessageId): Message | undefined {
-    for (const entry of this.entries) {
-      if (entry.kind === "message" && entry.message.id === messageId) return entry.message;
-    }
-    return undefined;
   }
 
   // --- rooms ----------------------------------------------------------------
 
   private async openRoom(): Promise<void> {
-    const conversationId = this.openId;
+    const conversationId = this.reading?.openId();
     if (!conversationId) return;
     await this.calls?.open(conversationId).catch(error => this.wentWrong(error));
     this.calls?.bringBack();
@@ -322,7 +233,13 @@ class Deitu {
 
   private backToChat(): void {
     show("chat");
-    this.repaint();
+    this.reading?.repaint();
+  }
+
+  /** Opening a conversation, which is the one thing every part of this asks the shell to do. */
+  private async openConversation(conversationId: ConversationId): Promise<void> {
+    this.typing?.stop();
+    await this.reading?.open(conversationId);
   }
 
   private wentWrong(error: unknown): undefined {
