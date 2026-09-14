@@ -29,6 +29,15 @@ import type { MatrixJsAdapterOptions } from "./types.js";
 
 export class MatrixRuntime {
   private client: MatrixClient | undefined;
+  /**
+   * Settles once the crypto stack is up.
+   *
+   * Starting without waiting to catch up comes back before any of this has happened, and the first thing a
+   * screen asks is often whether it can read what was said before it. Told there is no cryptography, it draws
+   * a signed-in application with nothing wrong — which is worse than waiting a moment for the truth.
+   */
+  private cryptoUp: Promise<void> = Promise.resolve();
+  private cryptoIsUp: () => void = () => {};
   private store: IndexedDBStore | undefined;
   private handlers: AdapterHandlers = {};
   private readonly reactions = new ReactionTracker();
@@ -45,6 +54,10 @@ export class MatrixRuntime {
   }
 
   async start(session: Session, handlers: AdapterHandlers): Promise<void> {
+    // First, before anything that waits: whoever asks about the keys in the meantime waits on this one.
+    this.cryptoUp = new Promise(resolve => {
+      this.cryptoIsUp = resolve;
+    });
     this.handlers = handlers;
     this.store = createBrowserStore(this.options, session.userId, session.deviceId);
     this.client = createClient({
@@ -64,6 +77,7 @@ export class MatrixRuntime {
             cryptoDatabasePrefix: `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}`
           };
     await this.client.initRustCrypto(cryptoOptions);
+    this.cryptoIsUp();
     this.verification.start(this.client, handlers);
     // The homeserver refusing this session is not an ordinary error: nobody here asked for it, and there is
     // nothing left to do with this client. The SDK says so once, on its own channel.
@@ -93,6 +107,10 @@ export class MatrixRuntime {
     void this.rtc.openTheDoorsToCallsEverywhere(this.client);
   }
 
+  whenCryptoIsUp(): Promise<void> {
+    return this.cryptoUp;
+  }
+
   /** Asking for more conversations than the window holds widens it and waits for the rest to arrive. */
   async widenTheWindow(upTo: number): Promise<void> {
     await this.window?.widen(upTo);
@@ -104,6 +122,9 @@ export class MatrixRuntime {
   }
 
   async stop(): Promise<void> {
+    // Nothing is coming up any more. Anybody still waiting for the crypto stack is let go, to be refused by
+    // the client for the real reason — that it is stopped — rather than left hanging for ever.
+    this.cryptoIsUp();
     if (!this.client) return;
     this.client.removeListener(ClientEvent.Sync, this.handleSync);
     this.client.removeListener(RoomEvent.Timeline, this.handleTimeline);

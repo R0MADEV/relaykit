@@ -831,6 +831,20 @@ body {
   display: block;
   margin: 14px 0;
 }
+/* A label and the box under it, not beside it: a field squeezed onto one line reads as an afterthought. */
+.field > .label {
+  display: block;
+  margin-bottom: 6px;
+}
+.field > input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+  color: inherit;
+  font: inherit;
+}
 .prefixed {
   display: flex;
   align-items: center;
@@ -973,4 +987,71 @@ body {
   padding: 0 22px;
   color: var(--muted);
   font-size: 12.5px;
+}
+
+/* --- what this device can read ------------------------------------------ */
+.banner.keys {
+  align-items: flex-start;
+  gap: 12px;
+  border-color: #f0d9c4;
+  background: var(--accent-wash);
+}
+.banner.keys > div:first-of-type {
+  display: grid;
+  gap: 2px;
+}
+.banner.keys p {
+  margin: 0;
+  font-size: 12.5px;
+}
+.keys-icon {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.banner.keys .button {
+  flex: none;
+}
+
+/* Saying the key was kept is the only way out, because it is never shown again. */
+.kept {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  font-size: 13.5px;
+}
+#recovery-key {
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+.button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The two screens have to show the same things in the same order, so they are drawn as a plain grid. */
+.emoji {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.emoji li {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+.emoji .symbol {
+  font-size: 26px;
+  line-height: 1;
 }

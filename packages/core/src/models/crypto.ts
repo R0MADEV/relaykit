@@ -14,6 +14,21 @@ export interface CryptoStatus {
   readonly secretStorageReady: boolean;
 }
 
+/**
+ * What this device can do about what was said before it existed.
+ *
+ * Three answers because there are three different things to offer, and telling them apart wrongly is
+ * expensive: offering to make a recovery key to somebody who already has one replaces the backup their other
+ * devices depend on. Working it out is one decision, so it is made once here rather than in every screen.
+ */
+export type KeyStanding =
+  /** Set up, and this device is holding the key. Nothing to ask anybody. */
+  | "ready"
+  /** There is something on the server this device has not been let into: a key, or another session, opens it. */
+  | "locked"
+  /** This account has never protected its keys. Making a recovery key is what there is to offer. */
+  | "never-protected";
+
 export interface KeyBackupStatus {
   readonly activeVersion: string | null;
   readonly serverVersion?: string;

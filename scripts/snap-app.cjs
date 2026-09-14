@@ -27,6 +27,13 @@ const shots = [
     waitsFor: `document.querySelectorAll("#thread-body .said").length > 1`
   },
   {
+    // Opened, not pressed: making a recovery key on a real account replaces the backup its other devices use.
+    name: "recovery",
+    needs: `!document.getElementById("keys").hidden`,
+    does: `document.getElementById("keys-act").click();`,
+    waitsFor: `document.getElementById("recovery").open`
+  },
+  {
     name: "create-channel",
     does: `document.getElementById("new-button").click();
       document.querySelector('[data-opens="create-channel"]').click();`
@@ -72,7 +79,8 @@ async function run() {
       current: document.querySelectorAll('[aria-current]').length,
       said: document.querySelectorAll("#timeline .said").length,
       pills: document.querySelectorAll("[data-opens-thread]").length,
-      wrong: document.getElementById("sign-in-wrong").textContent
+      wrong: document.getElementById("sign-in-wrong").textContent,
+      keys: document.getElementById("keys").hidden ? "hidden" : document.getElementById("keys-title").textContent
     })`)
   );
 

@@ -51,6 +51,7 @@ import type {
   VoiceInfo,
   SignOutOptions,
   MediaRef,
+  KeyStanding,
   User,
   UserPresence,
   FileInput,
@@ -237,6 +238,8 @@ export class MessagingClient {
   };
   readonly crypto = {
     status: () => this.cryptoOperations.status(),
+    /** Whether this device can read what was said before it, and what there is to offer when it cannot. */
+    standing: (): Promise<KeyStanding> => this.cryptoOperations.standing(),
     backupStatus: () => this.cryptoOperations.backupStatus(),
     setupRecovery: (options?: RecoverySetupOptions) => this.cryptoOperations.setupRecovery(options),
     recover: (recoveryKey: string) => this.cryptoOperations.recover(recoveryKey)

@@ -12,6 +12,7 @@ import { CallScreen } from "./call-screen.js";
 import { element, input, onClick, onSubmit, pressedIn } from "./dom.js";
 import { MakingThings } from "./making-things.js";
 import { People } from "./people.js";
+import { ProtectingKeys } from "./protecting-keys.js";
 import { isBetweenTwo, onePerPerson, paintChannels, paintDirects, titleOf } from "./sidebar.js";
 import { paintThread } from "./thread.js";
 import { paintTimeline, type Entry } from "./timeline.js";
@@ -36,6 +37,7 @@ class Deitu {
   private entries: readonly Entry[] = [];
   private making: MakingThings | undefined;
   private typing: Typing | undefined;
+  private keys: ProtectingKeys | undefined;
 
   /** Either straight in with the session kept from last time, or the form until somebody answers it. */
   async open(): Promise<void> {
@@ -49,6 +51,8 @@ class Deitu {
     this.calls.wire();
     this.typing = new Typing(this.client, this.people, this.me, () => this.openId);
     this.typing.wire();
+    this.keys = new ProtectingKeys(this.client, this.me, error => this.wentWrong(error));
+    this.keys.wire();
     this.making = new MakingThings(this.client, this.people, {
       openId: () => this.openId,
       opened: conversationId => void this.openConversation(conversationId),
@@ -67,6 +71,9 @@ class Deitu {
     // reloading, and one that is still reloading has not resolved: waiting here is waiting for the sync.
     void conversations.refresh();
     this.listen();
+    // Asked once the client is running: a device that cannot read what was said before it has something to
+    // offer about it, and that is worth saying before anybody stares at a conversation full of locks.
+    void this.keys?.look();
   }
 
   /** The first conversation opens on its own, as soon as there is one. Nobody wants to arrive at nothing. */

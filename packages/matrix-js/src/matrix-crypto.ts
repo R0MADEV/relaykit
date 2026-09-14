@@ -37,7 +37,7 @@ export class MatrixCrypto implements CryptoAdapter {
    * Reached for first, because a conversation outside the synced window is not held locally yet.
    */
   rotateConversationKeys(conversationId: ConversationId): Promise<void> {
-    return withTranslatedErrors(async () => {
+    return this.once(async () => {
       await this.runtime.reachFor(conversationId);
       const crypto = this.runtime.getClient().getCrypto();
       if (!crypto) throw new SdkError("NOT_CONFIGURED", "This session has no encryption");
@@ -46,29 +46,27 @@ export class MatrixCrypto implements CryptoAdapter {
   }
 
   async getDeviceVerification(userId: string, deviceId: string): Promise<DeviceVerification | undefined> {
-    return getDeviceVerification(this.runtime.getClient(), userId, deviceId);
+    return this.once(() => getDeviceVerification(this.runtime.getClient(), userId, deviceId));
   }
 
   async setDeviceVerified(userId: string, deviceId: string, verified: boolean): Promise<void> {
-    await withTranslatedErrors(() => setDeviceVerified(this.runtime.getClient(), userId, deviceId, verified));
+    await this.once(() => setDeviceVerified(this.runtime.getClient(), userId, deviceId, verified));
   }
 
   async getCryptoStatus(): Promise<CryptoStatus> {
-    return getCryptoStatus(this.runtime.getClient());
+    return this.once(() => getCryptoStatus(this.runtime.getClient()));
   }
 
   async getKeyBackupStatus(): Promise<KeyBackupStatus> {
-    return getKeyBackupStatus(this.runtime.getClient());
+    return this.once(() => getKeyBackupStatus(this.runtime.getClient()));
   }
 
   async setupRecovery(options: RecoverySetupOptions): Promise<RecoverySetup> {
-    return withTranslatedErrors(() =>
-      setupRecovery(this.runtime.getClient(), this.runtime.secretStorageKeys, options)
-    );
+    return this.once(() => setupRecovery(this.runtime.getClient(), this.runtime.secretStorageKeys, options));
   }
 
   async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
-    return withTranslatedErrors(() =>
+    return this.once(() =>
       recoverWithKey(this.runtime.getClient(), this.runtime.secretStorageKeys, recoveryKey)
     );
   }
@@ -78,19 +76,19 @@ export class MatrixCrypto implements CryptoAdapter {
     deviceId?: string,
     options?: VerificationRequestOptions
   ): Promise<VerificationSession> {
-    return withTranslatedErrors(() => this.runtime.verification.request(userId, deviceId, options));
+    return this.once(() => this.runtime.verification.request(userId, deviceId, options));
   }
 
   getVerificationQrCode(sessionId: string): Promise<Uint8Array | undefined> {
-    return withTranslatedErrors(() => this.runtime.verification.qrCode(sessionId));
+    return this.once(() => this.runtime.verification.qrCode(sessionId));
   }
 
   scanVerificationQrCode(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
-    return withTranslatedErrors(() => this.runtime.verification.scan(sessionId, code));
+    return this.once(() => this.runtime.verification.scan(sessionId, code));
   }
 
   acceptVerification(sessionId: string): Promise<VerificationSession> {
-    return withTranslatedErrors(() => this.runtime.verification.accept(sessionId));
+    return this.once(() => this.runtime.verification.accept(sessionId));
   }
 
   /** Cancelling is the one that does not go through the translation: it is this side giving up, not a refusal. */
@@ -99,10 +97,22 @@ export class MatrixCrypto implements CryptoAdapter {
   }
 
   confirmVerification(sessionId: string): Promise<VerificationSession> {
-    return withTranslatedErrors(() => this.runtime.verification.confirm(sessionId));
+    return this.once(() => this.runtime.verification.confirm(sessionId));
   }
 
   rejectVerification(sessionId: string): Promise<VerificationSession> {
-    return withTranslatedErrors(() => this.runtime.verification.reject(sessionId));
+    return this.once(() => this.runtime.verification.reject(sessionId));
+  }
+
+  /**
+   * Every one of these needs the crypto stack, and starting without waiting to catch up comes back before it
+   * is up. So each waits for it, and each says what went wrong in the words of the port rather than the
+   * homeserver's.
+   */
+  private once<T>(what: () => Promise<T>): Promise<T> {
+    return withTranslatedErrors(async () => {
+      await this.runtime.whenCryptoIsUp();
+      return what();
+    });
   }
 }

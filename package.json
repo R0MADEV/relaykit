@@ -48,6 +48,7 @@
     "bench:local": "node scripts/bench-local.mjs",
     "bench:round-trips": "node scripts/bench-round-trips.mjs",
     "check:web-demo": "npm run build --workspace=@relaykit/example-web && electron scripts/check-web-demo.cjs --no-sandbox --js-flags=--expose-gc --enable-precise-memory-info",
+    "check:keys": "npm run build --workspace=@relaykit/example-web && electron scripts/check-keys.cjs --no-sandbox",
     "check:calls": "npm run build --workspace=@relaykit/example-web && electron scripts/check-calls.cjs --no-sandbox",
     "snap:demo": "npm run build --workspace=@relaykit/example-web && electron scripts/snap-demo.cjs --no-sandbox",
     "bench:big-room": "node scripts/bench-big-room.mjs",

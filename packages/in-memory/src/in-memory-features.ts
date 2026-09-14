@@ -64,11 +64,19 @@ export class InMemoryFeatures {
   }
 
   async setDeviceVerified(): Promise<void> {}
+  /**
+   * Nothing is protected until somebody sets up recovery, and then everything is: this double is one device,
+   * so it is always the device that did it. A device that was not there is a second adapter, which shares
+   * nothing with this one and so has nothing set up either.
+   */
   async getCryptoStatus(): Promise<CryptoStatus> {
-    return { crossSigningReady: false, secretStorageReady: false };
+    const isSetUp = this.recoveryKey !== undefined;
+    return { crossSigningReady: isSetUp, secretStorageReady: isSetUp };
   }
+
   async getKeyBackupStatus(): Promise<KeyBackupStatus> {
-    return { activeVersion: this.recoveryKey ? "memory-backup-1" : null };
+    if (!this.recoveryKey) return { activeVersion: null };
+    return { activeVersion: "memory-backup-1", trusted: true, matchesDecryptionKey: true };
   }
 
   async setupRecovery(): Promise<RecoverySetup> {

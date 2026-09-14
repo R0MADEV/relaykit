@@ -76,6 +76,7 @@ export type {
   CryptoStatus,
   KeyBackupStatus,
   KeyBackupRestoreSummary,
+  KeyStanding,
   RecoverySetup,
   RecoverySetupOptions,
   PresenceState,

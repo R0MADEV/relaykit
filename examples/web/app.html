@@ -87,6 +87,18 @@
             </div>
           </header>
 
+          <!-- What this device can do with what was said before it existed. -->
+          <div class="banner keys" id="keys" hidden>
+            <span class="keys-icon" aria-hidden="true">🔒</span>
+            <div>
+              <strong id="keys-title"></strong>
+              <p class="faint" id="keys-under"></p>
+            </div>
+            <div class="spacer"></div>
+            <button class="button" id="keys-verify" hidden>Verificar desde otra sesión</button>
+            <button class="button accent small" id="keys-act"></button>
+          </div>
+
           <div class="banner" id="room-banner" hidden>
             <span class="live-dot"></span>
             <strong>Sala activa en este canal</strong>
@@ -203,6 +215,67 @@
         </div>
       </div>
     </div>
+
+    <!-- Making a recovery key, or using one. Two faces of the same dialog: it is the same key either way. -->
+    <dialog class="modal" id="recovery">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">🔑</span>
+          <div>
+            <h2 id="recovery-title"></h2>
+            <p class="faint" id="recovery-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+
+        <div id="recovery-made" hidden>
+          <p class="label">Tu clave de recuperación</p>
+          <input class="link mono" id="recovery-key" readonly />
+          <p class="wrong" id="recovery-warning">
+            Guárdala ahora. No se puede volver a ver, y sin ella no podrás leer tus mensajes desde un
+            dispositivo nuevo.
+          </p>
+          <label class="kept">
+            <input type="checkbox" id="recovery-kept" />
+            <span>La he guardado en un sitio seguro</span>
+          </label>
+        </div>
+
+        <label class="field" id="recovery-asking" hidden>
+          <span class="label">Clave de recuperación</span>
+          <input id="recovery-given" autocomplete="off" placeholder="EsTx ABCD 1234 …" />
+        </label>
+
+        <p class="wrong" id="recovery-wrong" hidden></p>
+
+        <footer class="modal-foot">
+          <span class="mono faint" id="recovery-said"></span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" id="recovery-go" type="button"></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Proving another session is yours, by comparing what both screens show. -->
+    <dialog class="modal" id="verifying">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">🛡</span>
+          <div>
+            <h2 id="verifying-title"></h2>
+            <p class="faint" id="verifying-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <ul class="emoji" id="verifying-emoji" hidden></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" id="verifying-no" type="button" hidden></button>
+          <button class="button accent" id="verifying-yes" type="button" hidden></button>
+        </footer>
+      </form>
+    </dialog>
 
     <dialog class="modal" id="create-channel">
       <form method="dialog">

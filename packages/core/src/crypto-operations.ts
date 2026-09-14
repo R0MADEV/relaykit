@@ -4,6 +4,7 @@ import type {
   CryptoStatus,
   KeyBackupRestoreSummary,
   KeyBackupStatus,
+  KeyStanding,
   RecoverySetup,
   RecoverySetupOptions
 } from "./models.js";
@@ -24,6 +25,21 @@ export class CryptoOperations {
   async backupStatus(): Promise<KeyBackupStatus> {
     this.context.assertStarted();
     return this.crypto.getKeyBackupStatus();
+  }
+
+  /**
+   * How the keys of this device stand, from the two answers that decide it.
+   *
+   * Asked together because neither one answers it alone: a device can be trusted and still not hold the key
+   * to the backup, and a backup can exist for an account whose newest device has never been let in.
+   */
+  async standing(): Promise<KeyStanding> {
+    this.context.assertStarted();
+    const [status, backup] = await Promise.all([
+      this.crypto.getCryptoStatus(),
+      this.crypto.getKeyBackupStatus()
+    ]);
+    return keyStanding(status, backup);
   }
 
   async setupRecovery(options: RecoverySetupOptions = {}): Promise<RecoverySetup> {
@@ -59,4 +75,17 @@ function adapterError(summary: string, error: unknown): SdkError {
   if (error instanceof SdkError) return error;
   const reason = error instanceof Error ? error.message : String(error);
   return new SdkError("ADAPTER_ERROR", `${summary}: ${reason}`);
+}
+
+/** The decision itself, apart from the asking, because it is the part worth being sure about. */
+export function keyStanding(status: CryptoStatus, backup: KeyBackupStatus): KeyStanding {
+  // Nothing on the server to be let into, and nothing backed up: this account has never protected anything.
+  const nothingWasEverProtected = !status.secretStorageReady && backup.activeVersion === null;
+  if (nothingWasEverProtected) return "never-protected";
+  // A backup exists and this device cannot read it. Being a trusted device is not the same as holding the key.
+  const cannotReadTheBackup = backup.activeVersion !== null && backup.matchesDecryptionKey !== true;
+  if (cannotReadTheBackup) return "locked";
+  // Or there is a recovery and this device was never let into it, whatever it holds.
+  if (!status.crossSigningReady) return "locked";
+  return "ready";
 }
