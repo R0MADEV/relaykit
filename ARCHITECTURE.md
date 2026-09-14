@@ -1,241 +1,226 @@
 # Arquitectura
 
-## Decisión
+Para quien llega a cambiar algo y necesita saber **dónde va**. Empieza por la decisión, sigue por la regla que
+no se rompe, y acaba en recetas: "quiero hacer X, ¿qué toco?".
 
-RelayKit utiliza una arquitectura modular por capacidades, con un coordinador de estado y puertos y adaptadores
-selectivos. No es una plantilla hexagonal completa.
+---
 
-La arquitectura hexagonal es útil en los límites donde realmente varían las implementaciones, como Matrix,
-almacenamiento y servicios nativos. Aplicarla a todos los módulos añadiría interfaces e indirección antes de validar
-los contratos del producto.
+## La decisión
 
-## Por qué esta arquitectura
-
-RelayKit es principalmente un runtime de cliente, no un backend con un dominio empresarial complejo. Su problema
-central es coordinar comandos, estado local, sincronización, eventos y efectos externos.
-
-Por eso la arquitectura recomendada es:
+**Puertos y adaptadores.** El núcleo describe lo que la mensajería *es*; los adaptadores describen cómo lo
+hace un backend concreto.
 
 ```text
-Modulos por capacidad
-        +
-Estado local centralizado
-        +
-Flujo unidireccional
-        +
-Puertos solo para efectos externos
+Aplicación
+    │
+    ▼
+@relaykit/web ──────► @relaykit/core ◄────── @relaykit/in-memory
+   (arma las piezas)     (sin dependencias)      (el doble de los tests)
+    │                          ▲
+    │                          │
+    └──► @relaykit/matrix-js ──┘
+         @relaykit/browser-storage
 ```
 
-Esto evita dos extremos:
+## La regla que no se rompe
 
-- Un cliente acoplado directamente a `matrix-js-sdk`.
-- Una arquitectura hexagonal con interfaces artificiales para cada clase y función.
+> **`core` no sabe que Matrix existe.**
 
-## Estructura de codigo
+Es comprobable, y se comprueba:
 
-La estructura debe crecer por capacidades, no por una jerarquía de capas excesivamente profunda:
-
-```text
-packages/
-├── core/
-│   └── src/
-│       ├── client/       # fachada publica y ciclo de vida
-│       ├── conversations/
-│       ├── messages/
-│       ├── session/
-│       ├── runtime/      # estado, sync y coordinacion
-│       ├── events/
-│       ├── ports/        # contratos de efectos externos
-│       ├── errors/
-│       └── index.ts
-│
-├── matrix-js/
-│   └── src/              # adaptador concreto Matrix
-│
-├── storage-browser/
-│   └── src/              # persistencia del navegador
-│
-└── electron/
-    └── src/              # adaptadores nativos opcionales
+```bash
+grep -r "matrix-js-sdk\|livekit\|IndexedDB\|window\.\|document\." packages/core/src
+# no debe devolver nada
 ```
 
-Los modulos de capacidad contienen sus modelos, comandos y reglas pequeñas. No deben importar Matrix, APIs del
-navegador ni Electron.
+`packages/core/package.json` no tiene **ninguna** dependencia. Si añades una, has roto la arquitectura.
 
-## Dependencias permitidas
+| Paquete | Puede importar |
+|---|---|
+| `core` | nada |
+| `in-memory` | `core` |
+| `matrix-js` | `core`, `matrix-js-sdk`, `livekit-client` |
+| `browser-storage` | `core` |
+| `web` | `core`, `matrix-js`, `browser-storage` |
 
-```text
-Public API
-    -> capacidades y runtime
-    -> puertos
+---
 
-Adaptadores
-    -> puertos
-    -> dependencias externas
+## Dónde vive cada cosa
+
+### `packages/core/src` — qué es la mensajería
+
+| Archivo | Qué es |
+|---|---|
+| `client.ts` | **La superficie pública.** 126 operaciones, una línea cada una. Nada de lógica aquí |
+| `adapter.ts` | **El puerto.** 17 métodos que un backend debe tener |
+| `capabilities.ts` | Las 18 mitades opcionales que puede dejar fuera |
+| `models/` | Las formas que se devuelven. Nada de Matrix en ellas |
+| `*-operations.ts` | **La lógica.** Una clase por asunto: conversaciones, mensajes, llamadas, cripto… |
+| `live.ts` | Listas que se mantienen solas: `createConversationList`, `createMessageTimeline` |
+| `events.ts` | El bus tipado |
+| `errors.ts` | `SdkError` y sus códigos |
+| `unavailable-adapter.ts` | Lo que responde cuando no hay backend configurado |
+
+Cuando una clase de operaciones junta dos asuntos, se parte por el asunto — no por longitud:
+`conversation-operations` / `-settings` / `-moderation`, `message-operations` / `-sending` / `-read-state`.
+
+### `packages/matrix-js/src` — cómo lo hace Matrix
+
+| Prefijo | Qué es |
+|---|---|
+| `matrix-js-adapter.ts` | Implementa el puerto. Delega, no decide |
+| `matrix-runtime.ts` | El cliente del SDK, el sync, los handlers, la ventana |
+| `matrix-mapper.ts`, `matrix-conversation-mapper.ts` | **Traducir**: evento → `Message`, sala → `Conversation` |
+| `matrix-<asunto>.ts` | Cada asunto contra el SDK: `-sending`, `-media`, `-permissions`, `-conference`… |
+| `call-memberships.ts`, `geo-uri.ts`, `reading-content.ts` | **Puro**: datos a datos, sin red. Lo único testeable sin homeserver |
+
+### `packages/in-memory/src` — el doble
+
+Implementa el puerto entero con `Map`s. **No es un mock**: es un backend de verdad que vive en memoria. Los
+680 tests unitarios corren contra él, sin red.
+
+### `examples/web/src/app` — la aplicación
+
+Un archivo por pantalla o por asunto. Ninguno pasa de 300 líneas. `app.ts` solo arma las piezas.
+
+---
+
+## Recetas
+
+### Añadir una operación a algo que ya existe
+
+Ejemplo: `conversations.pin`.
+
+1. **Modelo** — si devuelve algo nuevo, `core/src/models/<asunto>.ts`
+2. **Puerto** — el método en `core/src/capabilities.ts` (o en `adapter.ts` si de verdad es obligatorio)
+3. **Test en rojo** — `tests/<asunto>.test.mjs`, contra el doble
+4. **Lógica** — `core/src/<asunto>-operations.ts`
+5. **Fachada** — una línea en `client.ts`
+6. **Doble** — `in-memory/src/in-memory-<asunto>.ts`
+7. **Matrix** — `matrix-js/src/matrix-<asunto>.ts` + una línea en `matrix-js-adapter.ts`
+8. **Contrato** — un caso en `tests/adapter-contract.test.mjs`, que corre contra los dos
+9. **Documentar** — `API.md` y, si es visible, `README.md`
+
+### Añadir una capacidad entera
+
+Cuando un backend podría legítimamente no tenerla.
+
+1. `export interface XAdapter` en `core/src/capabilities.ts`
+2. `readonly x?: XAdapter` en `MessagingAdapter`, y reexportar el nombre desde `adapter.ts`
+3. En el núcleo, un guardia y nada más:
+
+```ts
+private get x(): XAdapter {
+  const found = this.context.adapter.x;
+  if (!found) throw new SdkError("NOT_SUPPORTED", "X no es algo que este homeserver tenga");
+  return found;
+}
 ```
 
-El core nunca importa:
+4. En cada adaptador, **una línea**: `readonly x: XAdapter = this;` — la clase ya tiene esos métodos, así que
+   ya *es* esa forma.
+5. `unavailable-adapter.ts` **no se toca**: la biblioteca dice que no por él.
 
-- `matrix-js-sdk`
-- `window`, `document` o IndexedDB directamente
-- Electron
-- React, Vue u otro framework
+### Escribir un adaptador nuevo
 
-Los adaptadores pueden importar el core y sus contratos, pero el core no conoce sus implementaciones.
-
-## Reglas de simplicidad
-
-- No usar singletons ni estado mutable global.
-- Preferir instancias con dependencias explicitas.
-- Usar `for` cuando una transformacion y un filtrado juntos oculten la logica.
-- No usar `useCallback` ni `useMemo` sin una medicion que justifique su necesidad.
-- Extraer un helper cuando una clase supere 200 lineas o mezcle responsabilidades.
-- Preferir tipos simples y evitar aserciones de tipo.
-
-## Flujo de una operacion
-
-```text
-API publica
-    -> comando
-    -> coordinador
-    -> actualizacion optimista del estado
-    -> puerto externo
-    -> confirmacion o error
-    -> estado final
-    -> evento tipado
+```ts
+export class MiAdapter implements MessagingAdapter {
+  // diecisiete métodos: entrar, registrarse, arrancar, parar, salir;
+  // listar/crear/entrar/salir/invitar conversaciones;
+  // listar mensajes, traer más, enviar; y quién es alguien.
+}
 ```
 
-No se debe implementar un bus de eventos como fuente de verdad. El estado persistido y el estado observable son la
-fuente principal; los eventos notifican cambios.
+Lo demás se añade cuando lo tengas, declarando la capacidad. Para saber si va bien:
 
-## Puertos reales
-
-Solo se crean puertos para dependencias que cambian por entorno o por plataforma:
-
-- `MessagingAdapter`: Matrix o fake de desarrollo.
-- `Storage`: memoria, navegador o Electron.
-- `SecureStore`: credenciales y crypto store cuando el entorno lo requiera.
-- `Clock` e `IdGenerator`: determinismo y testabilidad.
-
-No se crean puertos para cada servicio interno del core.
-
-## Runtime
-
-```text
-Aplicación consumidora
-        |
-        v
-@relaykit/web
-        |
-        v
-API pública
-        |
-        v
-Coordinador del cliente
-  |       |        |
-  v       v        v
-Estado  Outbox  Flujo de eventos
-  |       |        |
-  +-------+--------+
-          |
-          v
-    Adaptador Matrix
-          |
-          v
-   matrix-js-sdk
-          |
-          v
-   Homeserver Matrix
+```bash
+node --test tests/adapter-contract.test.mjs   # la misma suite que cumple Matrix
 ```
 
-## Módulos
+### Añadir un campo a un modelo
 
-### API pública
+1. `core/src/models/<asunto>.ts` — opcional (`?`) salvo que siempre exista
+2. Que lo rellene **cada** adaptador: `in-memory` y `matrix-js`
+3. Un test que lo lea de punta a punta
 
-API estable para los consumidores:
+> Cuidado con el fallo que ya hemos tenido tres veces: **un campo que se escribe y no se puede leer**. Si
+> añades `setX`, pregúntate quién hace `getX`. Pasó con reacciones, con presencia y con los rangos.
 
-- `MessagingClient`
-- autenticación y restauración de sesión
-- conversaciones
-- mensajes
-- multimedia
-- eventos tipados
-- ciclo de vida
+### Añadir una pantalla al ejemplo
 
-No debe exponer tipos de Matrix.
+1. Un archivo en `examples/web/src/app/`, un asunto
+2. El marcado en `app.html`
+3. Armarlo en `app.ts`
+4. Lógica pura en su propio archivo sin DOM: node ejecuta TypeScript, así que se testea desde el fuente
+   (`tests/writing.test.mjs` lo hace)
 
-### Coordinador del cliente
+---
 
-Coordina comandos, consultas, actualizaciones de sincronización, persistencia, transiciones del outbox y ciclo de
-vida. Es la capa de aplicación del SDK, pero debe seguir siendo un coordinador pequeño y no una colección de servicios
-distribuidos.
+## Cómo se comprueba, y cuándo hace falta cada cosa
 
-### Modelos de dominio
+| Comando | Qué prueba | Necesita |
+|---|---|---|
+| `npm run check` | formato, lint, tipos, build | nada |
+| `npm run test:unit` | 680 tests contra el doble | nada |
+| `npm run test:contract` | 100 tests, **el doble y Matrix a la vez** | `npm run matrix:up` |
+| `npm run check:calls` | una llamada entre dos navegadores | Matrix + LiveKit |
+| `npm run check:keys` | crear clave, desbloquear, verificar por emojis | Matrix |
+| `npm run check:chat` | dos personas hablando en la aplicación | Matrix |
+| `npm run smoke:*` | recorridos de punta a punta | Matrix |
 
-Utiliza conceptos del SDK como `Conversation`, `Message`, `User` y `MessageStatus`. Los IDs de Matrix son metadatos
-internos de transporte y no son necesarios en la API habitual.
+**Nada de mocks del SDK.** Un test con un `MatrixClient` falso comprueba que escribiste lo que escribiste, y
+codifica lo que *crees* que hace `matrix-js-sdk`. Lo que de verdad verifica el adaptador es hablar con un
+homeserver: para eso está la suite de contrato, y CI la levanta.
 
-### Adaptador Matrix
+Lo que sí se testea sin red es lo **puro**: mapeos, decisiones, formatos. Y ahí se usan objetos **reales** del
+SDK (`new MatrixEvent({...})`), no imitaciones.
 
-Traduce las operaciones públicas a `matrix-js-sdk` y convierte los eventos Matrix en modelos del SDK. Este es el
-principal límite de adaptación.
+---
 
-### Adaptador de almacenamiento
+## Las reglas de la casa
 
-Proporciona almacenamiento en memoria para tests y persistencia para el navegador. La implementación se selecciona
-según el entorno. El SDK debe reutilizar las capacidades de persistencia de `matrix-js-sdk` cuando cubran el estado de
-Matrix, evitando mantener innecesariamente una segunda fuente de verdad.
+- **TDD** para lógica no trivial: test en rojo, mínimo código, refactor.
+- **Medir la cobertura antes de mover código.** Mover lo que no está cubierto es mover a ciegas.
+- **Nada de casts.** Si algo viene del cable, se lee con `reading-content.ts`, no se afirma.
+- **Guard clauses**, nada anidado. Condición con más de una parte → una `const` con nombre.
+- **Un archivo, un asunto.** Por debajo de 300 líneas salvo que partirlo empeore la lectura — y entonces se
+  escribe por qué.
+- **Usa el SDK.** Antes de escribir algo, mira si `matrix-js-sdk` ya lo hace: el nombre de una sala, los
+  nombres de membresía y la forma de un mensaje ya estaban ahí.
+- **Todo en inglés en el código**: identificadores, comentarios y errores. El texto de pantalla del ejemplo va
+  en español porque el diseño lo está.
 
-### Límite criptográfico
+---
 
-RelayKit delega la criptografía en Matrix. Las claves privadas y el crypto store deben permanecer protegidos por el
-runtime del cliente. El SDK nunca implementa criptografía propia.
+## Trampas que ya nos han costado un rato
 
-## Web y Electron
+- **`messages.list` filtra los hilos; los eventos en vivo no lo hacían.** Una conversación con un hilo activo
+  se llenaba de respuestas. Se filtra en los dos sitios.
+- **`<form method="dialog">` se resetea al cerrarse.** Leer los campos en el evento `close` lee campos vacíos.
+- **Esparcir una unión de TypeScript** da `never` a toda clave no compartida. Por eso los contenidos de mensaje
+  se construyen enteros por nombre y no con los helpers del SDK.
+- **`createConversationList().refresh()` no resuelve mientras el sync sigue trayendo cosas.** No lo esperes al
+  arrancar.
+- **Ir hacia atrás en el timeline puede devolver menos de lo que hay en pantalla** si la historia está fuera de
+  alcance. Se junta, nunca se sustituye.
+- **La cripto no está lista cuando `start({ waitForSync: false })` vuelve.** Las llamadas de cripto esperan.
+- **La suite de contrato crea salas.** Ahora se sale de ellas al acabar; los `smoke:*` todavía no.
 
-```text
-Browser renderer   -> @relaykit/web -> almacenamiento del navegador
-Electron renderer  -> @relaykit/web -> preload bridge cuando sea necesario
-Electron main      -> almacenamiento seguro, notificaciones y servicios nativos
-```
+---
 
-Electron debe utilizar `contextIsolation: true` y `nodeIntegration: false`. Las operaciones privilegiadas deben pasar
-por una API estrecha y validada en preload.
+## Lo que queda por encima de 300 líneas, y por qué
 
-## Límite con el backend
+| Archivo | Por qué |
+|---|---|
+| `in-memory-adapter.ts` (974) | Implementa el puerto entero. Partirlo son doce callbacks y peor lectura |
+| `matrix-js-adapter.ts` (698) | Lo mismo: delega los 58 métodos que sí tiene |
+| `client.ts` (533) | Es la superficie. 137 líneas son montaje; el resto, 126 operaciones a una línea |
+| `capabilities.ts` (358) | 18 interfaces de tipos. Una lista, no lógica |
+| `outbox-operations.ts` (444) | Once referencias a estado compartido. Partirlo lo empeora |
 
-```text
-Frontend del cliente
-  -> RelayKit -> APIs de cliente Matrix
+Si vas a partir uno de estos, **mide la cobertura primero** y ten un motivo mejor que el número.
 
-Backend del cliente
-  -> autenticación de la aplicación
-  -> provisioning de usuarios y rooms
-  -> autorización empresarial
-  -> APIs administrativas de Matrix
-```
+---
 
-La primera versión de RelayKit no incluye un Control Plane SaaS. Un producto gestionado futuro podrá añadirlo sin
-cambiar los contratos del cliente.
-
-## Semántica de mensajes
-
-`send()` crea un mensaje local y devuelve su identidad local. La entrega se observa mediante transiciones de estado:
-
-```text
-queued -> sending -> sent
-                    |
-                    +-> failed
-```
-
-La implementación debe proporcionar transaction IDs, deduplicación, procesamiento ordenado del outbox por
-conversación y recuperación después de reiniciar.
-
-## Límites de seguridad
-
-- Las credenciales administrativas de Matrix permanecen en el backend del cliente.
-- El almacenamiento del navegador no debe contener secretos administrativos sin proteger.
-- Las credenciales de acceso y renovación se gestionan según el modo de sesión elegido.
-- El material privado de E2EE permanece en el cliente.
-- Los métodos IPC de Electron son explícitos y están validados.
-- Los permisos empresariales que Matrix no representa deben aplicarse en el backend del cliente.
+Ver también: [README.md](README.md) (qué hay), [API.md](API.md) (la superficie), [PIEZAS.md](PIEZAS.md) (qué
+usa por debajo).
