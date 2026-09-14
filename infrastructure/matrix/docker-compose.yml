@@ -30,6 +30,22 @@ services:
     ports:
       - "8090:8080"
 
+  # Somewhere to sign in that is not the homeserver, so the single sign-on path is exercised against a real
+  # identity provider instead of assumed.
+  dex:
+    image: ghcr.io/dexidp/dex:latest
+    container_name: relaykit-dex
+    command: dex serve /etc/dex/dex.yaml
+    volumes:
+      - ./dex.yaml:/etc/dex/dex.yaml:ro
+    ports:
+      - "5556:5556"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:5556/dex/.well-known/openid-configuration"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: relaykit-synapse
@@ -47,6 +63,8 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
+        condition: service_healthy
+      dex:
         condition: service_healthy
 
 volumes:

@@ -141,3 +141,19 @@ anadirlo a la lista `tls.certificates`. A partir de ahi el homeserver es `https:
 
 Esto no se incluye en el `docker-compose.yml` de este repositorio a proposito: la libreria no debe
 depender del entorno de una organizacion para poder levantarse.
+
+## Entrar con un proveedor de identidad
+
+`npm run matrix:up` levanta tambien un [Dex](https://dexidp.io) en `localhost:5556`, configurado como
+proveedor OIDC del homeserver. Es de verdad: emite un token de identidad que Synapse verifica.
+
+- Usuario: `dana@deitu.example`
+- Contrasena: `password`
+
+El homeserver lo ofrece como `oidc-dex` en `GET /_matrix/client/v3/login`, y `npm run check:sso` recorre el
+viaje entero en un navegador: el boton, irse a Dex, escribir la contrasena alli, la pantalla de "continuar"
+del homeserver, volver, y quedarse dentro.
+
+La direccion a la que se manda el navegador y las que el homeserver consulta por su cuenta **no son la misma
+maquina** — el navegador conoce `localhost`, el homeserver dentro de Docker conoce `dex` — asi que los
+endpoints van uno a uno con `discover: false`. Con descubrimiento automatico, uno de los dos no llegaria.

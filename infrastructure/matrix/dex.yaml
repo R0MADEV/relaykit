@@ -1,0 +1,35 @@
+# A real OIDC provider for development, so signing in elsewhere can be exercised end to end instead of
+# assumed. Dex because it is one container, holds its state in memory and takes static users: nothing here
+# has to be provisioned, and nothing survives a restart, which is what an environment for checks should do.
+#
+# The issuer is the address **the browser** uses. That matters: the identity token says who issued it, and a
+# token issued by `http://dex:5556` is not one a browser at `http://localhost:5556` will accept. Synapse is
+# told the endpoints one at a time for the same reason — the one the browser is sent to is `localhost`, and
+# the ones the homeserver fetches itself are the container.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  # Nobody is here to press "yes, allow this application", and what is being checked is not that screen.
+  skipApprovalScreen: true
+
+staticClients:
+  - id: synapse
+    name: Synapse
+    secret: synapse-secret
+    redirectURIs:
+      - http://localhost:8008/_synapse/client/oidc/callback
+
+enablePasswordDB: true
+staticPasswords:
+  # The password is `password`; the hash is the one from Dex's own documentation. Development only, and it
+  # says so by being in a file called dex.yaml next to a homeserver called localhost.
+  - email: dana@deitu.example
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: dana
+    userID: dana-deitu

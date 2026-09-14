@@ -115,3 +115,34 @@ experimental_features:
   msc4140_enabled: true
 # Newer Synapse switches delayed events on by being told how far ahead one may be scheduled, not by the flag.
 max_event_delay_duration: 24h
+
+# Where this homeserver is, in the words a browser uses. Signing in elsewhere bounces through here twice —
+# out to the provider and back to the callback — and without this Synapse sends people to its own idea of
+# itself, which is https on no port and does not exist.
+public_baseurl: "http://localhost:8008/"
+
+# Signing in somewhere else, against the Dex next door.
+#
+# `discover: false` on purpose: the address the browser is sent to and the addresses the homeserver fetches
+# itself are not the same host. The browser knows `localhost`; the homeserver, inside Docker, knows `dex`.
+# Discovery would hand it one set for both and one of the two would be unreachable.
+oidc_providers:
+  - idp_id: dex
+    idp_name: Dex
+    idp_brand: github
+    discover: false
+    issuer: "http://localhost:5556/dex"
+    client_id: synapse
+    client_secret: synapse-secret
+    scopes: ["openid", "profile", "email"]
+    authorization_endpoint: "http://localhost:5556/dex/auth"
+    token_endpoint: "http://dex:5556/dex/token"
+    jwks_uri: "http://dex:5556/dex/keys"
+    userinfo_endpoint: "http://dex:5556/dex/userinfo"
+    skip_verification: true
+    user_mapping_provider:
+      config:
+        # From the part of the address before the `@`: what a provider calls somebody is its business, and
+        # `preferred_username` is optional — Dex does not send one, and an empty localpart is refused.
+        localpart_template: "{{ user.email.split('@')[0] }}"
+        display_name_template: "{{ user.name }}"

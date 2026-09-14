@@ -55,6 +55,9 @@ jobs:
       - name: Check protecting, unlocking and vouching for keys across three devices
         run: xvfb-run --auto-servernum npm run check:keys
 
+      - name: Check signing in through somebody else's identity provider
+        run: xvfb-run --auto-servernum npm run check:sso
+
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
 
