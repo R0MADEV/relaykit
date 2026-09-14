@@ -1,4 +1,5 @@
 import type { ConversationId, Message, MessageId, PastCall, UserId } from "@relaykit/web";
+import { grouped } from "./reacting.js";
 import type { People } from "./people.js";
 import { safe } from "./dom.js";
 import { dayOf, lastedFor, timeOf } from "./when.js";
@@ -10,10 +11,14 @@ export type Entry =
 
 export interface Reading {
   readonly people: People;
+  /** Whose screen this is: what you can do to a message depends on whether you said it. */
+  readonly me: UserId;
   /** How many answers hang off each message, so a thread can be opened without counting them again. */
   readonly threads: ReadonlyMap<MessageId, number>;
   /** What the conversation an invitation points at is called, when this account is already in it. */
   readonly nameOf: (conversationId: ConversationId) => string | undefined;
+  /** What a message being answered said, for the line drawn above the answer. */
+  readonly answered: (messageId: MessageId) => string | undefined;
 }
 
 /** What was said and what happened, in one stream, with a heading between one day and the next. */
@@ -44,18 +49,18 @@ export function paintTimeline(into: HTMLElement, entries: readonly Entry[], read
 
 function said(message: Message, reading: Reading): string {
   const who = reading.people.nameOf(message.senderId);
-  return `<div class="said">
+  return `<div class="said">${whatCanBeDone(message, reading)}
     <span class="avatar big">${safe(reading.people.initialsOf(message.senderId))}</span>
     <div>
       <p class="who"><strong>${safe(who)}</strong><span class="at">${timeOf(message.createdAt)}</span></p>
-      ${body(message, reading)}${reactions(message)}${thread(message, reading)}
+      ${body(message, reading)}${reactions(message, reading)}${thread(message, reading)}
     </div>
   </div>`;
 }
 
 function saidAgain(message: Message, reading: Reading): string {
-  return `<div class="said same"><span class="at">${timeOf(message.createdAt)}</span>
-    <div>${body(message, reading)}${reactions(message)}${thread(message, reading)}</div>
+  return `<div class="said same">${whatCanBeDone(message, reading)}<span class="at">${timeOf(message.createdAt)}</span>
+    <div>${body(message, reading)}${reactions(message, reading)}${thread(message, reading)}</div>
   </div>`;
 }
 
@@ -66,8 +71,11 @@ function body(message: Message, reading: Reading): string {
   if (message.invitesTo) return invitation(message, reading);
   const attachment = message.attachment ? `<p class="file">📎 ${safe(message.attachment.name)}</p>` : "";
   const edited = message.editedAt ? ` <span class="faint">(editado)</span>` : "";
+  const answering = message.replyToId
+    ? `<p class="answering">↩ <span>${safe(reading.answered(message.replyToId) ?? "un mensaje")}</span></p>`
+    : "";
   const sending = message.status === "sending" ? ' data-sending="true"' : "";
-  return `<p${sending}>${safe(message.body)}${edited}</p>${attachment}`;
+  return `${answering}<p${sending}>${safe(message.body)}${edited}</p>${attachment}`;
 }
 
 function invitation(message: Message, reading: Reading): string {
@@ -86,19 +94,33 @@ function invitation(message: Message, reading: Reading): string {
   </div>`;
 }
 
-/** The same key left by several people is one pill with a number, which is what everybody draws. */
-function reactions(message: Message): string {
-  const left = message.reactions ?? [];
-  if (left.length === 0) return "";
-  const counted = new Map<string, number>();
-  for (const reaction of left) counted.set(reaction.key, (counted.get(reaction.key) ?? 0) + 1);
-  const pills = [...counted]
+/** One pill per key, and the one that is yours says so: pressing it takes it back rather than adding another. */
+function reactions(message: Message, reading: Reading): string {
+  const pills = grouped(message.reactions, reading.me);
+  const drawn = pills
     .map(
-      ([key, count]) =>
-        `<button class="reaction" data-reacts="${safe(message.id)}" data-key="${safe(key)}">${safe(key)} ${count}</button>`
+      pill =>
+        `<button class="reaction"${pill.mine ? ' data-mine="true"' : ""} data-reacts="${safe(message.id)}"
+          data-key="${safe(pill.key)}" data-takes-back="${safe(pill.mine ?? "")}">${safe(pill.key)} ${pill.count}</button>`
     )
     .join("");
-  return `<div class="reactions">${pills}</div>`;
+  // The way to leave one in the first place, which is the same button whether or not there are any yet.
+  const more = `<button class="reaction more" data-reacts-to="${safe(message.id)}" aria-label="Reaccionar">+</button>`;
+  return `<div class="reactions">${drawn}${more}</div>`;
+}
+
+/** What can be done to a message: answer it, and where it is yours, change it or take it back. */
+function whatCanBeDone(message: Message, reading: Reading): string {
+  const mine = message.senderId === reading.me;
+  const change = mine
+    ? `<button data-edits="${safe(message.id)}" aria-label="Editar">✎</button>
+       <button data-deletes="${safe(message.id)}" aria-label="Borrar">🗑</button>`
+    : "";
+  return `<div class="doings">
+    <button data-answers="${safe(message.id)}" aria-label="Responder">↩</button>
+    <button data-hangs-from="${safe(message.id)}" aria-label="Responder en hilo">💬</button>
+    ${change}
+  </div>`;
 }
 
 function thread(message: Message, reading: Reading): string {

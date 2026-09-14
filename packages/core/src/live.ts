@@ -158,7 +158,10 @@ export function createMessageTimeline(
   return Object.assign(collection, {
     loadMore: async (limit = defaultStepBack): Promise<boolean> => {
       const page = await client.messages.loadMore(conversationId, limit);
-      collection.replace([...page.messages].sort(byOldestFirst));
+      // Put together with what is on screen rather than put in its place. Reaching further back can come
+      // back with less than is already here — history out of reach for a moment answers with the local copy,
+      // which on a device that was not there is nothing — and going back must never take anything away.
+      collection.replace(alsoHaving(collection.get(), page.messages));
       return page.hasMore;
     }
   });
@@ -166,6 +169,13 @@ export function createMessageTimeline(
 
 /** How much further back to go when nobody says, which is about a screenful. */
 const defaultStepBack = 20;
+
+/** Two stretches of the same conversation as one, oldest first, each message appearing once. */
+function alsoHaving(here: readonly Message[], arriving: readonly Message[]): readonly Message[] {
+  const byKey = new Map(here.map(message => [keyOf(message), message]));
+  for (const message of arriving) byKey.set(keyOf(message), message);
+  return [...byKey.values()].sort(byOldestFirst);
+}
 
 /** A queued message arrives again with its server id once sent, so the transaction id is what links both. */
 function keyOf(message: Message): string {

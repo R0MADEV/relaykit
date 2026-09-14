@@ -69,3 +69,22 @@ test("a timeline that was never told a limit shows everything and has nothing to
   timeline.stop();
   await client.stop();
 });
+
+test("going back never loses what is already on screen, whatever comes back", async () => {
+  const { client, conversation } = await conversationOf(6, 3);
+  const timeline = createMessageTimeline(client, conversation.id);
+  await timeline.refresh();
+  const was = timeline.get().map(message => message.body);
+  // Older history is out of reach right now, which is the moment a local copy is all there is to show.
+  client.messages.loadMore = async () => ({ messages: [], hasMore: false });
+
+  assert.equal(await timeline.loadMore(3), false);
+
+  assert.deepEqual(
+    timeline.get().map(message => message.body),
+    was,
+    "a timeline that could not reach further back must keep what it had"
+  );
+  timeline.stop();
+  await client.stop();
+});

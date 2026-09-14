@@ -10,6 +10,7 @@ import {
   type Session
 } from "@relaykit/web";
 import { Account } from "./account.js";
+import { DoingToMessages } from "./doing-to-messages.js";
 import { CallScreen } from "./call-screen.js";
 import { Composing } from "./composing.js";
 import { element, input, onClick, pressedIn } from "./dom.js";
@@ -46,6 +47,7 @@ class Deitu {
   private searching: Searching | undefined;
   private sidebar: Sidebar | undefined;
   private account: Account | undefined;
+  private doing: DoingToMessages | undefined;
   private more = true;
   private readUpTo: MessageId | undefined;
 
@@ -66,6 +68,8 @@ class Deitu {
     new Composing(this.client, {
       openId: () => this.openId,
       threadRootId: () => this.thread?.rootId(),
+      answering: () => this.doing?.answeringWhat(),
+      stopAnswering: () => this.doing?.stopAnswering(),
       said: () => this.typing?.stop(),
       wentWrong: error => this.wentWrong(error)
     }).wire();
@@ -93,6 +97,13 @@ class Deitu {
     this.account = new Account(this.client, this.people, this.me, () => forgetAndStartOver());
     this.account.wire();
     this.account.paintWhoYouAre();
+    this.doing = new DoingToMessages(this.client, {
+      openId: () => this.openId,
+      said: messageId => this.messageCalled(messageId)?.body,
+      hangFrom: messageId => this.thread?.open(messageId),
+      wentWrong: error => this.wentWrong(error)
+    });
+    this.doing.wire();
     this.making = new MakingThings(this.client, this.people, {
       openId: () => this.openId,
       opened: conversationId => void this.openConversation(conversationId),
@@ -224,8 +235,10 @@ class Deitu {
     }
     paintTimeline(element("timeline"), this.entries, {
       people: this.people,
+      me: this.me,
       threads: this.threads,
-      nameOf: id => this.nameOfConversation(id)
+      nameOf: id => this.nameOfConversation(id),
+      answered: messageId => this.messageCalled(messageId)?.body
     });
     void this.thread?.repaint();
   }
@@ -248,7 +261,11 @@ class Deitu {
     const timeline = element("timeline");
     const atTheBottom = timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 40;
     if (atTheBottom) this.readIt();
-    if (timeline.scrollTop > 60 || !this.more || !this.timeline) return;
+    // Near the top of something there is room to scroll in. A conversation shorter than the screen is
+    // already showing all of itself, and asking for more of it on the way in is asking for nothing.
+    const isRoomToScroll = timeline.scrollHeight > timeline.clientHeight + 40;
+    const nearTheTop = timeline.scrollTop < 60;
+    if (!isRoomToScroll || !nearTheTop || !this.more || !this.timeline) return;
     // Held so the conversation does not jump: going back adds above whatever is being read.
     const was = timeline.scrollHeight;
     this.more = await this.timeline.loadMore().catch(() => false);
@@ -269,12 +286,7 @@ class Deitu {
     const rootId = pressedIn(event, "opens-thread");
     if (rootId) return this.thread?.open(rootId);
     const entersId = pressedIn(event, "enters");
-    if (entersId) return void this.enterRoomOf(entersId);
-    const messageId = pressedIn(event, "reacts");
-    const key = pressedIn(event, "key");
-    if (messageId && key && this.openId) {
-      void this.client.reactions.add(this.openId, messageId, key).catch(error => this.wentWrong(error));
-    }
+    if (entersId) void this.enterRoomOf(entersId);
   }
 
   /** One of the messages already on screen, by its identifier. */

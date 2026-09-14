@@ -18,11 +18,15 @@ const wanted = process.env.RELAYKIT_SNAP_OPEN ?? "incidencias-voz";
 
 /** Each shot: what to do to the page first, and what to call the picture. */
 const shots = [
-  { name: "chat", does: "" },
+  {
+    // Waits for the last thing to arrive, which is what hangs off the messages: a picture taken before that
+    // is a picture of a conversation still loading.
+    name: "chat",
+    needs: `document.querySelector("[data-opens-thread]") !== null`,
+    does: ""
+  },
   {
     name: "thread",
-    // The pill only appears once the threads of the conversation have been read, which is a request of its own.
-    needs: `document.querySelector("[data-opens-thread]") !== null`,
     does: `document.querySelector("[data-opens-thread]").click();`,
     waitsFor: `document.querySelectorAll("#thread-body .said").length > 1`
   },

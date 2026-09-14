@@ -1,5 +1,5 @@
 import type { ConversationId, MessageId, MessagingClient, SendMessageOptions } from "@relaykit/web";
-import { element, input, onSubmit, pressedIn } from "./dom.js";
+import { element, input, onClick, onSubmit, pressedIn } from "./dom.js";
 import { asHtml, mentioned, wrapped, type Style } from "./writing.js";
 
 const styles: Readonly<Record<string, Style>> = {
@@ -22,6 +22,9 @@ export class Composing {
     private readonly where: {
       readonly openId: () => ConversationId | undefined;
       readonly threadRootId: () => MessageId | undefined;
+      /** What the next message answers, when somebody pressed answer on one. */
+      readonly answering: () => MessageId | undefined;
+      readonly stopAnswering: () => void;
       readonly said: () => void;
       readonly wentWrong: (error: unknown) => void;
     }
@@ -29,6 +32,8 @@ export class Composing {
 
   wire(): void {
     element("tools").addEventListener("click", event => this.styled(event));
+    onClick("attach", () => input("attachment").click());
+    input("attachment").addEventListener("change", () => void this.attach());
     onSubmit("composer", () => void this.send(input("write"), undefined));
     onSubmit("thread-write", () => void this.send(input("thread-write-body"), this.where.threadRootId()));
   }
@@ -47,6 +52,24 @@ export class Composing {
     box.setSelectionRange(after.from, after.to);
   }
 
+  /** A file goes as itself, not as a line of text with a link in it. */
+  private async attach(): Promise<void> {
+    const box = input("attachment");
+    const chosen = box.files?.[0];
+    const conversationId = this.where.openId();
+    box.value = "";
+    if (!chosen || !conversationId) return;
+    try {
+      await this.client.messages.sendFile(conversationId, {
+        name: chosen.name,
+        mimeType: chosen.type || "application/octet-stream",
+        data: new Uint8Array(await chosen.arrayBuffer())
+      });
+    } catch (error) {
+      this.where.wentWrong(error);
+    }
+  }
+
   private async send(box: HTMLInputElement, threadId: MessageId | undefined): Promise<void> {
     const body = box.value.trim();
     const conversationId = this.where.openId();
@@ -54,7 +77,9 @@ export class Composing {
     box.value = "";
     this.where.said();
     try {
-      await this.client.messages.send(conversationId, body, whatItCarries(body, threadId));
+      const answering = this.where.answering();
+      await this.client.messages.send(conversationId, body, whatItCarries(body, threadId, answering));
+      this.where.stopAnswering();
     } catch (error) {
       // Put back rather than lost: somebody who wrote three lines should not have to write them again.
       box.value = body;
@@ -64,11 +89,16 @@ export class Composing {
 }
 
 /** Everything a message carries besides its text, left out entirely where it carries none. */
-function whatItCarries(body: string, threadId: MessageId | undefined): SendMessageOptions {
+function whatItCarries(
+  body: string,
+  threadId: MessageId | undefined,
+  replyTo: MessageId | undefined
+): SendMessageOptions {
   const formattedBody = asHtml(body);
   const userIds = mentioned(body);
   const carried: { -readonly [Key in keyof SendMessageOptions]?: SendMessageOptions[Key] } = {};
   if (threadId) carried.threadId = threadId;
+  if (replyTo) carried.replyTo = replyTo;
   if (formattedBody) carried.formattedBody = formattedBody;
   if (userIds.length > 0) carried.mentions = { userIds };
   return carried;

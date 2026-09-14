@@ -128,6 +128,13 @@
             <div id="results-list"></div>
           </div>
 
+          <button class="answering-bar" id="answering" hidden>
+            <span aria-hidden="true">↩</span> Respondiendo a
+            <span id="answering-what"></span>
+            <span class="spacer"></span>
+            <span aria-hidden="true">✕</span>
+          </button>
+
           <p class="typing" id="typing"></p>
 
           <form class="composer" id="composer">
@@ -136,6 +143,8 @@
               <button type="button" data-styles="italic" aria-label="Cursiva"><i>I</i></button>
               <button type="button" data-styles="code" aria-label="Código">&lt;/&gt;</button>
               <button type="button" data-styles="link" aria-label="Enlace">🔗</button>
+              <button type="button" id="attach" aria-label="Adjuntar un archivo">📎</button>
+              <input type="file" id="attachment" hidden />
             </div>
             <div class="write">
               <input id="write" autocomplete="off" />
