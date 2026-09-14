@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { newestPerPerson } = await import("../packages/matrix-js/dist/matrix-conference.js");
+const { newestPerPerson } = await import("../packages/matrix-js/dist/call-memberships.js");
 
 /**
  * What the room says about a call is one entry per device, and a device that died without leaving stays
@@ -40,7 +40,7 @@ test("two people keep their order of arrival, by the device that counts", () => 
   );
 });
 
-const { peopleOnARingingCall } = await import("../packages/matrix-js/dist/matrix-conference.js");
+const { peopleOnARingingCall } = await import("../packages/matrix-js/dist/call-memberships.js");
 
 /**
  * While a call rings you are not on it, whatever an older device of yours left behind says. The people a
