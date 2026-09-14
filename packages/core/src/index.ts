@@ -21,6 +21,7 @@ export { SdkError, type SdkErrorCode } from "./errors.js";
 export { conversationLinkedIn } from "./conversation-links.js";
 export {
   joinRules,
+  conversationRoles,
   historyVisibilities,
   notificationLevels,
   callStates,
@@ -59,6 +60,8 @@ export type {
   Mentions,
   ConversationPermissions,
   ConversationRole,
+  Participant,
+  ParticipantMembership,
   NotificationLevel,
   PushRegistration,
   JoinRule,

@@ -99,6 +99,7 @@
                   <button data-opens="invite" id="invite-here">
                     <span aria-hidden="true">◍</span> Invitar usuarios
                   </button>
+                  <button id="people-here"><span aria-hidden="true">◍</span> Personas</button>
                   <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
                   <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
                 </div>
@@ -337,6 +338,26 @@
     </dialog>
 
     <!-- What a conversation is called, what it is about, and the picture beside its name. -->
+    <!-- Who is in the conversation, and what can be done with each of them. -->
+    <dialog class="modal" id="who">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Personas</h2>
+            <p class="faint" id="who-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <ul class="sessions" id="who-list"></ul>
+        <p class="wrong" id="who-wrong" hidden></p>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="settings">
       <form method="dialog">
         <header class="modal-head">

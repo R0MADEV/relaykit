@@ -7,6 +7,7 @@ import type {
   CreateConversationInput,
   MessagePage,
   Message,
+  Participant,
   MessageId,
   PublicConversation,
   ReadReceipt,
@@ -49,6 +50,10 @@ export class UnavailableAdapter implements MessagingAdapter {
 
   async setTyping(): Promise<void> {
     throw new SdkError("NOT_CONFIGURED", "Cannot update typing state");
+  }
+
+  async listParticipants(): Promise<readonly Participant[]> {
+    return [];
   }
 
   async setPresence(): Promise<void> {

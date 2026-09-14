@@ -39,6 +39,13 @@ const shots = [
   },
   { name: "account", does: `document.getElementById("me").click();` },
   {
+    name: "who",
+    does: `document.getElementById("more-button").click();
+      document.getElementById("people-here").click();`,
+    waitsFor: `document.querySelectorAll("#who-list li").length > 0`,
+    seconds: 20
+  },
+  {
     name: "settings",
     does: `document.getElementById("more-button").click();
       document.getElementById("settings-here").click();`,

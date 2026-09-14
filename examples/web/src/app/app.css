@@ -1384,3 +1384,12 @@ a.file {
   font-size: 12px;
   cursor: pointer;
 }
+
+/* A row of people is the row of sessions with a face on it: the same shape, the same spacing. */
+#who-list li {
+  gap: 10px;
+}
+#who-list .button {
+  padding: 5px 9px;
+  font-size: 12px;
+}

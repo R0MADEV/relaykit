@@ -8,6 +8,7 @@ import type {
   NotificationLevel,
   ConversationPermissions,
   ConversationRole,
+  Participant,
   HistoryVisibility,
   JoinRule,
   KnockOptions,
@@ -440,6 +441,12 @@ export class ConversationOperations {
   async permissions(conversationId: string): Promise<ConversationPermissions> {
     this.context.assertStarted();
     return this.context.adapter.getPermissions(conversationId);
+  }
+
+  /** Everybody the conversation knows about and what each of them is in it. */
+  async participants(conversationId: ConversationId): Promise<readonly Participant[]> {
+    this.context.assertStarted();
+    return this.context.adapter.listParticipants(conversationId);
   }
 
   async setRole(conversationId: string, userId: UserId, role: ConversationRole): Promise<void> {

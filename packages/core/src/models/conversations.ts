@@ -115,6 +115,32 @@ export interface PendingNotificationsOptions {
 
 export type ConversationRole = "member" | "moderator" | "admin";
 
+export const conversationRoles: readonly ConversationRole[] = ["member", "moderator", "admin"];
+
+/** Where somebody stands with a conversation: in it, asked, waiting to be let in, gone, or shut out. */
+export type ParticipantMembership = "join" | "invite" | "knock" | "leave" | "ban";
+
+/**
+ * Somebody a conversation knows about, and what they are in it.
+ *
+ * `participantIds` says who is there; this says what each of them is, which is what anybody moderating has to
+ * know. It includes people who are not in it — invited, waiting, banned — because letting somebody back in is
+ * something only a list that still has them in it can offer.
+ */
+export interface Participant {
+  readonly userId: UserId;
+  readonly role: ConversationRole;
+  readonly membership: ParticipantMembership;
+  /**
+   * Whether whoever is asking outranks them.
+   *
+   * Nobody may remove, ban or re-rank somebody at or above their own standing — not even themselves — and
+   * working that out means knowing what the roles are worth, which is the adapter's business and not a
+   * screen's. A button that always fails is worse than no button.
+   */
+  readonly isUnderMe: boolean;
+}
+
 /** How much a conversation may interrupt: everything, only when named, or nothing at all. */
 export type NotificationLevel = "all" | "mentions" | "none";
 

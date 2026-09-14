@@ -13,6 +13,7 @@ import { CallScreen } from "./call-screen.js";
 import { Composing } from "./composing.js";
 import { element, input, onClick, pressedIn } from "./dom.js";
 import { MakingThings } from "./making-things.js";
+import { Moderating } from "./moderating.js";
 import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
 import { Reading } from "./reading.js";
@@ -105,6 +106,10 @@ class Deitu {
       wentWrong: error => this.wentWrong(error)
     });
     this.exploring.wire();
+    new Moderating(this.client, this.people, {
+      openId: () => this.reading?.openId(),
+      nameOfOpen: () => element("open-title").textContent ?? ""
+    }).wire();
     new Settings(this.client, {
       openId: () => this.reading?.openId(),
       conversations: () => this.conversations?.get() ?? []

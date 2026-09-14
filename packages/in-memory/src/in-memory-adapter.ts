@@ -32,6 +32,7 @@ import type {
   MessagePage,
   User,
   Conversation,
+  Participant,
   ConversationId,
   CreateConversationInput,
   MessageId,
@@ -501,12 +502,15 @@ export class InMemoryAdapter implements MessagingAdapter {
     this.powerLevels.set(`${conversationId}:${userId}`, level);
   }
 
+  /** Whoever is signed in holds the conversation unless a test says otherwise; everybody else is a member. */
   powerLevelOf(conversationId: ConversationId, userId: UserId): number {
-    return this.powerLevels.get(`${conversationId}:${userId}`) ?? 0;
+    const kept = this.powerLevels.get(`${conversationId}:${userId}`);
+    if (kept !== undefined) return kept;
+    return userId === this.currentUserId ? levels.admin : levels.member;
   }
 
   async getPermissions(conversationId: ConversationId): Promise<ConversationPermissions> {
-    const level = this.powerLevels.get(`${conversationId}:${this.requireUserId()}`) ?? 100;
+    const level = this.powerLevelOf(conversationId, this.requireUserId());
     return {
       canSend: level >= 0,
       canInvite: level >= 50,
@@ -517,8 +521,30 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void> {
-    const levels = { member: 0, moderator: 50, admin: 100 };
     this.setPowerLevel(conversationId, userId, levels[role]);
+  }
+
+  /**
+   * Everybody the conversation knows about: this account, those in it, those invited, and those shut out —
+   * because letting somebody back in is something only a list that still has them in it can offer.
+   */
+  async listParticipants(conversationId: ConversationId): Promise<readonly Participant[]> {
+    const conversation = this.requireConversation(conversationId);
+    const me = this.requireUserId();
+    const mine = this.powerLevelOf(conversationId, me);
+    const shutOut = [...this.shutOut]
+      .filter(each => each.startsWith(`${conversationId}:`))
+      .map(each => ({ userId: each.slice(conversationId.length + 1), membership: "ban" as const }));
+    const invited = new Set(conversation.invitedIds ?? []);
+    const others = conversation.participantIds
+      .filter(userId => userId !== me)
+      .map(userId => ({ userId, membership: invited.has(userId) ? ("invite" as const) : ("join" as const) }));
+    return [{ userId: me, membership: "join" as const }, ...others, ...shutOut].map(
+      ({ userId, membership }) => {
+        const theirs = this.powerLevelOf(conversationId, userId);
+        return { userId, role: roleOf(theirs), membership, isUnderMe: theirs < mine };
+      }
+    );
   }
 
   async loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage> {
@@ -610,6 +636,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly threadReads = new Map<string, MessageId>();
   private notificationLevel: NotificationLevel = "all";
   private readonly powerLevels = new Map<string, number>();
+  /** Who has been shut out of what, kept so they can be let back in. */
+  private readonly shutOut = new Set<string>();
 
   async removeFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
     const conversation = this.requireConversation(conversationId);
@@ -621,11 +649,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   async banFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
+    this.shutOut.add(`${conversationId}:${userId}`);
     return this.removeFromConversation(conversationId, userId);
   }
 
-  async unbanFromConversation(conversationId: ConversationId, _userId: UserId): Promise<Conversation> {
+  async unbanFromConversation(conversationId: ConversationId, userId: UserId): Promise<Conversation> {
     // Lifting a ban only allows somebody back in; it does not put them back.
+    this.shutOut.delete(`${conversationId}:${userId}`);
     return this.requireConversation(conversationId);
   }
 
@@ -950,4 +980,13 @@ export class InMemoryAdapter implements MessagingAdapter {
   receiveVerificationRequest(userId: string, deviceId?: string): VerificationSession {
     return this.verification.receive(userId, deviceId);
   }
+}
+
+/** What each role is worth, which is the whole of what ranks one person above another. */
+const levels: Record<ConversationRole, number> = { member: 0, moderator: 50, admin: 100 };
+
+function roleOf(level: number): ConversationRole {
+  if (level >= levels.admin) return "admin";
+  if (level >= levels.moderator) return "moderator";
+  return "member";
 }

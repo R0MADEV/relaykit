@@ -900,6 +900,41 @@ function runContract(name, setup) {
       });
       assert.equal(readBack.formattedBody, `<strong>${body}</strong>`);
     });
+
+    it("says who is in a conversation, ranks one of them, and shows them the door", async () => {
+      const whoIsIn = async () => {
+        const inIt = await adapter.listParticipants(conversationId);
+        return inIt.find(each => each.userId === participant);
+      };
+
+      const before = await waitFor("the other person to be known to the conversation", whoIsIn);
+      assert.equal(before.role, "member");
+      // Nobody may act on somebody at or above their own standing, and this side made the conversation.
+      assert.equal(before.isUnderMe, true);
+
+      await adapter.setRole(conversationId, participant, "moderator");
+      const ranked = await waitFor("the new rank to take", async () => {
+        const each = await whoIsIn();
+        return each?.role === "moderator" ? each : undefined;
+      });
+      assert.equal(ranked.role, "moderator");
+      assert.equal(ranked.isUnderMe, true);
+
+      await adapter.setRole(conversationId, participant, "member");
+      await adapter.banFromConversation(conversationId, participant, "contract test");
+      const out = await waitFor("them to be shut out", async () => {
+        const each = await whoIsIn();
+        return each?.membership === "ban" ? each : undefined;
+      });
+      // Still in the list, because letting somebody back in is something only a list that has them can offer.
+      assert.equal(out.membership, "ban");
+
+      await adapter.unbanFromConversation(conversationId, participant);
+      await waitFor("the veto to be lifted", async () => {
+        const each = await whoIsIn();
+        return each === undefined || each.membership !== "ban";
+      });
+    });
   });
 }
 

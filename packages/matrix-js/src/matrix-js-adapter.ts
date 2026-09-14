@@ -28,6 +28,7 @@ import type {
   RegisterCredentials,
   Reaction,
   MessagePage,
+  Participant,
   PresenceUpdate,
   UserId,
   UserPresence,
@@ -61,7 +62,7 @@ import {
   searchMatrixMessages,
   sendMessage
 } from "./matrix-room-operations.js";
-import { readMatrixPermissions, setMatrixRole } from "./matrix-permissions.js";
+import { listMatrixParticipants, readMatrixPermissions, setMatrixRole } from "./matrix-permissions.js";
 import {
   discoverMatrixConversations,
   knockMatrixConversation,
@@ -195,6 +196,12 @@ export class MatrixJsAdapter implements MessagingAdapter {
   async setTyping(conversationId: ConversationId, isTyping: boolean, timeoutMs: number): Promise<void> {
     await this.reaching(conversationId, () =>
       this.runtime.getClient().sendTyping(conversationId, isTyping, timeoutMs)
+    );
+  }
+
+  async listParticipants(conversationId: ConversationId): Promise<readonly Participant[]> {
+    return this.reaching(conversationId, () =>
+      listMatrixParticipants(this.runtime.getClient(), conversationId)
     );
   }
 

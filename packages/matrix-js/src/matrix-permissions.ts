@@ -1,5 +1,10 @@
 import { EventType, type MatrixClient } from "matrix-js-sdk";
-import type { ConversationPermissions, ConversationRole } from "@relaykit/core";
+import type {
+  ConversationPermissions,
+  ConversationRole,
+  Participant,
+  ParticipantMembership
+} from "@relaykit/core";
 import { waitForRoom } from "./matrix-room-operations.js";
 
 const roleLevels: Record<ConversationRole, number> = { member: 0, moderator: 50, admin: 100 };
@@ -28,4 +33,41 @@ export async function setMatrixRole(
   role: ConversationRole
 ): Promise<void> {
   await client.setPowerLevel(conversationId, userId, roleLevels[role]);
+}
+
+/**
+ * Everybody the conversation knows about and what each of them is in it.
+ *
+ * Whether somebody can be acted on is worked out here rather than handed out as a number: Matrix says nobody
+ * may remove, ban or re-rank somebody at or above their own level, and a screen that has to know that is a
+ * screen that has to know about power levels.
+ */
+export async function listMatrixParticipants(
+  client: MatrixClient,
+  conversationId: string
+): Promise<readonly Participant[]> {
+  const room = await waitForRoom(client, conversationId);
+  const state = room.currentState;
+  const mine = state.getMember(client.getSafeUserId())?.powerLevel ?? 0;
+  return state
+    .getMembers()
+    .map(member => ({
+      userId: member.userId,
+      role: roleOf(member.powerLevel),
+      membership: membershipOf(member.membership),
+      isUnderMe: member.powerLevel < mine
+    }))
+    .filter(participant => participant.membership !== "leave");
+}
+
+function roleOf(level: number): ConversationRole {
+  if (level >= roleLevels.admin) return "admin";
+  if (level >= roleLevels.moderator) return "moderator";
+  return "member";
+}
+
+/** Anything the homeserver says that is not one of the five is somebody who is not there. */
+function membershipOf(said: string | undefined): ParticipantMembership {
+  const known: readonly ParticipantMembership[] = ["join", "invite", "knock", "leave", "ban"];
+  return known.find(each => each === said) ?? "leave";
 }

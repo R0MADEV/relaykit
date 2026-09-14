@@ -33,6 +33,7 @@ import type {
   MarkReadOptions,
   ShareLocationInput,
   Poll,
+  Participant,
   StartPollInput,
   Notification,
   ThreadSummary,
@@ -152,6 +153,8 @@ export class MessagingClient {
       this.conversationOperations.draft(conversationId),
     pinned: (conversationId: ConversationId): Promise<readonly Message[]> =>
       this.conversationOperations.pinned(conversationId),
+    participants: (conversationId: ConversationId): Promise<readonly Participant[]> =>
+      this.conversationOperations.participants(conversationId),
     permissions: (conversationId: ConversationId): Promise<ConversationPermissions> =>
       this.conversationOperations.permissions(conversationId),
     setRole: (conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> =>

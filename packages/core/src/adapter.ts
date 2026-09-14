@@ -3,6 +3,7 @@ import type {
   ConversationPermissions,
   SendContent,
   ConversationRole,
+  Participant,
   CreateSpaceInput,
   NotificationLevel,
   Space,
@@ -274,6 +275,8 @@ export interface MessagingAdapter {
   searchMessages(query: string): Promise<readonly Message[]>;
   getPermissions(conversationId: ConversationId): Promise<ConversationPermissions>;
   setRole(conversationId: ConversationId, userId: UserId, role: ConversationRole): Promise<void>;
+  /** Everybody the conversation knows about and what each of them is in it, for moderating it. */
+  listParticipants(conversationId: ConversationId): Promise<readonly Participant[]>;
   upgradeConversation(conversationId: ConversationId): Promise<Conversation>;
   setConversationAlias(conversationId: ConversationId, alias: string): Promise<Conversation>;
   publishConversation(conversationId: ConversationId, listed: boolean): Promise<void>;
