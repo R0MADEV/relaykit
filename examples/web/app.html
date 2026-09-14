@@ -99,6 +99,7 @@
                   <button data-opens="invite" id="invite-here">
                     <span aria-hidden="true">◍</span> Invitar usuarios
                   </button>
+                  <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
                   <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
                 </div>
               </div>
@@ -335,6 +336,37 @@
       </form>
     </dialog>
 
+    <!-- What a conversation is called, what it is about, and the picture beside its name. -->
+    <dialog class="modal" id="settings">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">⚙</span>
+          <div>
+            <h2>Ajustes del canal</h2>
+            <p class="faint">Lo que ve todo el mundo en la conversación</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Nombre</span>
+          <input id="settings-name" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">Tema</span>
+          <input id="settings-topic" autocomplete="off" />
+        </label>
+        <p class="label">Imagen</p>
+        <button class="button" id="settings-picture" type="button">Cambiar imagen</button>
+        <input type="file" id="settings-file" accept="image/*" hidden />
+        <p class="wrong" id="settings-wrong" hidden></p>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" id="settings-save" type="button">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="account">
       <form method="dialog">
         <header class="modal-head">
@@ -345,6 +377,14 @@
           </div>
           <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
         </header>
+        <label class="field">
+          <span class="label">Tu nombre</span>
+          <input id="my-name" autocomplete="off" />
+        </label>
+        <button class="button" id="my-picture" type="button">Cambiar mi imagen</button>
+        <input type="file" id="my-file" accept="image/*" hidden />
+        <button class="button accent" id="my-save" type="button">Guardar</button>
+
         <p class="label">Tus sesiones</p>
         <ul class="sessions" id="sessions"></ul>
         <p class="wrong" id="account-wrong" hidden></p>

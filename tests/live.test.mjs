@@ -170,3 +170,23 @@ test("a timeline can be asked to open with enough to read, and says so every tim
   timeline.stop();
   await client.stop();
 });
+
+test("what hangs from a thread stays in the thread, however it arrives", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"] });
+  const root = await client.messages.send(conversation.id, "¿lo gestionáis vosotros?");
+  const timeline = createMessageTimeline(client, conversation.id);
+  await timeline.refresh();
+
+  await client.messages.send(conversation.id, "lo gestionamos nosotros", { threadId: root.id });
+  await client.messages.send(conversation.id, "y aviso yo a secretaría");
+  await waitUntil(() => timeline.get().length === 2);
+
+  assert.deepEqual(
+    timeline.get().map(message => message.body),
+    ["¿lo gestionáis vosotros?", "y aviso yo a secretaría"],
+    "an answer inside a thread must not land in the middle of the conversation"
+  );
+  timeline.stop();
+  await client.stop();
+});

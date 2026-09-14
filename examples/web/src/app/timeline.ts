@@ -1,4 +1,5 @@
-import type { ConversationId, Message, MessageId, PastCall, UserId } from "@relaykit/web";
+import type { Attachment, ConversationId, Message, MessageId, PastCall, UserId } from "@relaykit/web";
+import { addressOf, kindOf } from "./attachments.js";
 import { grouped } from "./reacting.js";
 import { face, type People } from "./people.js";
 import { safe } from "./dom.js";
@@ -69,13 +70,36 @@ function body(message: Message, reading: Reading): string {
   if (message.deletedAt) return `<p class="gone">Mensaje borrado</p>`;
   if (message.undecryptable) return `<p class="gone">No se puede leer: falta la clave</p>`;
   if (message.invitesTo) return invitation(message, reading);
-  const attachment = message.attachment ? `<p class="file">📎 ${safe(message.attachment.name)}</p>` : "";
+  const attachment = message.attachment ? drawn(message.attachment) : "";
   const edited = message.editedAt ? ` <span class="faint">(editado)</span>` : "";
   const answering = message.replyToId
     ? `<p class="answering">↩ <span>${safe(reading.answered(message.replyToId) ?? "un mensaje")}</span></p>`
     : "";
   const sending = message.status === "sending" ? ' data-sending="true"' : "";
-  return `${answering}<p${sending}>${safe(message.body)}${edited}</p>${attachment}`;
+  // A message that did not go out is not a message anybody sent: it says so, and offers the two ways on.
+  const failed =
+    message.status === "failed"
+      ? `<p class="failed">No se pudo enviar
+           <button data-retries="${safe(message.id)}">Reintentar</button>
+           <button data-gives-up="${safe(message.id)}">Descartar</button>
+         </p>`
+      : "";
+  return `${answering}<p${sending}>${safe(message.body)}${edited}</p>${failed}${attachment}`;
+}
+
+/**
+ * An attachment as the thing it is: a picture shows, a film and a recording play, and anything else is a
+ * name with a way to save it. Until it has arrived it is the name, which is what a screen can draw at once.
+ */
+function drawn(attachment: Attachment): string {
+  const address = addressOf(attachment);
+  const name = safe(attachment.name);
+  if (!address) return `<p class="file">📎 ${name} <span class="faint">cargando…</span></p>`;
+  const kind = kindOf(attachment.mimeType);
+  if (kind === "picture") return `<img class="shown" src="${safe(address)}" alt="${name}" />`;
+  if (kind === "film") return `<video class="shown" src="${safe(address)}" controls></video>`;
+  if (kind === "recording") return `<audio src="${safe(address)}" controls></audio>`;
+  return `<a class="file" href="${safe(address)}" download="${name}">📎 ${name}</a>`;
 }
 
 function invitation(message: Message, reading: Reading): string {

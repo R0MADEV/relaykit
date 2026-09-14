@@ -54,6 +54,11 @@ export class DoingToMessages {
     const deletes = pressedIn(event, "deletes");
     if (deletes) return this.delete(conversationId, deletes);
     // The pill under a message and the button in its row mean the same thing: open the thread hanging here.
+    const retries = pressedIn(event, "retries");
+    if (retries) return this.sendAgain(retries);
+    const givesUp = pressedIn(event, "gives-up");
+    if (givesUp) return this.giveUp(givesUp);
+    // The pill under a message and the button in its row mean the same thing: open the thread hanging here.
     const hangs = pressedIn(event, "hangs-from") ?? pressedIn(event, "opens-thread");
     if (hangs) this.where.hangFrom(hangs);
   }
@@ -85,6 +90,14 @@ export class DoingToMessages {
     const key = window.prompt(`Reacciona con una de estas, o escribe otra:\n${handy.join("  ")}`, handy[0]);
     if (!key?.trim()) return;
     await this.client.reactions.add(conversationId, messageId, key.trim()).catch(this.where.wentWrong);
+  }
+
+  private async sendAgain(messageId: MessageId): Promise<void> {
+    await this.client.messages.retry(messageId).catch(this.where.wentWrong);
+  }
+
+  private async giveUp(messageId: MessageId): Promise<void> {
+    await this.client.messages.cancel(messageId).catch(this.where.wentWrong);
   }
 
   private async edit(conversationId: ConversationId, messageId: MessageId): Promise<void> {

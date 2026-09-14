@@ -39,6 +39,12 @@ const shots = [
   },
   { name: "account", does: `document.getElementById("me").click();` },
   {
+    name: "settings",
+    does: `document.getElementById("more-button").click();
+      document.getElementById("settings-here").click();`,
+    waitsFor: `document.getElementById("settings").open`
+  },
+  {
     name: "create-channel",
     does: `document.getElementById("new-button").click();
       document.querySelector('[data-opens="create-channel"]').click();`
@@ -84,6 +90,7 @@ async function run() {
       current: document.querySelectorAll('[aria-current]').length,
       said: document.querySelectorAll("#timeline .said").length,
       pills: document.querySelectorAll("[data-opens-thread]").length,
+      shown: document.querySelectorAll("#timeline img.shown").length,
       wrong: document.getElementById("sign-in-wrong").textContent,
       keys: document.getElementById("keys").hidden ? "hidden" : document.getElementById("keys-title").textContent
     })`)

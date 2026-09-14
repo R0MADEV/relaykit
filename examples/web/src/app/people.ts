@@ -47,6 +47,13 @@ export class People {
     return undefined;
   }
 
+  /** Somebody changed: what was known about them is no longer what is true, so it is asked for again. */
+  forget(userId: UserId): void {
+    this.known.delete(userId);
+    this.faces.delete(userId);
+    this.learn([userId]);
+  }
+
   /** What arrived on its own while somebody was watching. */
   heard(presence: UserPresence): void {
     this.there.set(presence.userId, presence);

@@ -3,6 +3,7 @@ import {
   type Conversation,
   type ConversationId,
   type LiveCollection,
+  type Notification,
   type Session
 } from "@relaykit/web";
 import { Account } from "./account.js";
@@ -16,7 +17,9 @@ import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
 import { Reading } from "./reading.js";
 import { Searching } from "./searching.js";
+import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
+import { tellAbout, titleWith, worthInterrupting } from "./telling.js";
 import { ThreadPanel } from "./thread.js";
 import { Typing } from "./typing.js";
 import { forgetAndStartOver, SigningIn } from "./signing-in.js";
@@ -34,6 +37,7 @@ class Deitu {
   private conversations: LiveCollection<Conversation> | undefined;
   private reading: Reading | undefined;
   private thread: ThreadPanel | undefined;
+  private composing: Composing | undefined;
   private making: MakingThings | undefined;
   private typing: Typing | undefined;
   private keys: ProtectingKeys | undefined;
@@ -50,21 +54,21 @@ class Deitu {
 
   private async enter(session: Session): Promise<void> {
     this.me = session.userId;
-    document.title = `Deitu · ${this.people.nameOf(session.userId)}`;
     this.calls = new CallScreen(this.client, this.people, this.me, () => this.backToChat());
     this.calls.wire();
     this.typing = new Typing(this.client, this.people, this.me, () => this.reading?.openId());
     this.typing.wire();
     this.keys = new ProtectingKeys(this.client, this.me, error => this.wentWrong(error));
     this.keys.wire();
-    new Composing(this.client, {
+    this.composing = new Composing(this.client, {
       openId: () => this.reading?.openId(),
       threadRootId: () => this.thread?.rootId(),
       answering: () => this.doing?.answeringWhat(),
       stopAnswering: () => this.doing?.stopAnswering(),
       said: () => this.typing?.stop(),
       wentWrong: error => this.wentWrong(error)
-    }).wire();
+    });
+    this.composing.wire();
     this.searching = new Searching(this.client, this.people, {
       openId: () => this.reading?.openId(),
       nameOf: id => this.reading?.nameOf(id),
@@ -101,6 +105,10 @@ class Deitu {
       wentWrong: error => this.wentWrong(error)
     });
     this.exploring.wire();
+    new Settings(this.client, {
+      openId: () => this.reading?.openId(),
+      conversations: () => this.conversations?.get() ?? []
+    }).wire();
     this.reading = new Reading(this.client, this.people, this.me, {
       conversations: () => this.conversations?.get() ?? [],
       goingIn: conversationId => this.calls?.goingIn(conversationId),
@@ -145,9 +153,25 @@ class Deitu {
     void this.keys?.look();
   }
 
+  /** Something arrived that deserves attention. Whether it deserves interrupting is a separate question. */
+  private tell(arrived: Notification): void {
+    const here = { openId: this.reading?.openId(), looking: !document.hidden };
+    if (!worthInterrupting(arrived, here)) return;
+    tellAbout(
+      arrived,
+      this.people.nameOf(arrived.senderId),
+      () => void this.openConversation(arrived.conversationId)
+    );
+  }
+
   /** The first conversation opens on its own, as soon as there is one. Nobody wants to arrive at nothing. */
   private somethingToRead(): void {
     this.sidebar?.paint();
+    const waiting = (this.conversations?.get() ?? []).reduce(
+      (total, conversation) => total + (conversation.unreadCount ?? 0),
+      0
+    );
+    document.title = titleWith(waiting);
     if (this.reading?.openId()) return;
     const first = this.conversations?.get()[0];
     if (first) void this.openConversation(first.id);
@@ -168,6 +192,7 @@ class Deitu {
     });
     this.client.on("reaction.added", () => void this.reading?.reload());
     this.client.on("reaction.removed", () => void this.reading?.reload());
+    this.client.on("notification", arrived => this.tell(arrived));
     this.client.on("error", error => this.wentWrong(error));
     void this.calls?.heard();
   }
@@ -242,6 +267,7 @@ class Deitu {
   private async openConversation(conversationId: ConversationId): Promise<void> {
     this.typing?.stop();
     element("shell").removeAttribute("data-list-open");
+    await this.composing?.moveTo(conversationId);
     await this.reading?.open(conversationId);
   }
 

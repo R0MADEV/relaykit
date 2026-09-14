@@ -151,6 +151,10 @@ export function createMessageTimeline(
   );
   const apply = (message: Message): void => {
     if (message.conversationId !== conversationId || collection.isStopped()) return;
+    // What hangs from a thread is read as a thread, the same as when the conversation was listed. Without
+    // this, a conversation with a thread going in it fills up with the answers as they arrive, and reads
+    // one way on the way in and another way afterwards.
+    if (message.threadId !== undefined) return;
     collection.replace(merge(collection.get(), message));
   };
   collection.follow(client.on("message.received", apply));

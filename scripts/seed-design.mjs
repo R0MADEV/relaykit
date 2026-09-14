@@ -1,4 +1,7 @@
+import { createRequire } from "node:module";
 import { MessagingClient } from "@relaykit/core";
+
+const require = createRequire(import.meta.url);
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
 
@@ -81,6 +84,14 @@ async function main() {
   }
   console.log("left reactions on the first message");
 
+  // A picture, so a screen has something to draw as itself rather than as a file name.
+  await alice.messages.sendFile(channel.id, {
+    name: "grafica-latencia.png",
+    mimeType: "image/png",
+    data: aPicture()
+  });
+  console.log("sent a picture");
+
   // An invitation: the link is what a message carries, and any client that understands matrix.to opens it.
   const link = await alice.conversations.link(channel.id);
   await say(bob, channel.id, link);
@@ -100,3 +111,46 @@ main()
     console.error(error);
     process.exit(1);
   });
+
+/**
+ * A picture made here rather than kept in the repository: a checked-in binary is a checked-in binary, and
+ * what this needs is something that is really a PNG, not something that looks like one.
+ */
+function aPicture() {
+  const wide = 160;
+  const tall = 90;
+  const rows = [];
+  for (let y = 0; y < tall; y += 1) {
+    const row = [0];
+    for (let x = 0; x < wide; x += 1) {
+      const hill = Math.sin(x / 12) * 20 + 45;
+      const under = y > hill;
+      row.push(under ? 232 : 250, under ? 133 : 250, under ? 60 : 252);
+    }
+    rows.push(Buffer.from(row));
+  }
+  return new Uint8Array(png(wide, tall, Buffer.concat(rows)));
+}
+
+function png(wide, tall, pixels) {
+  const { deflateSync, crc32 } = require("node:zlib");
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(wide, 0);
+  header.writeUInt32BE(tall, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const chunk = (name, body) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(body.length);
+    const named = Buffer.concat([Buffer.from(name), body]);
+    const check = Buffer.alloc(4);
+    check.writeUInt32BE(crc32(named));
+    return Buffer.concat([length, named, check]);
+  };
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(pixels)),
+    chunk("IEND", Buffer.alloc(0))
+  ]);
+}

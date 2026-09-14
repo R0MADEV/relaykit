@@ -17,6 +17,10 @@ const styles: Readonly<Record<string, Style>> = {
  * box showing tags to whoever is typing.
  */
 export class Composing {
+  private keeping: number | undefined;
+  /** Where the box was when it was last written in, which is where what is in it belongs. */
+  private wasIn: ConversationId | undefined;
+
   constructor(
     private readonly client: MessagingClient,
     private readonly where: {
@@ -32,10 +36,37 @@ export class Composing {
 
   wire(): void {
     element("tools").addEventListener("click", event => this.styled(event));
+    // Kept as it is typed rather than only on the way out: a tab closed mid-sentence is the common way to
+    // lose one, and by then there is nobody left to ask.
+    input("write").addEventListener("input", () => this.keepShortly());
     onClick("attach", () => input("attachment").click());
     input("attachment").addEventListener("change", () => void this.attach());
     onSubmit("composer", () => void this.send(input("write"), undefined));
     onSubmit("thread-write", () => void this.send(input("thread-write-body"), this.where.threadRootId()));
+  }
+
+  /** Reads back what was left here last time, and puts away what is here now. */
+  async moveTo(conversationId: ConversationId | undefined): Promise<void> {
+    await this.keep();
+    const box = input("write");
+    box.value = "";
+    if (!conversationId) return;
+    const kept = await this.client.conversations.draft(conversationId).catch(() => undefined);
+    // Somebody who moved on again while this was coming back is not looking at that conversation any more.
+    if (this.where.openId() === conversationId && kept) box.value = kept;
+  }
+
+  private keepShortly(): void {
+    window.clearTimeout(this.keeping);
+    this.keeping = window.setTimeout(() => void this.keep(), 500);
+  }
+
+  private async keep(): Promise<void> {
+    window.clearTimeout(this.keeping);
+    const conversationId = this.wasIn;
+    this.wasIn = this.where.openId();
+    if (!conversationId) return;
+    await this.client.conversations.saveDraft(conversationId, input("write").value).catch(() => undefined);
   }
 
   private styled(event: Event): void {
@@ -76,6 +107,7 @@ export class Composing {
     if (!body || !conversationId) return;
     box.value = "";
     this.where.said();
+    void this.keep();
     try {
       const answering = this.where.answering();
       await this.client.messages.send(conversationId, body, whatItCarries(body, threadId, answering));

@@ -9,6 +9,7 @@ import {
   type LiveTimeline,
   type UserId
 } from "@relaykit/web";
+import { fetchIfNeeded } from "./attachments.js";
 import { paintHead } from "./conversation-head.js";
 import { element, onClick } from "./dom.js";
 import type { People } from "./people.js";
@@ -112,6 +113,14 @@ export class Reading {
       conversationId
     );
     this.repaint();
+    void this.fetchWhatIsShown(messages);
+  }
+
+  /** Whatever is on screen and has not arrived yet, asked for once each, and painted again when it does. */
+  private async fetchWhatIsShown(messages: readonly Message[]): Promise<void> {
+    const attached = messages.map(message => message.attachment).filter(isThere);
+    const arrived = await Promise.all(attached.map(one => fetchIfNeeded(this.client, one)));
+    if (arrived.some(Boolean)) this.repaint();
   }
 
   repaint(): void {
@@ -191,4 +200,8 @@ export class Reading {
       this.around.wentWrong(error);
     }
   }
+}
+
+function isThere<Thing>(thing: Thing | undefined): thing is Thing {
+  return thing !== undefined;
 }

@@ -1188,8 +1188,19 @@ body {
   background: var(--accent-wash);
   color: var(--accent-strong);
 }
+/* The way to leave the first one, kept out of the way until the message is being looked at. */
 .reaction.more {
+  visibility: hidden;
   color: var(--faint);
+}
+.said:hover .reaction.more,
+.reaction.more:focus-visible {
+  visibility: visible;
+}
+/* A row with nothing on it but that button takes a line of the conversation for nothing. */
+.reactions:not(:has(.reaction:not(.more))) {
+  margin: 0;
+  height: 0;
 }
 
 .answering {
@@ -1338,4 +1349,38 @@ body {
   .modal {
     width: calc(100vw - 24px);
   }
+}
+
+/* An attachment shown as itself, big enough to see and small enough not to take the conversation. */
+.shown {
+  display: block;
+  max-width: min(420px, 100%);
+  max-height: 320px;
+  margin-top: 6px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+a.file {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--accent-strong);
+}
+
+.failed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  color: var(--red);
+  font-size: 12.5px;
+}
+.failed button {
+  padding: 3px 8px;
+  border: 1px solid #f3c9ca;
+  border-radius: 6px;
+  background: none;
+  color: var(--red);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }

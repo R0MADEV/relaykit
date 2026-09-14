@@ -1,5 +1,6 @@
 import type { Device, MessagingClient, UserId } from "@relaykit/web";
-import { dialog, element, onClick, pressedIn, safe } from "./dom.js";
+import { dialog, element, input, onClick, pressedIn, safe } from "./dom.js";
+import { chosenIn } from "./settings.js";
 import { face, type People } from "./people.js";
 
 /**
@@ -22,6 +23,9 @@ export class Account {
   wire(): void {
     onClick("me", () => void this.open());
     onClick("sign-out", () => void this.signOut());
+    onClick("my-picture", () => input("my-file").click());
+    onClick("my-save", () => void this.saveMyName());
+    input("my-file").addEventListener("change", () => void this.changeMyPicture());
     element("sessions").addEventListener("click", event => {
       const deviceId = pressedIn(event, "revokes");
       if (deviceId) void this.revoke(deviceId);
@@ -43,8 +47,33 @@ export class Account {
     element("account-who").textContent = this.me;
   }
 
+  private async saveMyName(): Promise<void> {
+    const name = input("my-name").value.trim();
+    if (!name) return;
+    try {
+      await this.client.users.setDisplayName(name);
+      this.people.forget(this.me);
+      this.paintWhoYouAre();
+    } catch (error) {
+      this.show(error);
+    }
+  }
+
+  private async changeMyPicture(): Promise<void> {
+    const picture = await chosenIn("my-file");
+    if (!picture) return;
+    try {
+      await this.client.users.setAvatar(picture);
+      this.people.forget(this.me);
+      this.paintWhoYouAre();
+    } catch (error) {
+      this.show(error);
+    }
+  }
+
   private async open(): Promise<void> {
     element("account-wrong").hidden = true;
+    input("my-name").value = this.people.nameOf(this.me);
     element("sessions").innerHTML = "";
     dialog("account").showModal();
     await this.paintSessions();
