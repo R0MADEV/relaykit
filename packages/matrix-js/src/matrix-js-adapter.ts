@@ -75,32 +75,34 @@ import { listMatrixParticipants, readMatrixPermissions, setMatrixRole } from "./
 import {
   discoverMatrixConversations,
   knockMatrixConversation,
-  listMatrixKeywords,
   listMatrixPinnedMessages,
-  listMatrixPushRegistrations,
   markMatrixRead,
   listMatrixThreads,
-  listMatrixMutedUsers,
-  setMatrixUserMuted,
-  getMatrixNotificationLevel,
-  setMatrixNotificationLevel,
-  listMatrixPending,
   setMatrixUnread,
   pinMatrixMessage,
   publishMatrixConversation,
-  registerMatrixPush,
   setMatrixAlias,
-  stopWatchingForMatrixKeyword,
   upgradeMatrixConversation,
-  watchForMatrixKeyword,
   setMatrixHistoryVisibility,
   setMatrixJoinRule,
   setMatrixConversationAvatar,
   setMatrixNotifications,
   setMatrixTopic,
-  unpinMatrixMessage,
-  unregisterMatrixPush
+  unpinMatrixMessage
 } from "./matrix-details.js";
+import {
+  watchForMatrixKeyword,
+  stopWatchingForMatrixKeyword,
+  listMatrixKeywords,
+  registerMatrixPush,
+  listMatrixPushRegistrations,
+  unregisterMatrixPush,
+  listMatrixMutedUsers,
+  setMatrixUserMuted,
+  getMatrixNotificationLevel,
+  setMatrixNotificationLevel,
+  listMatrixPending
+} from "./matrix-notifying.js";
 import {
   addToMatrixSpace,
   createMatrixSpace,

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { markMatrixRead, listMatrixPending } = await import("../packages/matrix-js/dist/matrix-details.js");
+const { markMatrixRead } = await import("../packages/matrix-js/dist/matrix-details.js");
+const { listMatrixPending } = await import("../packages/matrix-js/dist/matrix-notifying.js");
 
 /** Just enough client to see what goes out, which is the whole point of a receipt. */
 function fakeClient({ notifications = [] } = {}) {
