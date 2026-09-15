@@ -183,10 +183,16 @@ export async function joinMatrixConversation(
   conversationId: string,
   via: readonly string[] = []
 ): Promise<Conversation> {
+  // Read before accepting, because it is the invitation that says so and accepting replaces it.
+  const invitedAsADirectBy = client.getRoom(conversationId)?.getDMInviter();
   // Without a hint the homeserver has no way to find a conversation it does not already know.
   await client.joinRoom(conversationId, via.length > 0 ? { viaServers: [...via] } : {});
   const room = await waitForRoom(client, conversationId);
   await waitUntilRoomIsUsable(room);
+  // Each person keeps their own list of who they talk to directly, and nobody writes it for them: whoever
+  // accepts a direct invitation has to write it down, or their own screen files the chat as a channel as soon
+  // as it paints from what was kept rather than from what just happened.
+  if (invitedAsADirectBy) await markAsDirect(client, conversationId, [invitedAsADirectBy]);
   return mapConversation(room);
 }
 

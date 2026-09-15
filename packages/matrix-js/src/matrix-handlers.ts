@@ -1,5 +1,5 @@
 import type { MatrixEvent } from "matrix-js-sdk";
-import { EventType, type Room } from "matrix-js-sdk";
+import { EventType, type MatrixClient, type Room } from "matrix-js-sdk";
 import type { AdapterHandlers, Message } from "@relaykit/core";
 import {
   isMessageEdit,
@@ -132,6 +132,34 @@ export function handleTyping(
  * Presence taken from the general stream instead of the stream tied to each person: that one only fires when
  * the sdk happens to have built that person's object with re-emission set up, so it drops updates at random.
  */
+/**
+ * Account data, which is where Matrix keeps the things about a conversation that nobody ever says in it:
+ * whether it is a direct chat, whether it is a favourite, whether it was marked unread. A screen following
+ * only the timeline has all of that wrong until somebody speaks — which is what needing a reload looks like.
+ *
+ * Only the conversations the change actually names are read again. Reading every one of them because a
+ * setting moved is what makes a busy account crawl.
+ */
+export function handleAccountData(
+  event: MatrixEvent,
+  client: Pick<MatrixClient, "getRoom">,
+  handlers: AdapterHandlers
+): void {
+  if (event.getType() !== EventType.Direct) return;
+  const byPerson = event.getContent<Record<string, string[]>>();
+  const named = new Set(Object.values(byPerson).flat());
+  for (const roomId of named) {
+    const room = client.getRoom(roomId);
+    if (room) handlers.onConversationUpdated?.(mapConversation(room));
+  }
+}
+
+/** The same, for what is kept against one conversation rather than against the account. */
+export function handleRoomAccountData(room: Room | undefined, handlers: AdapterHandlers): void {
+  if (!room) return;
+  handlers.onConversationUpdated?.(mapConversation(room));
+}
+
 export function handleClientEvent(event: MatrixEvent, handlers: AdapterHandlers): void {
   if (event.getType() !== EventType.Presence) return;
   handlePresence(event, handlers);

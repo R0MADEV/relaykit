@@ -88,7 +88,7 @@ async function main() {
   await openChannel(one, channel, "alice");
   await theOtherWalksIn(other, channel);
 
-  await aDirectStaysDirect(one, bob, channel);
+  await aDirectStaysDirect(one, other, bob, channel);
   await theySeeWhatIsSaid(one, other);
   await aThreadHangsFromIt(one, other);
   await aPictureArrives(one, other);
@@ -166,7 +166,7 @@ async function theOtherWalksIn(page, name) {
  * conversation is a direct chat on one screen and a channel on the other — with the room's identifier
  * standing in for a name, because a channel with no name has none.
  */
-async function aDirectStaysDirect(one, otherAccount, goBackTo) {
+async function aDirectStaysDirect(one, other, otherAccount, goBackTo) {
   // Through the screen, the way a person does it: the picker, the name, the row, the button.
   await run(
     one,
@@ -198,6 +198,28 @@ async function aDirectStaysDirect(one, otherAccount, goBackTo) {
   await one.reload();
   await waitFor(one, "it to still be a direct conversation after a reload", isADirect("directs"), 90);
   detail.directSurvivedAReload = true;
+
+  // And the other side, which is the harder half: they were invited, and accepting is what has to be written
+  // down. Their screen knew it was a direct chat from the invitation; a reload paints from what was kept.
+  const theirs = `[...document.querySelectorAll("#directs li")].some(row =>
+    row.textContent.includes("chat-a") || row.textContent.includes("alice"))`;
+  await waitFor(other, "the invitation to arrive", `document.querySelectorAll("#directs li").length > 0`, 60);
+  await run(other, `document.querySelector("#directs li button").click();`);
+  await waitFor(other, "the invitation banner", `!document.getElementById("invited").hidden`, 30);
+  await run(other, `document.getElementById("accept-invitation").click();`);
+  await waitFor(other, "the invitation to be accepted", `document.getElementById("invited").hidden`, 60);
+
+  await other.reload();
+  await waitFor(other, "the accepted direct to still be direct after a reload", theirs, 90);
+  // The symptom is not that it disappears, it is that it turns up filed as a channel.
+  detail.acceptedItSeesAChannel = await read(
+    other,
+    `[...document.querySelectorAll("#channels li")].some(row => row.textContent.includes("chat-a"))`
+  );
+  if (detail.acceptedItSeesAChannel) throw new Error("the side that accepted sees a channel after a reload");
+  detail.acceptedDirectSurvivedAReload = true;
+  await openChannel(other, goBackTo, "bob");
+
   // Put back where the rest of this check expects to find it: reloading opened whatever came first.
   await openChannel(one, goBackTo, "alice");
 }

@@ -14,7 +14,9 @@ import type { AdapterHandlers, Session } from "@relaykit/core";
 import { theSessionAfterRefreshing } from "./matrix-tokens.js";
 import { createBrowserStore, handleSync, waitForInitialSync } from "./matrix-sync.js";
 import {
+  handleAccountData,
   handleClientEvent,
+  handleRoomAccountData,
   handleReceipt,
   handleRedaction,
   handleTimeline,
@@ -153,6 +155,8 @@ export class MatrixRuntime {
     this.client.on(RoomEvent.Receipt, this.handleReceipt);
     this.client.on(RoomMemberEvent.Typing, this.handleTyping);
     this.client.on(ClientEvent.Event, this.handleClientEvent);
+    this.client.on(ClientEvent.AccountData, this.handleAccountData);
+    this.client.on(RoomEvent.AccountData, this.handleRoomAccountData);
     // Asking for a window means the homeserver sends the most recent conversations instead of all of them.
     this.window =
       this.options.conversationWindow === undefined
@@ -193,6 +197,8 @@ export class MatrixRuntime {
     this.client.removeListener(RoomEvent.Receipt, this.handleReceipt);
     this.client.removeListener(RoomMemberEvent.Typing, this.handleTyping);
     this.client.removeListener(ClientEvent.Event, this.handleClientEvent);
+    this.client.removeListener(ClientEvent.AccountData, this.handleAccountData);
+    this.client.removeListener(RoomEvent.AccountData, this.handleRoomAccountData);
     this.client.stopClient();
     // The sync response in flight is still being worked on, and the sdk frees the encryption before it stops
     // the sync. Giving it a turn to finish keeps that work from reaching for something that is no longer there.
@@ -264,6 +270,16 @@ export class MatrixRuntime {
     if (alreadyEmitted) return;
     if (roomId) this.lastTypingByRoom.set(roomId, userIds);
     handleTyping(event, roomId, this.handlers);
+  };
+
+  /** What is kept about the account: which conversations are direct chats, above all. */
+  private readonly handleAccountData = (event: MatrixEvent): void => {
+    handleAccountData(event, this.getClient(), this.handlers);
+  };
+
+  /** And what is kept against one conversation: its tags, and whether it was marked unread. */
+  private readonly handleRoomAccountData = (_event: MatrixEvent, room: Room | undefined): void => {
+    handleRoomAccountData(room, this.handlers);
   };
 
   private readonly handleClientEvent = (event: MatrixEvent): void => {
