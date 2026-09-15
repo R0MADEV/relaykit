@@ -26,6 +26,37 @@ export interface MessageSearchOptions {
   readonly limit?: number;
 }
 
+/** How a search of the homeserver is asked for, and how the next page of one is. */
+export interface RemoteSearchOptions {
+  readonly limit?: number;
+  /** From a previous page. Given, the query is continued rather than asked again. */
+  readonly cursor?: string;
+}
+
+/**
+ * A page of what the homeserver found.
+ *
+ * A cursor rather than a page number: the homeserver decides where the next page starts, and a search that
+ * came back with everything says so by having none.
+ */
+export interface RemoteSearchPage {
+  readonly messages: readonly Message[];
+  readonly cursor?: string;
+}
+
+/**
+ * One message with what was said around it.
+ *
+ * Both sides together because that is what it is for: opening a search result, or a link somebody sent, at
+ * the moment it belongs to instead of at the end of the conversation.
+ */
+export interface MessageSurroundings {
+  readonly message: Message;
+  /** Oldest first, like the conversation itself. */
+  readonly before: readonly Message[];
+  readonly after: readonly Message[];
+}
+
 export interface MarkReadOptions {
   /** Moves this person's own marker without telling the others, for whoever does not want to be seen reading. */
   readonly private?: boolean;

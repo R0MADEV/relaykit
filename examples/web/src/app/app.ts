@@ -18,6 +18,7 @@ import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
 import { Reading } from "./reading.js";
 import { Searching } from "./searching.js";
+import { Filing } from "./filing.js";
 import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
 import { tellAbout, titleWith, worthInterrupting } from "./telling.js";
@@ -114,7 +115,16 @@ class Deitu {
       openId: () => this.reading?.openId(),
       conversations: () => this.conversations?.get() ?? []
     }).wire();
+    const filing = new Filing(this.client, {
+      leftItAll: () => {
+        this.reading?.close();
+        this.sidebar?.paint();
+      },
+      wentWrong: error => this.wentWrong(error)
+    });
+    filing.wire();
     this.reading = new Reading(this.client, this.people, this.me, {
+      filed: conversationId => void filing.paintOn(conversationId),
       conversations: () => this.conversations?.get() ?? [],
       goingIn: conversationId => this.calls?.goingIn(conversationId),
       onACallIn: conversationId => Boolean(this.calls?.onACallIn(conversationId)),

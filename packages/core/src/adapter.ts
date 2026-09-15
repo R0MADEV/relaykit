@@ -37,6 +37,13 @@ export interface AdapterHandlers {
   readonly onNotification?: (notification: Notification) => void;
   /** Told when the homeserver stops accepting this session, without anybody having asked it to. */
   readonly onSessionEnded?: () => void;
+  /**
+   * Told when the homeserver hands out a new access token in place of one about to run out.
+   *
+   * The session an application wrote down is then out of date, and it is the only one that can write the new
+   * one somewhere it will still be after the window is closed.
+   */
+  readonly onSessionRefreshed?: (session: Session) => void;
   readonly onCallIncoming?: (call: Call) => void;
   readonly onCallChanged?: (call: Call) => void;
   readonly onCallSpeaking?: (speaking: CallSpeaking) => void;
@@ -46,7 +53,9 @@ export interface AdapterHandlers {
 }
 
 import type {
+  AccountAdapter,
   CallingAdapter,
+  GuestsAdapter,
   CryptoAdapter,
   DevicesAdapter,
   LocationAdapter,
@@ -57,6 +66,7 @@ import type {
   SpacesAdapter,
   ConversationSettingsAdapter,
   EditingAdapter,
+  HistoryAdapter,
   IgnoringAdapter,
   ModerationAdapter,
   PinsAdapter,
@@ -70,6 +80,10 @@ import type {
 export interface MessagingAdapter {
   /** Deciding who may be in a conversation and what they may do in it. Absent when this adapter cannot. */
   /** Signing in somewhere else and coming back. Absent when this adapter cannot. */
+  /** The account itself: its password, its end, and what it remembers. Absent when this adapter cannot. */
+  readonly account?: AccountAdapter;
+  /** Coming in without an account. Absent when this adapter cannot. */
+  readonly guests?: GuestsAdapter;
   readonly sso?: SsoAdapter;
   readonly moderation?: ModerationAdapter;
 
@@ -87,6 +101,9 @@ export interface MessagingAdapter {
 
   /** Looking for something that was said, somebody, or somewhere to join. Absent when this adapter cannot. */
   readonly search?: SearchAdapter;
+
+  /** Opening a conversation at a moment instead of at its end. Absent when this adapter cannot. */
+  readonly history?: HistoryAdapter;
 
   /** Whether somebody is about, and whether they are writing. Absent when this adapter cannot. */
   readonly presence?: PresenceAdapter;
@@ -142,9 +159,12 @@ export interface MessagingAdapter {
 // The optional halves are handed on from here: a backend is one thing to whoever writes one, however many
 // files it is written in.
 export type {
+  AccountAdapter,
   CallingAdapter,
+  GuestsAdapter,
   ConversationSettingsAdapter,
   EditingAdapter,
+  HistoryAdapter,
   IgnoringAdapter,
   ModerationAdapter,
   PinsAdapter,

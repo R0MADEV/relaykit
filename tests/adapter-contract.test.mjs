@@ -80,8 +80,107 @@ function runContract(name, setup) {
       for (const conversation of mine) {
         if (!conversation.title?.startsWith("RelayKit contract")) continue;
         await adapter.leaveConversation(conversation.id).catch(() => undefined);
+        // Left is not gone: without forgetting, the next run reads them all back out of its own history.
+        await adapter.conversationSettings.forgetConversation(conversation.id).catch(() => undefined);
       }
       await cleanup?.();
+    });
+
+    it("files a conversation under a name of your own, and takes it back out", async () => {
+      const settings = adapter.conversationSettings;
+      await settings.setConversationTag(conversationId, "u.contract");
+      const filed = await waitFor("the tag to be stored", async () => {
+        const tags = await settings.listConversationTags(conversationId);
+        return tags.includes("u.contract") ? tags : undefined;
+      });
+      assert.ok(filed.includes("u.contract"));
+
+      await settings.removeConversationTag(conversationId, "u.contract");
+      await waitFor("the tag to be gone", async () => {
+        const tags = await settings.listConversationTags(conversationId);
+        return !tags.includes("u.contract");
+      });
+    });
+
+    it("says which room versions the homeserver admits, and prefers one of them", async () => {
+      const { preferred, available } = await adapter.conversationSettings.listRoomVersions();
+      assert.ok(available.length > 0, "a homeserver that hosts rooms has versions for them");
+      assert.ok(available.includes(preferred), "what it prefers has to be one it admits");
+    });
+
+    it("remembers a setting of its own, and reads it back on the server", async () => {
+      const value = { theme: "dark", at: Date.now() };
+      await adapter.account.rememberSetting("contract.settings", value);
+      const read = await waitFor("the setting to come back", async () => {
+        const stored = await adapter.account.rememberedSetting("contract.settings");
+        return stored?.at === value.at ? stored : undefined;
+      });
+      assert.equal(read.theme, "dark");
+    });
+
+    it("leaves a conversation forgotten out of the list for good", async () => {
+      const passing = await adapter.createConversation({
+        participantIds: [],
+        title: "RelayKit contract forgotten",
+        encrypted: false
+      });
+      await adapter.leaveConversation(passing.id);
+      await adapter.conversationSettings.forgetConversation(passing.id);
+      const left = await waitFor("it to drop out of the list", async () => {
+        const mine = await adapter.listConversations();
+        return mine.every(each => each.id !== passing.id);
+      });
+      assert.ok(left);
+    });
+
+    it("says what is inside a space", async () => {
+      const spaces = adapter.spaces;
+      const space = await spaces.createSpace({ title: "RelayKit contract space" });
+      const inner = await spaces.createSpace({ title: "RelayKit contract space inside" });
+      await spaces.addToSpace(space.id, inner.id);
+      await spaces.addToSpace(inner.id, conversationId);
+
+      const children = await waitFor("the conversation two levels in to be listed", async () => {
+        const inside = await spaces.listSpaceChildren(space.id);
+        return inside.some(child => child.conversationId === conversationId) ? inside : undefined;
+      });
+      assert.equal(children.find(each => each.conversationId === inner.id).depth, 1);
+      assert.equal(children.find(each => each.conversationId === conversationId).depth, 2);
+
+      for (const id of [inner.id, space.id]) {
+        await adapter.leaveConversation(id).catch(() => undefined);
+        await adapter.conversationSettings.forgetConversation(id).catch(() => undefined);
+      }
+    });
+
+    it("lets somebody in without an account", async () => {
+      const guest = await adapter.guests.signInAsGuest(homeserverOf(adapter));
+      assert.ok(guest.userId.length > 0, "a guest is still somebody the homeserver can name");
+      assert.ok(guest.accessToken.length > 0);
+      assert.notEqual(guest.userId, name === "matrix" ? `@${matrixUser}:localhost` : "alice");
+    });
+
+    it("reads a message with what was said around it", async () => {
+      const said = [];
+      for (const what of ["antes dos", "antes uno", "el del medio", "después uno", "después dos"]) {
+        said.push(await adapter.sendMessage(conversationId, what, {}));
+      }
+      const middle = said[2];
+
+      const around = await waitFor("the homeserver to find it", async () => {
+        const found = await adapter.history.readAroundMessage(conversationId, middle.id, 2).catch(() => null);
+        return found?.before.length === 2 ? found : undefined;
+      });
+
+      assert.equal(around.message.body, "el del medio");
+      assert.deepEqual(
+        around.before.map(message => message.body),
+        ["antes dos", "antes uno"]
+      );
+      assert.deepEqual(
+        around.after.map(message => message.body),
+        ["después uno", "después dos"]
+      );
     });
 
     it("reports the participant it invited as not having accepted yet", async () => {
@@ -991,6 +1090,24 @@ runContract("in-memory", inMemorySetup);
 
 if (process.env.RELAYKIT_CONTRACT_MATRIX === "1") {
   runContract("matrix", matrixSetup);
+
+  /**
+   * Only against a real homeserver, because being refused is the whole point: a guest is not a small account,
+   * it is an account the homeserver says no to about most things, and a double that says yes teaches nothing.
+   */
+  describe("adapter contract: matrix guests", () => {
+    it("a guest can start, even though the homeserver refuses it keys and push rules", async () => {
+      const adapter = new MatrixJsAdapter();
+      const guest = await adapter.guests.signInAsGuest(homeserver);
+      try {
+        await adapter.start(guest, {});
+        const conversations = await adapter.listConversations();
+        assert.ok(Array.isArray(conversations), "a guest with nothing still gets an answer, not a failure");
+      } finally {
+        await adapter.stop().catch(() => undefined);
+      }
+    });
+  });
 }
 
 /** The double lives in memory and the Matrix adapter against the development homeserver. */

@@ -159,3 +159,19 @@ export interface TypingUpdate {
   readonly conversationId: ConversationId;
   readonly userIds: readonly UserId[];
 }
+
+/** The room versions a homeserver admits, and the one it would give a new conversation. */
+export interface RoomVersions {
+  readonly preferred: string;
+  readonly available: readonly string[];
+}
+
+/** A conversation inside a space, and how far down it sits. */
+export interface SpaceChild {
+  readonly conversationId: ConversationId;
+  readonly title?: string;
+  /** How many spaces down from the one that was asked about. One means directly inside it. */
+  readonly depth: number;
+  /** Whether the space suggests it as somewhere to start. */
+  readonly suggested?: boolean;
+}

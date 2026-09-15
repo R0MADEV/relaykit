@@ -5,8 +5,31 @@ import type { LoginCredentials, RegisterCredentials, Session } from "@relaykit/c
 const passwordOnlyStages = new Set([AuthType.Dummy as string]);
 
 /** Registering and signing in end the same way: the homeserver's answer, read as a session. */
-function sessionFrom(homeserver: string, userId: string, accessToken: string, deviceId?: string): Session {
-  return { homeserver, userId, accessToken, ...(deviceId ? { deviceId } : {}) };
+/** The parts of signing in and of registering that say the same thing, which is all this needs of either. */
+interface WhatSigningInAnswers {
+  readonly user_id: string;
+  readonly access_token?: string;
+  readonly device_id?: string;
+  readonly refresh_token?: string;
+  readonly expires_in_ms?: number;
+}
+
+/**
+ * A session out of what the homeserver answered.
+ *
+ * The refresh token is asked for and kept when there is one: a homeserver that hands out short-lived tokens
+ * expects to be asked for new ones, and a session without it is one that stops working and cannot be revived.
+ */
+function sessionFrom(homeserver: string, answer: WhatSigningInAnswers): Session {
+  const expiresAt = answer.expires_in_ms ? Date.now() + answer.expires_in_ms : undefined;
+  return {
+    homeserver,
+    userId: answer.user_id,
+    accessToken: answer.access_token ?? "",
+    ...(answer.device_id ? { deviceId: answer.device_id } : {}),
+    ...(answer.refresh_token ? { refreshToken: answer.refresh_token } : {}),
+    ...(expiresAt ? { expiresAt } : {})
+  };
 }
 
 /**
@@ -44,6 +67,7 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
         username: credentials.username,
         password: credentials.password,
         auth: { type: AuthType.Dummy, session },
+        refresh_token: true,
         ...(credentials.deviceName ? { initial_device_display_name: credentials.deviceName } : {})
       })
       .catch(error => {
@@ -55,7 +79,7 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
         "The homeserver did not return a session for the new account"
       );
     }
-    return sessionFrom(credentials.homeserver, response.user_id, response.access_token, response.device_id);
+    return sessionFrom(credentials.homeserver, response);
   } finally {
     client.stopClient();
   }
@@ -96,12 +120,15 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
   const request = {
     user: credentials.username,
     password: credentials.password,
+    // Asking for one: a homeserver that hands out short tokens only hands out the means to renew them to a
+    // client that says it can. One that hands out long ones ignores this and answers without.
+    refresh_token: true,
     ...(credentials.deviceName ? { initial_device_display_name: credentials.deviceName } : {})
   };
 
   try {
     const response = await client.login(AuthType.Password, request);
-    return sessionFrom(credentials.homeserver, response.user_id, response.access_token, response.device_id);
+    return sessionFrom(credentials.homeserver, response);
   } finally {
     client.stopClient();
   }

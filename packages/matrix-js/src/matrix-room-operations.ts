@@ -13,7 +13,9 @@ import type {
   ConversationId,
   CreateConversationInput,
   Message,
-  MessagePage
+  MessagePage,
+  RemoteSearchOptions,
+  RemoteSearchPage
 } from "@relaykit/core";
 import { mapMessages } from "./matrix-mapper.js";
 import { mapConversation } from "./matrix-conversation-mapper.js";
@@ -113,15 +115,37 @@ export async function listMatrixThread(
 }
 
 /**
- * The homeserver can only search what it can read, so encrypted conversations are invisible to it. Whatever
- * it does find still comes back mapped like any other message.
+ * Searching what the homeserver can read, a page at a time.
+ *
+ * Encrypted conversations are invisible to it: it holds the ciphertext and none of the keys, so nothing said
+ * in one is ever found this way. What it does find comes back mapped like any other message.
+ *
+ * Asked through `search` rather than `searchMessageText` because that one has nowhere to put a cursor, and a
+ * search that can only ever answer with its first page is not much of a search.
  */
-export async function searchMatrixMessages(client: MatrixClient, query: string): Promise<readonly Message[]> {
-  const response = await client.searchMessageText({ query });
-  const results = response.search_categories.room_events?.results ?? [];
-  const events = results
+export async function searchMatrixMessages(
+  client: MatrixClient,
+  query: string,
+  options: RemoteSearchOptions
+): Promise<RemoteSearchPage> {
+  const response = await client.search({
+    body: {
+      search_categories: {
+        room_events: {
+          search_term: query,
+          ...(options.limit === undefined ? {} : { filter: { limit: options.limit } })
+        }
+      }
+    },
+    ...(options.cursor === undefined ? {} : { next_batch: options.cursor })
+  });
+  const found = response.search_categories.room_events;
+  const events = (found?.results ?? [])
     .map(result => result.result)
     .filter((event): event is NonNullable<typeof event> => event !== undefined)
     .map(event => new MatrixEvent(event));
-  return mapMessages(events);
+  return {
+    messages: await mapMessages(events),
+    ...(found?.next_batch === undefined ? {} : { cursor: found.next_batch })
+  };
 }

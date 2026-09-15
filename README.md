@@ -40,8 +40,13 @@ propios, usar `@relaykit/core` directamente.
 | **Dispositivos** | tus sesiones, renombrarlas, cerrarlas |
 | **Notificaciones** | push, reglas, palabras clave, silenciar a alguien, nivel por sala y por cuenta, lo que está esperando |
 | **Encuestas** | preguntar, votar, cerrar |
-| **Espacios** | agrupar conversaciones |
-| **Búsqueda** | local y en el servidor |
+| **Espacios** | agrupar conversaciones, y el árbol entero de lo que hay dentro |
+| **Cuenta** | cambiar contraseña, darse de baja, y guardar ajustes propios en el servidor |
+| **Invitados** | entrar sin cuenta donde el homeserver lo permita |
+| **Etiquetas** | archivar una conversación bajo un nombre tuyo, y olvidarla del todo |
+| **Búsqueda** | local y en el servidor, por páginas, y un resultado se abre con lo que se dijo alrededor |
+| **Correo** | añadir una dirección a tu cuenta, y volver a entrar si olvidaste la contraseña |
+| **Sesiones que caducan** | el token se renueva solo, y te dan el nuevo para que lo guardes |
 | **Listas vivas** | la lista de conversaciones y el timeline de una, al día solos, **y el timeline va hacia atrás** |
 
 [API.md](API.md) tiene el detalle: cada llamada, cada evento y cada forma que devuelve.
@@ -50,13 +55,16 @@ propios, usar `@relaykit/core` directamente.
 
 Dicho para que nadie lo descubra a mitad de una integración:
 
-- **Invitados**, y entrar con correo o teléfono. SSO sí hay.
-- **Gestión de cuenta**: cambiar contraseña, dar de baja.
-- **Etiquetas propias** y datos de cuenta arbitrarios. Favorita sí; `m.tag` no.
-- **`forget`**: salir de una sala *y* borrarla de tu historial.
-- **Jerarquía de espacios**: los espacios listan hijos, pero no hay árbol ni orden.
 - **Widgets** y **llamadas 1-a-1 clásicas** (`m.call.*`). Aquí las llamadas van por MatrixRTC.
 - **QR de verificación**: solo emojis.
+- **Puentes** (IRC, Slack), **árboles de ficheros** (MSC3089), **mensajes programados** (MSC4140),
+  **servidor de identidad**, **campos de perfil propios** (MSC4133), **mirar o leer una sala sin entrar**,
+  **gestión de alias**, **el historial de salas actualizadas**, **denunciar una sala entera**.
+
+Esa última lista no es una lista de deudas. `matrix-js-sdk` expone 292 métodos y esta librería usa 88: lo que
+falta falta **a propósito**, porque el valor de esto es que quien escriba la aplicación no aprenda Matrix, y
+cada método añadido es superficie que mantener y una decisión tomada por una aplicación que no la pidió. Si
+necesitas algo de ahí, se añade cuando haga falta y con quien lo necesite delante.
 
 La API de administración de Synapse no está **ni debería**: administrar un servidor no es cosa de un cliente.
 

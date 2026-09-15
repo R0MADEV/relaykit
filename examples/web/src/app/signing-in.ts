@@ -1,5 +1,5 @@
 import { MessagingClient, type Session } from "@relaykit/web";
-import { element, input, onSubmit, pressedIn, safe } from "./dom.js";
+import { element, input, onClick, onSubmit, pressedIn, safe } from "./dom.js";
 
 /** Where this example keeps the session, so opening it again does not ask who you are. */
 const remembered = "deitu-session";
@@ -18,6 +18,7 @@ export class SigningIn {
     onSubmit("sign-in", () => void this.signIn());
     // Which ways in there are depends on which homeserver was typed, so they are asked for again when it is.
     input("homeserver").addEventListener("change", () => void drawWaysIn(this.client, this.wentWrong));
+    onClick("as-guest", () => void this.signInAsGuest());
   }
 
   /** Opening it again with a session already here: straight in, without asking anything. */
@@ -49,6 +50,22 @@ export class SigningIn {
       void drawWaysIn(this.client, this.wentWrong);
       this.wentWrong(error);
     });
+  }
+
+  /**
+   * Coming in without an account, where the homeserver lets anybody in.
+   *
+   * No button is drawn for it conditionally the way the other ways in are, because Matrix has nothing to ask:
+   * whether guests are allowed is only ever answered by being refused, so the refusal is what is shown.
+   */
+  private async signInAsGuest(): Promise<void> {
+    try {
+      const session = await this.client.signInAsGuest(input("homeserver").value.trim());
+      localStorage.setItem(remembered, JSON.stringify(session));
+      await this.entered(session);
+    } catch (error) {
+      this.wentWrong(error);
+    }
   }
 
   private async signIn(): Promise<void> {

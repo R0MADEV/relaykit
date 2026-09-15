@@ -145,3 +145,39 @@ function presenceOf(
     ? { ...withStatus, lastActiveAt: now - lastActiveAgo }
     : withStatus;
 }
+
+/**
+ * What somebody says about themselves beyond a name and a picture: pronouns, a timezone, a job title.
+ *
+ * A homeserver that does not carry these answers nothing rather than failing: a profile with none is the
+ * ordinary case, and a screen drawing a face should not have to tell an old homeserver from an empty profile.
+ */
+export async function listMatrixProfileDetails(
+  client: MatrixClient,
+  userId: string
+): Promise<Readonly<Record<string, unknown>>> {
+  const carried = await client.doesServerSupportExtendedProfiles().catch(() => false);
+  if (!carried) return {};
+  const whole = await client.getExtendedProfile(userId).catch(nothingSaid);
+  // The name and the picture are asked for elsewhere and have a shape of their own here; what is left is
+  // whatever this person chose to add, which is what this answers.
+  const { displayname, avatar_url, ...theirOwn } = whole;
+  return theirOwn;
+}
+
+export async function setMatrixProfileDetail(
+  client: MatrixClient,
+  name: string,
+  value: unknown
+): Promise<void> {
+  await client.setExtendedProfileProperty(name, value);
+}
+
+export async function removeMatrixProfileDetail(client: MatrixClient, name: string): Promise<void> {
+  await client.deleteExtendedProfileProperty(name);
+}
+
+/** A profile nobody could be asked about is a profile with nothing on it, which is what most of them are. */
+function nothingSaid(): Record<string, unknown> {
+  return {};
+}

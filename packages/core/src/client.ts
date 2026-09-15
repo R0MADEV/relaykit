@@ -10,6 +10,7 @@ import { PresenceOperations } from "./presence-operations.js";
 import { VerificationOperations } from "./verification-operations.js";
 import { MediaOperations } from "./media-operations.js";
 import { UserOperations } from "./user-operations.js";
+import { AccountOperations } from "./account-operations.js";
 import { SpaceOperations } from "./space-operations.js";
 import { ReactionOperations } from "./reaction-operations.js";
 import { UnavailableAdapter } from "./unavailable-adapter.js";
@@ -21,6 +22,8 @@ import type { MessagingClientConfig } from "./client-config.js";
 import type { AdapterHandlers, MessagingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
+  AccountAddress,
+  AddressProof,
   AvatarImage,
   AvatarOptions,
   Call,
@@ -34,6 +37,8 @@ import type {
   ShareLocationInput,
   Poll,
   Participant,
+  RoomVersions,
+  SpaceChild,
   StartPollInput,
   Notification,
   ThreadSummary,
@@ -75,6 +80,9 @@ import type {
   CreateSpaceInput,
   Space,
   MessageSearchOptions,
+  MessageSurroundings,
+  RemoteSearchOptions,
+  RemoteSearchPage,
   ReadReceipt,
   PresenceUpdate,
   Reaction,
@@ -159,6 +167,15 @@ export class MessagingClient {
       this.conversationOperations.moderating.participants(conversationId),
     permissions: (conversationId: ConversationId): Promise<ConversationPermissions> =>
       this.conversationOperations.moderating.permissions(conversationId),
+    forget: (conversationId: ConversationId): Promise<void> =>
+      this.conversationOperations.settings.forget(conversationId),
+    tag: (conversationId: ConversationId, tag: string): Promise<void> =>
+      this.conversationOperations.settings.tag(conversationId, tag),
+    untag: (conversationId: ConversationId, tag: string): Promise<void> =>
+      this.conversationOperations.settings.untag(conversationId, tag),
+    tags: (conversationId: ConversationId): Promise<readonly string[]> =>
+      this.conversationOperations.settings.tags(conversationId),
+    versions: (): Promise<RoomVersions> => this.conversationOperations.settings.versions(),
     setRole: (conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void> =>
       this.conversationOperations.moderating.setRole(conversationId, userId, role),
     findDirect: (userId: string): Promise<Conversation | undefined> =>
@@ -178,7 +195,10 @@ export class MessagingClient {
     thread: (id: ConversationId, rootId: MessageId): Promise<readonly Message[]> =>
       this.messageOperations.thread(id, rootId),
     threads: (id: ConversationId): Promise<readonly ThreadSummary[]> => this.messageOperations.threads(id),
-    searchRemote: (query: string): Promise<readonly Message[]> => this.messageOperations.searchRemote(query),
+    searchRemote: (query: string, options?: RemoteSearchOptions): Promise<RemoteSearchPage> =>
+      this.messageOperations.searchRemote(query, options),
+    around: (id: ConversationId, messageId: MessageId, limit?: number): Promise<MessageSurroundings> =>
+      this.messageOperations.around(id, messageId, limit),
     send: (id: ConversationId, body: string, options?: SendMessageOptions): Promise<Message> =>
       this.messageOperations.sending.sendMessage(id, body, options),
     sendFile: (id: ConversationId, file: FileInput, options?: SendFileOptions): Promise<Message> =>
@@ -255,6 +275,22 @@ export class MessagingClient {
    *
    * All three happen before there is a session, so the homeserver is named each time.
    */
+  /** The account itself: its password, its end, and whatever it remembers about itself. */
+  readonly account = {
+    changePassword: (currentPassword: string, newPassword: string): Promise<void> =>
+      this.accountOperations.changePassword(currentPassword, newPassword),
+    close: (password: string): Promise<void> => this.accountOperations.close(password),
+    remember: (name: string, value: Readonly<Record<string, unknown>>): Promise<void> =>
+      this.accountOperations.remember(name, value),
+    remembered: (name: string): Promise<Readonly<Record<string, unknown>> | undefined> =>
+      this.accountOperations.remembered(name),
+    addresses: (): Promise<readonly AccountAddress[]> => this.accountOperations.addresses(),
+    addEmail: (email: string): Promise<AddressProof> => this.accountOperations.addEmail(email),
+    confirmEmail: (proof: AddressProof, password: string): Promise<void> =>
+      this.accountOperations.confirmEmail(proof, password),
+    removeAddress: (kind: "email" | "phone", address: string): Promise<void> =>
+      this.accountOperations.removeAddress(kind, address)
+  };
   readonly sso = {
     waysIn: (homeserver: string): Promise<readonly WayIn[]> => this.lifecycle.waysIn(homeserver),
     startAt: (homeserver: string, comeBackTo: string, wayInId?: string): Promise<string> =>
@@ -287,7 +323,9 @@ export class MessagingClient {
     remove: (spaceId: ConversationId, conversationId: ConversationId): Promise<void> =>
       this.spaceOperations.remove(spaceId, conversationId),
     conversations: (spaceId: ConversationId): Promise<readonly Conversation[]> =>
-      this.spaceOperations.conversations(spaceId)
+      this.spaceOperations.conversations(spaceId),
+    children: (spaceId: ConversationId): Promise<readonly SpaceChild[]> =>
+      this.spaceOperations.children(spaceId)
   };
   /** Telling where you are while you move, for a while that ends on its own. */
   readonly location = {
@@ -366,6 +404,7 @@ export class MessagingClient {
   private readonly callOperations: CallOperations;
   private readonly userOperations: UserOperations;
   private readonly spaceOperations: SpaceOperations;
+  private readonly accountOperations: AccountOperations;
   private readonly lifecycle: ClientLifecycle;
   private session: Session | undefined;
 
@@ -439,6 +478,7 @@ export class MessagingClient {
     this.locationOperations = new LocationOperations(base);
     this.callOperations = new CallOperations(base);
     this.spaceOperations = new SpaceOperations(base);
+    this.accountOperations = new AccountOperations(base);
     this.session = config.session;
     this.lifecycle = this.lifecycleFor(adapter, storage);
   }
@@ -468,6 +508,11 @@ export class MessagingClient {
         // Stopping first, so whatever the application does when told finds a client that is honestly stopped
         // rather than one that still looks alive and fails on the next thing it is asked.
         void this.lifecycle.sessionEnded().finally(() => this.events.emit("session.ended", undefined));
+      },
+      onSessionRefreshed: session => {
+        // Held here as well as handed out, so anything asked next uses the token that still works.
+        this.session = session;
+        this.events.emit("session.refreshed", session);
       },
       onVerificationRequested: verification => this.events.emit("verification.requested", verification),
       onVerificationChanged: verification => this.events.emit("verification.changed", verification),
@@ -508,6 +553,23 @@ export class MessagingClient {
 
   login(credentials: LoginCredentials): Promise<Session> {
     return this.lifecycle.login(credentials);
+  }
+  /** Coming in without an account, where the homeserver lets anybody in. */
+  /**
+   * A way back into an account whose password is forgotten: the homeserver sends something to an address it
+   * knows belongs to it. Before there is a session, because somebody locked out cannot have one.
+   */
+  resetPassword(homeserver: string, email: string): Promise<AddressProof> {
+    return this.accountOperations.startResettingPassword(homeserver, email);
+  }
+
+  /** Finishes it, with what arrived at the address and the password to use from now on. */
+  finishResettingPassword(homeserver: string, proof: AddressProof, newPassword: string): Promise<void> {
+    return this.accountOperations.finishResettingPassword(homeserver, proof, newPassword);
+  }
+
+  signInAsGuest(homeserver: string): Promise<Session> {
+    return this.lifecycle.signInAsGuest(homeserver);
   }
   register(credentials: RegisterCredentials): Promise<Session> {
     return this.lifecycle.register(credentials);

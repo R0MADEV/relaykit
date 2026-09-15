@@ -5,7 +5,47 @@ menores; los cambios incompatibles se listan aqui.
 
 ## Sin publicar
 
+### Añadido
+
+- **Sesiones que caducan.** `login` pide un token de refresco y, cuando el homeserver cambia el de acceso, la
+  librería avisa con `session.refreshed` para que la aplicación guarde el nuevo. Sin esto, un homeserver con
+  tokens cortos echa al usuario y nadie sabe por qué.
+- **Abrir un resultado de búsqueda.** `messages.around(id, mensajeId, cuantos)` trae el mensaje y lo que se
+  dijo a cada lado. Lo resuelve el homeserver, que es el único que tiene toda la historia.
+- **Búsqueda por páginas.** `messages.searchRemote` devuelve `{ messages, cursor }` en vez de una lista.
+  Antes solo se podía leer la primera página.
+- **Correo.** `account.addEmail`/`confirmEmail`/`addresses`/`removeAddress` añaden una dirección a la cuenta
+  en los dos pasos que hacen falta: nadie la añade por decirlo, hay que probarla. `client.resetPassword` y
+  `finishResettingPassword` son la vuelta para quien no se acuerda de la contraseña. `npm run check:mail`
+  recorre las dos cosas contra Synapse leyendo el buzón de verdad.
+
+- **Invitados.** `client.signInAsGuest(homeserver)` entra sin cuenta donde el homeserver lo permita. Un
+  invitado no es una cuenta pequeña: el homeserver le niega sus claves y sus reglas de notificación, así que
+  la sesión se arranca sabiendo lo que es y no pierde los primeros segundos oyendo que no.
+- **Cuenta.** `client.account` cambia la contraseña, da de baja la cuenta, y guarda y lee ajustes propios en
+  el servidor (`remember` / `remembered`), que es lo que hace que un ajuste sea el mismo en todos tus
+  dispositivos. Lo que solo importa en un navegador no va aquí.
+- **Etiquetas y olvidar.** `conversations.tag` / `untag` / `tags` archivan una conversación bajo un nombre
+  tuyo que nadie más ve. `conversations.forget` la borra de tu historial: salir y olvidar son dos pasos y en
+  ese orden, porque olvidar una en la que sigues la devuelve en la siguiente sincronización.
+- **Versiones de sala.** `conversations.versions()` dice qué admite el homeserver y qué prefiere, que es entre
+  lo que puede elegir un `upgrade`.
+- En la app de ejemplo: cambiar la contraseña y darse de baja desde tu cuenta, archivar una conversación en
+  una etiqueta tuya (se ve como una pastilla sobre la conversación, y se quita pulsándola), salir y olvidarla,
+  y entrar como invitado. `npm run check:account` recorre todo eso en un navegador de verdad, con una cuenta
+  que se crea para esa pasada y se borra al final.
+- **El árbol de un espacio.** `spaces.children(id)` baja todos los niveles, no uno: cada hijo trae su `depth`,
+  y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
+
 ### Cambiado
+
+- **`messages.searchRemote` devuelve `{ messages, cursor }`**, no una lista. Incompatible a propósito: la
+  forma anterior no podía decir que quedaba más.
+- **`account.confirmEmail` pide la contraseña**, porque el homeserver la pide: una dirección es cómo se
+  encuentra una cuenta y cómo se recupera, y no es algo que deba poder cambiar una pantalla abierta y sola.
+- Cambiar la contraseña ahora tira el token de refresco de esa sesión, porque el homeserver lo invalida sin
+  decírselo a nadie. La pantalla de cuenta del ejemplo decía que las otras sesiones seguían abiertas; las
+  cierra el homeserver, y ahora lo dice bien y la comprobación lo verifica en vez de creérselo.
 
 - **Una sola forma de llamar.** Toda llamada, de dos personas o de muchas, va por un SFU (LiveKit) con
   MatrixRTC: Matrix dice quién puede estar y quién está, y reparte las claves con las que cada navegador cifra

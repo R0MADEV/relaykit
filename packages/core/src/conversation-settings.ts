@@ -4,6 +4,8 @@ import type { ConversationSettingsAdapter, PinsAdapter } from "./adapter.js";
 import type {
   AvatarImage,
   Conversation,
+  ConversationId,
+  RoomVersions,
   HistoryVisibility,
   JoinRule,
   Message,
@@ -18,6 +20,40 @@ import type { ConversationOperationsContext } from "./conversation-operations.js
  * backend may have none of them: a protocol with no names, no avatars and no pins still carries messages.
  */
 export class ConversationSettings {
+  /**
+   * Takes a conversation out of this account's history.
+   *
+   * Leaving stops it arriving; forgetting stops it being there at all, which is what somebody who left a
+   * conversation by mistake and does not want to see it again actually means. It has to be left first: a
+   * conversation forgotten while still in it would come back on the next sync.
+   */
+  async forget(conversationId: ConversationId): Promise<void> {
+    this.context.assertStarted();
+    await this.conversationSettings.forgetConversation(conversationId);
+  }
+
+  /** Filing it under a name of this person's own. Nobody else sees it. */
+  async tag(conversationId: ConversationId, tag: string): Promise<void> {
+    this.context.assertStarted();
+    await this.conversationSettings.setConversationTag(conversationId, requireTag(tag));
+  }
+
+  async untag(conversationId: ConversationId, tag: string): Promise<void> {
+    this.context.assertStarted();
+    await this.conversationSettings.removeConversationTag(conversationId, requireTag(tag));
+  }
+
+  async tags(conversationId: ConversationId): Promise<readonly string[]> {
+    this.context.assertStarted();
+    return this.conversationSettings.listConversationTags(conversationId);
+  }
+
+  /** What an upgrade has to choose from: a conversation cannot be moved to a version nobody admits. */
+  async versions(): Promise<RoomVersions> {
+    this.context.assertStarted();
+    return this.conversationSettings.listRoomVersions();
+  }
+
   constructor(
     private readonly context: ConversationOperationsContext,
     private readonly save: (conversation: Conversation) => Promise<Conversation>,
@@ -158,4 +194,12 @@ export class ConversationSettings {
     if (!found) throw new SdkError("NOT_SUPPORTED", "Pinning messages is not something this homeserver has");
     return found;
   }
+}
+
+/** A name nobody typed is not a name, and the homeserver would keep it for ever. */
+function requireTag(tag: string): string {
+  if (!tag.trim()) {
+    throw new SdkError("INVALID_INPUT", "A tag name is required");
+  }
+  return tag.trim();
 }

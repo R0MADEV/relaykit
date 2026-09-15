@@ -1,4 +1,4 @@
-import type { MatrixEvent, IndexedDBStore } from "matrix-js-sdk";
+import type { MatrixEvent, IndexedDBStore, AccessTokens } from "matrix-js-sdk";
 import {
   ClientEvent,
   HttpApiEvent,
@@ -40,6 +40,8 @@ export class MatrixRuntime {
   private cryptoIsUp: () => void = () => {};
   private store: IndexedDBStore | undefined;
   private handlers: AdapterHandlers = {};
+  /** What this session is, as the homeserver would accept it now rather than when it started. */
+  private session: Session | undefined;
   private readonly reactions = new ReactionTracker();
   private readonly lastTypingByRoom = new Map<string, string>();
   private window: ConversationWindow | undefined;
@@ -53,22 +55,74 @@ export class MatrixRuntime {
     this.conference = new MatrixConference(this.rtc);
   }
 
+  /**
+   * Trading a refresh token for a new access token, and telling whoever is holding the session.
+   *
+   * The SDK asks for this on its own when a request comes back saying the token has run out, and carries on
+   * with the new one. Nobody else would know: an application that wrote the first session down and is never
+   * told about this one signs its user out the next time it opens, for no reason anybody can see.
+   */
+  private async refreshTheToken(session: Session, refreshToken: string): Promise<AccessTokens> {
+    const answer = await this.getClient().refreshToken(refreshToken);
+    const expiry = answer.expires_in_ms ? new Date(Date.now() + answer.expires_in_ms) : undefined;
+    const refreshed = {
+      ...session,
+      accessToken: answer.access_token,
+      ...(answer.refresh_token ? { refreshToken: answer.refresh_token } : {}),
+      ...(expiry ? { expiresAt: expiry.getTime() } : {})
+    };
+    this.session = refreshed;
+    this.handlers.onSessionRefreshed?.(refreshed);
+    return {
+      accessToken: answer.access_token,
+      ...(answer.refresh_token ? { refreshToken: answer.refresh_token } : {}),
+      ...(expiry ? { expiry } : {})
+    };
+  }
+
+  /**
+   * Says the refresh token this session was given is worth nothing any more.
+   *
+   * A password change takes it away at the homeserver and says nothing about it. Whoever wrote the session
+   * down is told, so what they have written is what the homeserver would actually accept.
+   */
+  forgetTheRefreshToken(): void {
+    const held = this.session;
+    if (!held?.refreshToken) return;
+    const { refreshToken, expiresAt, ...withoutIt } = held;
+    this.session = withoutIt;
+    this.handlers.onSessionRefreshed?.(withoutIt);
+  }
+
   async start(session: Session, handlers: AdapterHandlers): Promise<void> {
     // First, before anything that waits: whoever asks about the keys in the meantime waits on this one.
     this.cryptoUp = new Promise(resolve => {
       this.cryptoIsUp = resolve;
     });
     this.handlers = handlers;
+    this.session = session;
     this.store = createBrowserStore(this.options, session.userId, session.deviceId);
     this.client = createClient({
       baseUrl: session.homeserver,
       userId: session.userId,
       accessToken: session.accessToken,
       cryptoCallbacks: this.secretStorageKeys.callbacks,
+      // Without it the SDK will not build a timeline around a message it was not already holding, which is
+      // exactly the case that matters: a search result, or a link somebody sent from another conversation.
+      timelineSupport: true,
+      ...(session.refreshToken
+        ? {
+            refreshToken: session.refreshToken,
+            tokenRefreshFunction: (refreshToken: string) => this.refreshTheToken(session, refreshToken)
+          }
+        : {}),
       ...(this.store ? { store: this.store } : {}),
       ...(session.deviceId ? { deviceId: session.deviceId } : {})
     });
     if (this.store) await this.store.startup();
+    // A guest has no keys of its own and is refused everything to do with them, so it is told what it is
+    // before anything asks: the SDK then leaves out the push rules and the filters it would also be refused.
+    this.client.setGuest(session.isGuest === true);
     const cryptoOptions =
       typeof indexedDB === "undefined"
         ? { useIndexedDB: false }
@@ -76,7 +130,8 @@ export class MatrixRuntime {
             useIndexedDB: true,
             cryptoDatabasePrefix: `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}`
           };
-    await this.client.initRustCrypto(cryptoOptions);
+    // Nothing encrypted can be read without an account, so there is nothing for a guest to set up.
+    if (!session.isGuest) await this.client.initRustCrypto(cryptoOptions);
     this.cryptoIsUp();
     this.verification.start(this.client, handlers);
     // The homeserver refusing this session is not an ordinary error: nobody here asked for it, and there is

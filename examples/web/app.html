@@ -29,6 +29,10 @@
         <p class="or"><span>o</span></p>
         <div id="ways-in-list"></div>
       </div>
+
+      <!-- Sin cuenta. Solo para mirar: un invitado no tiene claves, así que no lee nada cifrado. -->
+      <p class="or"><span>o</span></p>
+      <button class="button" id="as-guest" type="button">Entrar como invitado</button>
     </form>
 
     <!--
@@ -91,6 +95,7 @@
               <p class="head-under">
                 <span id="open-topic"></span>
                 <span class="mono faint" id="open-address"></span>
+                <span id="open-tags"></span>
               </p>
             </div>
             <div class="head-actions">
@@ -107,7 +112,9 @@
                   </button>
                   <button id="people-here"><span aria-hidden="true">◍</span> Personas</button>
                   <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
+                  <button id="tag-here"><span aria-hidden="true">⌗</span> Archivar en…</button>
                   <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
+                  <button id="forget-here"><span aria-hidden="true">⌫</span> Salir y olvidarla</button>
                 </div>
               </div>
             </div>
@@ -422,10 +429,23 @@
         <input type="file" id="my-file" accept="image/*" hidden />
         <button class="button accent" id="my-save" type="button">Guardar</button>
 
+        <p class="label">Tu contraseña</p>
+        <label class="field">
+          <span class="label">La de ahora</span>
+          <input id="my-password-now" type="password" autocomplete="current-password" />
+        </label>
+        <label class="field">
+          <span class="label">La nueva</span>
+          <input id="my-password-new" type="password" autocomplete="new-password" />
+        </label>
+        <button class="button" id="my-password-save" type="button">Cambiar contraseña</button>
+
         <p class="label">Tus sesiones</p>
         <ul class="sessions" id="sessions"></ul>
         <p class="wrong" id="account-wrong" hidden></p>
+        <p class="kept" id="account-said" hidden></p>
         <footer class="modal-foot">
+          <button class="button danger" id="close-account" type="button">Darme de baja</button>
           <button class="button danger" id="sign-out" type="button">Cerrar sesión</button>
           <div class="spacer"></div>
           <button class="button" value="cancel">Cerrar</button>

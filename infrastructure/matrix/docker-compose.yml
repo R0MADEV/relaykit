@@ -46,6 +46,24 @@ services:
       timeout: 3s
       retries: 20
 
+  # Somewhere for the homeserver to send email to. Adding an address to an account and resetting a forgotten
+  # password both end in a message nobody here can read otherwise, and a check that cannot read it can only
+  # assert that the request was accepted — which is the half that was never in doubt.
+  mail:
+    image: axllent/mailpit:latest
+    container_name: relaykit-mail
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8025/api/v1/info"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: relaykit-synapse
@@ -65,6 +83,8 @@ services:
       postgres:
         condition: service_healthy
       dex:
+        condition: service_healthy
+      mail:
         condition: service_healthy
 
 volumes:

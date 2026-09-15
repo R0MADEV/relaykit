@@ -53,7 +53,7 @@ grep -r "matrix-js-sdk\|livekit\|IndexedDB\|window\.\|document\." packages/core/
 |---|---|
 | `client.ts` | **La superficie pública.** 126 operaciones, una línea cada una. Nada de lógica aquí |
 | `adapter.ts` | **El puerto.** 17 métodos que un backend debe tener |
-| `capabilities.ts` | Las 18 mitades opcionales que puede dejar fuera |
+| `capabilities.ts` | Las 22 mitades opcionales que puede dejar fuera |
 | `models/` | Las formas que se devuelven. Nada de Matrix en ellas |
 | `*-operations.ts` | **La lógica.** Una clase por asunto: conversaciones, mensajes, llamadas, cripto… |
 | `live.ts` | Listas que se mantienen solas: `createConversationList`, `createMessageTimeline` |
@@ -215,7 +215,7 @@ SDK (`new MatrixEvent({...})`), no imitaciones.
 | `in-memory-adapter.ts` (974) | Implementa el puerto entero. Partirlo son doce callbacks y peor lectura |
 | `matrix-js-adapter.ts` (698) | Lo mismo: delega los 58 métodos que sí tiene |
 | `client.ts` (533) | Es la superficie. 137 líneas son montaje; el resto, 126 operaciones a una línea |
-| `capabilities.ts` (358) | 18 interfaces de tipos. Una lista, no lógica |
+| `capabilities.ts` (453) | 22 interfaces de tipos. Una lista, no lógica |
 | `outbox-operations.ts` (444) | Once referencias a estado compartido. Partirlo lo empeora |
 
 Si vas a partir uno de estos, **mide la cobertura primero** y ten un motivo mejor que el número.

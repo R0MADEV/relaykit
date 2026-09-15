@@ -291,9 +291,10 @@ test("searching on the server returns what the homeserver finds", async () => {
   const found = await client.messages.searchRemote("presupuesto");
 
   assert.deepEqual(
-    found.map(message => message.body),
+    found.messages.map(message => message.body),
     ["el presupuesto de julio"]
   );
+  assert.equal(found.cursor, undefined, "everything found fits in one page, so there is no next one");
   await assert.rejects(client.messages.searchRemote("   "), { code: "INVALID_INPUT" });
   await client.stop();
 });

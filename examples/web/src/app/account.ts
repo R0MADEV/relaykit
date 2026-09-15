@@ -25,6 +25,8 @@ export class Account {
     onClick("sign-out", () => void this.signOut());
     onClick("my-picture", () => input("my-file").click());
     onClick("my-save", () => void this.saveMyName());
+    onClick("my-password-save", () => void this.changePassword());
+    onClick("close-account", () => void this.closeAccount());
     input("my-file").addEventListener("change", () => void this.changeMyPicture());
     element("sessions").addEventListener("click", event => {
       const deviceId = pressedIn(event, "revokes");
@@ -71,8 +73,47 @@ export class Account {
     }
   }
 
+  /**
+   * Changing the password, which the homeserver asks for the old one to do.
+   *
+   * It also closes every other session, which is the homeserver's doing and the right one: a password is
+   * changed because somebody else might have had it, and leaving their session open would leave them in.
+   * Said out loud, because a person who was signed in on their phone is about to find out anyway.
+   */
+  private async changePassword(): Promise<void> {
+    const now = input("my-password-now").value;
+    const next = input("my-password-new").value;
+    if (!now || !next) return;
+    try {
+      await this.client.account.changePassword(now, next);
+      input("my-password-now").value = "";
+      input("my-password-new").value = "";
+      this.say("Contraseña cambiada. Tus otras sesiones se han cerrado.");
+      await this.paintSessions();
+    } catch (error) {
+      this.show(error);
+    }
+  }
+
+  /** The end of the account. Asked twice, because nothing here can put it back. */
+  private async closeAccount(): Promise<void> {
+    const sure = window.confirm(
+      "Darte de baja borra tu cuenta para siempre. Nadie podrá escribirte ni leer lo que escribiste. ¿Seguir?"
+    );
+    if (!sure) return;
+    const password = window.prompt("Tu contraseña, para darte de baja");
+    if (!password) return;
+    try {
+      await this.client.account.close(password);
+      this.signedOut();
+    } catch (error) {
+      this.show(error);
+    }
+  }
+
   private async open(): Promise<void> {
     element("account-wrong").hidden = true;
+    element("account-said").hidden = true;
     input("my-name").value = this.people.nameOf(this.me);
     element("sessions").innerHTML = "";
     dialog("account").showModal();
@@ -126,7 +167,15 @@ export class Account {
     this.signedOut();
   }
 
+  private say(what: string): void {
+    const where = element("account-said");
+    where.textContent = what;
+    where.hidden = false;
+    element("account-wrong").hidden = true;
+  }
+
   private show(error: unknown): undefined {
+    element("account-said").hidden = true;
     const where = element("account-wrong");
     where.textContent = error instanceof Error ? error.message : String(error);
     where.hidden = false;

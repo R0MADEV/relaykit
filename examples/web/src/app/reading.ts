@@ -41,6 +41,8 @@ export class Reading {
     private readonly me: UserId,
     private readonly around: {
       readonly conversations: () => readonly Conversation[];
+      /** What this conversation is filed under, which has to be asked of the homeserver. */
+      readonly filed: (conversationId: ConversationId) => void;
       /** A call going on in a conversation, and whether this side is already on it. */
       readonly goingIn: (conversationId: ConversationId) => Call | undefined;
       readonly onACallIn: (conversationId: ConversationId) => boolean;
@@ -75,6 +77,15 @@ export class Reading {
     return this.conversationId;
   }
 
+  /** Nothing is open any more, because what was open is gone. */
+  close(): void {
+    this.conversationId = undefined;
+    this.timeline?.stop();
+    this.timeline = undefined;
+    this.around.closeTheThread();
+    this.around.repaintTheRest();
+  }
+
   /** What a conversation is called, for anywhere that has an identifier and needs a name. */
   nameOf(conversationId: ConversationId): string | undefined {
     const known = this.around.conversations().find(each => each.id === conversationId);
@@ -96,6 +107,7 @@ export class Reading {
     this.around.closeTheThread();
     this.timeline?.stop();
     void this.whatIsAllowed(conversationId);
+    this.around.filed(conversationId);
     const timeline = createMessageTimeline(this.client, conversationId, { atLeast: enoughToOpenWith });
     this.timeline = timeline;
     timeline.subscribe(() => void this.reload());
@@ -222,8 +234,7 @@ export class Reading {
     element("more-menu").hidden = true;
     try {
       await this.client.conversations.leave(conversationId);
-      this.conversationId = undefined;
-      this.around.repaintTheRest();
+      this.close();
     } catch (error) {
       this.around.wentWrong(error);
     }

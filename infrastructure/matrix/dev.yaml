@@ -5,6 +5,9 @@
 # Creating accounts from the client, which Synapse keeps off by default.
 enable_registration: true
 enable_registration_without_verification: true
+# Coming in without an account, to read a public conversation. Off by default in Synapse; on here because it
+# is something the library offers and something no test can exercise against a homeserver that refuses it.
+allow_guest_access: true
 rc_registration:
   per_second: 100
   burst_count: 500
@@ -45,6 +48,12 @@ rc_media_create:
 rc_joins_per_room:
   per_second: 100
   burst_count: 500
+# Pedir que te manden algo a una direccion: anadirla a la cuenta y recuperar la contrasena pasan las dos por
+# aqui, y el limite de serie deja pasar una cada pocos minutos.
+rc_3pid_validation:
+  per_second: 1000
+  burst_count: 1000
+
 rc_presence:
   per_user:
     per_second: 100
@@ -146,3 +155,13 @@ oidc_providers:
         # `preferred_username` is optional — Dex does not send one, and an empty localpart is refused.
         localpart_template: "{{ user.email.split('@')[0] }}"
         display_name_template: "{{ user.name }}"
+
+# Para que el homeserver pueda mandar correo: anadir una direccion a una cuenta y recuperar una contrasena
+# olvidada acaban los dos en un mensaje. Lo recoge Mailpit, que no lo entrega a nadie y lo deja leer por HTTP.
+email:
+  smtp_host: mail
+  smtp_port: 1025
+  force_tls: false
+  require_transport_security: false
+  notif_from: "RelayKit <noreply@localhost>"
+  app_name: RelayKit

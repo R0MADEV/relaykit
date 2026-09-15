@@ -1,4 +1,5 @@
 import type {
+  Session,
   Call,
   CallSpeaking,
   ConnectionStatus,
@@ -36,6 +37,13 @@ export interface ClientEventMap {
   "call.speaking": CallSpeaking;
   /** The homeserver no longer accepts this session: suspended, revoked, or signed out from elsewhere. */
   "session.ended": undefined;
+  /**
+   * The homeserver handed out a new access token before the old one ran out.
+   *
+   * Given out so it can be kept: an application that wrote the first session down and never hears about this
+   * one is one that signs its user out the next time it opens, for no reason anybody can see.
+   */
+  "session.refreshed": Session;
   "verification.requested": VerificationSession;
   "verification.changed": VerificationSession;
   error: Error;
@@ -79,6 +87,7 @@ export class EventBus {
     "call.changed": new EventChannel<Call>(),
     "call.speaking": new EventChannel<CallSpeaking>(),
     "session.ended": new EventChannel<undefined>(),
+    "session.refreshed": new EventChannel<Session>(),
     "verification.requested": new EventChannel<VerificationSession>(),
     "verification.changed": new EventChannel<VerificationSession>(),
     error: new EventChannel<Error>()

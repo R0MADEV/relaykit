@@ -40,3 +40,19 @@ declare module "matrix-js-sdk/lib/@types/media.js" {
 }
 
 export {};
+
+/**
+ * The one name this library keeps an application's own settings under.
+ *
+ * Account data is typed by the names the protocol defines, and an application's own name is not one of them
+ * — which is the whole point of having one. Rather than asserting that some arbitrary string belongs to that
+ * map, one name is declared here and everything an application remembers goes inside it under its own key.
+ *
+ * The cost is honest and small: writing one setting rewrites the object that holds them all. Settings are few
+ * and rarely written, and the alternative was a lie the compiler would have stopped checking.
+ */
+declare module "matrix-js-sdk/lib/@types/event.js" {
+  interface AccountDataEvents {
+    "dev.relaykit.settings": Record<string, Record<string, unknown>>;
+  }
+}

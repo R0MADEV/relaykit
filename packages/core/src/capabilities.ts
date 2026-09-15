@@ -6,6 +6,13 @@
  * methods that exist in order to refuse. What stays in `MessagingAdapter` is what messaging *is*.
  */
 import type {
+  AccountAddress,
+  AddressProof,
+  MessageSurroundings,
+  RemoteSearchPage,
+  RemoteSearchOptions,
+  SpaceChild,
+  RoomVersions,
   Session,
   WayIn,
   Notification,
@@ -124,6 +131,8 @@ export interface LocationAdapter {
  * out, and saying so by not being there beats a method that exists in order to refuse.
  */
 export interface SpacesAdapter {
+  /** What is inside a space, down as many levels as it goes. */
+  listSpaceChildren(spaceId: ConversationId): Promise<readonly SpaceChild[]>;
   listSpaces(): Promise<readonly Space[]>;
   createSpace(input: CreateSpaceInput): Promise<Space>;
   addToSpace(spaceId: ConversationId, conversationId: ConversationId): Promise<void>;
@@ -251,6 +260,13 @@ export interface ModerationAdapter {
  * out, and saying so by not being there beats methods that exist in order to refuse.
  */
 export interface ConversationSettingsAdapter {
+  forgetConversation(conversationId: ConversationId): Promise<void>;
+  /** Filing a conversation under a name of this person's own. Nobody else sees it. */
+  setConversationTag(conversationId: ConversationId, tag: string): Promise<void>;
+  removeConversationTag(conversationId: ConversationId, tag: string): Promise<void>;
+  listConversationTags(conversationId: ConversationId): Promise<readonly string[]>;
+  /** Which room versions this homeserver admits, which is what an upgrade has to choose from. */
+  listRoomVersions(): Promise<RoomVersions>;
   renameConversation(conversationId: ConversationId, title: string): Promise<Conversation>;
   setConversationFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation>;
   upgradeConversation(conversationId: ConversationId): Promise<Conversation>;
@@ -313,8 +329,25 @@ export interface ReceiptsAdapter {
  * Apart from `MessagingAdapter` because it is genuinely optional: a backend that cannot do this leaves it
  * out, and saying so by not being there beats methods that exist in order to refuse.
  */
+/**
+ * Reading history from somewhere that is not the end of it.
+ *
+ * Apart from listing messages, which walks backwards from the last thing said: this is for opening a
+ * conversation where something was said, which needs the homeserver to look it up rather than hand over
+ * what it already sent.
+ */
+export interface HistoryAdapter {
+  /** One message with what was said on either side of it, `limit` each way. */
+  readAroundMessage(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    limit: number
+  ): Promise<MessageSurroundings>;
+}
+
 export interface SearchAdapter {
-  searchMessages(query: string): Promise<readonly Message[]>;
+  /** A page at a time: given a cursor from a previous page, the same query is continued. */
+  searchMessages(query: string, options: RemoteSearchOptions): Promise<RemoteSearchPage>;
   discoverConversations(query: string | undefined): Promise<readonly PublicConversation[]>;
   /** Finds people by the name they go by, for whoever does not know their identifier. */
   searchUsers(query: string, limit: number): Promise<readonly User[]>;
@@ -377,4 +410,44 @@ export interface SsoAdapter {
    */
   wayInAddress(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string>;
   signInWithToken(homeserver: string, token: string): Promise<Session>;
+}
+
+/**
+ * The account itself: its password, its end, and whatever it wants to remember about itself.
+ *
+ * Apart from `MessagingAdapter` because it is genuinely optional: an account managed somewhere else — by a
+ * company's directory, say — has none of this, and a backend that did not issue the password cannot change it.
+ */
+export interface AccountAdapter {
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** The addresses this account answers to besides the name it signed up with. */
+  listAddresses(): Promise<readonly AccountAddress[]>;
+  /** Sends something to the address. Nothing is added until the person proves they received it. */
+  startAddingEmail(email: string): Promise<AddressProof>;
+  /**
+   * Finishes it, once proved. Refuses if it was not.
+   *
+   * The password is asked for again by the homeserver, not by this library: adding an address is how an
+   * account is found and how a password is reset, so somebody who walked away from an open screen cannot.
+   */
+  finishAddingAddress(proof: AddressProof, password: string): Promise<void>;
+  removeAddress(kind: "email" | "phone", address: string): Promise<void>;
+  /** Sends a way back in to an address this account answers to. Before there is a session, like signing in. */
+  startResettingPassword(homeserver: string, email: string): Promise<AddressProof>;
+  finishResettingPassword(homeserver: string, proof: AddressProof, newPassword: string): Promise<void>;
+  /** Ends the account. Not leaving: what is gone is gone, and the homeserver says so to everybody. */
+  deactivateAccount(password: string): Promise<void>;
+  /** Something this account remembers about itself, kept by the homeserver and read on any device. */
+  rememberSetting(name: string, value: Readonly<Record<string, unknown>>): Promise<void>;
+  rememberedSetting(name: string): Promise<Readonly<Record<string, unknown>> | undefined>;
+}
+
+/**
+ * Coming in without an account, to somewhere that lets anybody in.
+ *
+ * Apart from `MessagingAdapter` because most homeservers do not allow it, and because it happens before there
+ * is a session: the homeserver is named, as with signing in elsewhere.
+ */
+export interface GuestsAdapter {
+  signInAsGuest(homeserver: string): Promise<Session>;
 }

@@ -1,4 +1,9 @@
 import type {
+  AccountAdapter,
+  HistoryAdapter,
+  RemoteSearchOptions,
+  RemoteSearchPage,
+  RoomVersions,
   WayIn,
   PushRegistration,
   AdapterHandlers,
@@ -67,7 +72,9 @@ import { InMemoryCrypto } from "./in-memory-crypto.js";
 import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
 import { InMemoryShares } from "./in-memory-shares.js";
 import { InMemoryModeration, type Knock } from "./in-memory-moderation.js";
+import { InMemoryFromOutside } from "./in-memory-from-outside.js";
 import { InMemorySpaces } from "./in-memory-spaces.js";
+import { InMemoryAccount, InMemoryGuests } from "./in-memory-account.js";
 import { InMemorySso } from "./in-memory-sso.js";
 import { InMemoryFeatures } from "./in-memory-features.js";
 import { InMemoryVerification } from "./in-memory-verification.js";
@@ -114,6 +121,14 @@ export class InMemoryAdapter implements MessagingAdapter {
       return session;
     }
   });
+  /** Whatever this session came in with, which is what changing it has to be told. */
+  private currentPassword = "token";
+  private readonly accountIn = new InMemoryAccount({
+    password: () => this.currentPassword,
+    changed: to => (this.currentPassword = to)
+  });
+  readonly account: AccountAdapter = this.accountIn;
+  readonly guests = new InMemoryGuests();
   readonly moderation: ModerationAdapter = this;
   readonly pins: PinsAdapter = this;
   readonly presence: PresenceAdapter = this;
@@ -132,6 +147,8 @@ export class InMemoryAdapter implements MessagingAdapter {
   private readonly unreadCounts = new Map<ConversationId, number>();
   private readonly reported: Report[] = [];
   private readonly published = new Set<ConversationId>();
+  /** What each conversation is filed under, which only this account sees. */
+  private readonly filedUnder = new Map<ConversationId, Set<string>>();
   /** How far back each conversation has been read, for a double that hands over the end and keeps the rest. */
   private readonly reached = new Map<ConversationId, number>();
 
@@ -151,6 +168,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     requireConversation: conversationId => this.requireConversation(conversationId),
     replaceConversation: conversation => this.replaceConversation(conversation)
   });
+  private readonly fromOutside = new InMemoryFromOutside({ messages: () => this.messages });
   private readonly spacesIn = new InMemorySpaces({
     conversations: () => this.conversations,
     nextId: () => this.nextConversationId++
@@ -255,7 +273,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       conversationId,
       senderId,
       body,
-      createdAt: Date.now(),
+      createdAt: this.stamp(),
       status: "sent",
       ...invitation(body),
       ...overrides
@@ -503,6 +521,33 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   private readonly pinned = new Map<ConversationId, Set<MessageId>>();
 
+  /** Gone from this account's list. It stays made: forgetting is about whose history it is in. */
+  async forgetConversation(conversationId: ConversationId): Promise<void> {
+    const at = this.conversations.findIndex(conversation => conversation.id === conversationId);
+    if (at >= 0) this.conversations.splice(at, 1);
+    this.filedUnder.delete(conversationId);
+  }
+
+  async setConversationTag(conversationId: ConversationId, tag: string): Promise<void> {
+    this.requireConversation(conversationId);
+    const already = this.filedUnder.get(conversationId) ?? new Set<string>();
+    already.add(tag);
+    this.filedUnder.set(conversationId, already);
+  }
+
+  async removeConversationTag(conversationId: ConversationId, tag: string): Promise<void> {
+    this.filedUnder.get(this.requireConversation(conversationId).id)?.delete(tag);
+  }
+
+  async listConversationTags(conversationId: ConversationId): Promise<readonly string[]> {
+    return [...(this.filedUnder.get(this.requireConversation(conversationId).id) ?? [])];
+  }
+
+  /** What this double admits, which is one version: there is nothing here for a second one to mean. */
+  async listRoomVersions(): Promise<RoomVersions> {
+    return { preferred: "memory-1", available: ["memory-1"] };
+  }
+
   async setConversationTopic(conversationId: ConversationId, topic: string): Promise<Conversation> {
     return this.replaceConversation({ ...this.requireConversation(conversationId), topic });
   }
@@ -548,9 +593,20 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.messages.filter(message => pinned.has(message.id));
   }
 
-  async searchMessages(query: string): Promise<readonly Message[]> {
+  /**
+   * A page at a time, where a cursor is simply how many have been handed over already.
+   *
+   * A homeserver's cursor is its own business and means nothing here; what the double has to get right is
+   * that a second page is not the first one again, and that the last one says there is no more.
+   */
+  async searchMessages(query: string, options: RemoteSearchOptions = {}): Promise<RemoteSearchPage> {
     const needle = query.toLowerCase();
-    return this.messages.filter(message => message.body.toLowerCase().includes(needle));
+    const found = this.messages.filter(message => message.body.toLowerCase().includes(needle));
+    const from = Number(options.cursor ?? 0);
+    const limit = options.limit ?? found.length;
+    const page = found.slice(from, from + limit);
+    const handedOver = from + page.length;
+    return { messages: page, ...(handedOver < found.length ? { cursor: String(handedOver) } : {}) };
   }
 
   async listThread(conversationId: ConversationId, rootId: MessageId): Promise<readonly Message[]> {
@@ -583,7 +639,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       conversationId,
       senderId,
       body,
-      createdAt: Date.now(),
+      createdAt: this.stamp(),
       status: "sent",
       ...invitation(body),
       ...(transactionId ? { transactionId } : {}),
@@ -629,7 +685,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       conversationId,
       senderId,
       body: file.name,
-      createdAt: Date.now(),
+      createdAt: this.stamp(),
       status: "sent",
       attachment,
       // A sticker draws itself, so whoever receives it has to be able to tell it apart from an attachment.
@@ -734,6 +790,36 @@ export class InMemoryAdapter implements MessagingAdapter {
   readonly polls: PollsAdapter = this.shares;
   readonly location: LocationAdapter = this.shares;
   readonly spaces: SpacesAdapter = this.spacesIn;
+  readonly history: HistoryAdapter = this.fromOutside;
+
+  /**
+   * When a message was said, never twice the same.
+   *
+   * Real messages are stamped by a homeserver's clock, and two of them landing in the same millisecond makes
+   * the order of a conversation a matter of luck. A double that stamps everything alike turns that from rare
+   * into always, so this one moves on whether the clock has or not.
+   */
+  private lastStamp = 0;
+  private stamp(): number {
+    this.lastStamp = Math.max(Date.now(), this.lastStamp + 1);
+    return this.lastStamp;
+  }
+
+  /** Test helper: the person clicked the link in the message the homeserver sent to their address. */
+  proveAddress(proofId: string): void {
+    this.accountIn.prove(proofId);
+  }
+
+  /** Test helper: the password this account is signed in with, which changing it has to have changed. */
+  passwordNow(): string {
+    return this.currentPassword;
+  }
+
+  /** Test helper: the homeserver handing out a new access token before the old one runs out. */
+  refreshTheSession(session: Session): void {
+    this.handlers.onSessionRefreshed?.(session);
+  }
+
   readonly media: MediaAdapter = this;
   /** Registrations live with the people; what is waiting and how loud lives here. */
   readonly push: PushAdapter = {

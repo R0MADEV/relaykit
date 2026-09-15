@@ -4,7 +4,7 @@ import {
   validateRegisterCredentials,
   validateSession
 } from "./session-validation.js";
-import type { MessagingAdapter, AdapterHandlers, SsoAdapter } from "./adapter.js";
+import type { MessagingAdapter, AdapterHandlers, GuestsAdapter, SsoAdapter } from "./adapter.js";
 import type {
   WayIn,
   ConnectionStatus,
@@ -80,6 +80,31 @@ export class ClientLifecycle {
     const session = await this.sso.signInWithToken(whereThatIs(homeserver), token.trim());
     this.context.setSession(session);
     return session;
+  }
+
+  /**
+   * Coming in without an account, to somewhere that lets anybody in.
+   *
+   * A guest can read a public conversation and little else: most homeservers do not allow it at all, and the
+   * ones that do keep them on a short leash. Being refused here is the ordinary answer, not a failure.
+   */
+  async signInAsGuest(homeserver: string): Promise<Session> {
+    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before signing in again");
+    const session = await this.guests.signInAsGuest(whereThatIs(homeserver));
+    this.context.setSession(session);
+    return session;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get guests(): GuestsAdapter {
+    const found = this.context.adapter.guests;
+    if (!found) {
+      throw new SdkError(
+        "NOT_SUPPORTED",
+        "Coming in without an account is not something this homeserver has"
+      );
+    }
+    return found;
   }
 
   /** The one place that answers whether this adapter does this at all. */

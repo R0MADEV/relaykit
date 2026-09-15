@@ -15,7 +15,13 @@ export function byOldestFirst(left: Message, right: Message): number {
   return left.createdAt - right.createdAt || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 import { OutboxOperations, type OutboxOperationsContext } from "./outbox-operations.js";
-import type { MessagingAdapter, EditingAdapter, SearchAdapter, ThreadsAdapter } from "./adapter.js";
+import type {
+  MessagingAdapter,
+  EditingAdapter,
+  HistoryAdapter,
+  SearchAdapter,
+  ThreadsAdapter
+} from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
   ConversationId,
@@ -24,6 +30,9 @@ import type {
   MessageId,
   MessagePage,
   MessageSearchOptions,
+  MessageSurroundings,
+  RemoteSearchOptions,
+  RemoteSearchPage,
   Session,
   ThreadSummary,
   MediaLimits
@@ -125,12 +134,44 @@ export class MessageOperations {
    * Asks the homeserver to search. It cannot look inside encrypted conversations, because the server never
    * sees what they say; `search` looks through what this device already holds.
    */
-  async searchRemote(query: string): Promise<readonly Message[]> {
+  /**
+   * Asking the homeserver, a page at a time.
+   *
+   * The next page is asked for with the cursor the last one came back with, not with a number: where a page
+   * ends is the homeserver's business, and a search that found everything says so by having no cursor.
+   */
+  async searchRemote(query: string, options: RemoteSearchOptions = {}): Promise<RemoteSearchPage> {
     this.context.assertStarted();
     if (!query.trim()) {
       throw new SdkError("INVALID_INPUT", "Search query cannot be empty");
     }
-    return this.searching.searchMessages(query.trim());
+    const limit = options.limit;
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+      throw new SdkError("INVALID_INPUT", "The search limit must be a positive whole number");
+    }
+    return this.searching.searchMessages(query.trim(), options);
+  }
+
+  /**
+   * One message with what was said around it, for opening a conversation where something was said instead of
+   * at its end.
+   *
+   * What a search result is worth nothing without: a line on its own says who said it, and almost never what
+   * it was about.
+   */
+  async around(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    limit = 10
+  ): Promise<MessageSurroundings> {
+    this.context.assertStarted();
+    if (!messageId.trim()) {
+      throw new SdkError("INVALID_INPUT", "A message id is required");
+    }
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new SdkError("INVALID_INPUT", "The limit must be a positive whole number");
+    }
+    return this.atAMoment.readAroundMessage(conversationId, messageId.trim(), limit);
   }
 
   /**
@@ -330,6 +371,15 @@ export class MessageOperations {
         "NOT_SUPPORTED",
         "Editing and deleting messages is not something this homeserver has"
       );
+    return found;
+  }
+
+  /** The one place that answers whether this adapter does this at all. */
+  private get atAMoment(): HistoryAdapter {
+    const found = this.context.adapter.history;
+    if (!found) {
+      throw new SdkError("NOT_SUPPORTED", "Reading around a message is not something this homeserver has");
+    }
     return found;
   }
 

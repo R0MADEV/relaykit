@@ -15,6 +15,7 @@ import {
 } from "matrix-js-sdk";
 import { ThreadFilterType } from "matrix-js-sdk/lib/models/thread.js";
 import type {
+  RoomVersions,
   AvatarImage,
   Conversation,
   HistoryVisibility,
@@ -325,4 +326,56 @@ async function readPinnedIds(client: MatrixClient, conversationId: string): Prom
   const room = await waitForRoom(client, conversationId);
   const content = room.currentState.getStateEvents(pinnedEvent, "")?.getContent<{ pinned?: string[] }>();
   return content?.pinned ?? [];
+}
+
+/**
+ * Takes a conversation already left out of this account's history.
+ *
+ * Leaving stops it arriving; forgetting stops it being there at all. A conversation forgotten while still in
+ * it comes back on the next sync, which is why the two are separate and in that order.
+ */
+export async function forgetMatrixConversation(client: MatrixClient, conversationId: string): Promise<void> {
+  await client.forget(conversationId);
+}
+
+/** Filing a conversation under a name of this person's own. It is account data: nobody else sees it. */
+export async function setMatrixConversationTag(
+  client: MatrixClient,
+  conversationId: string,
+  tag: string
+): Promise<void> {
+  await client.setRoomTag(conversationId, tag, {});
+}
+
+export async function removeMatrixConversationTag(
+  client: MatrixClient,
+  conversationId: string,
+  tag: string
+): Promise<void> {
+  await client.deleteRoomTag(conversationId, tag);
+}
+
+/**
+ * What a conversation is filed under.
+ *
+ * `m.favourite` and `m.lowpriority` are the protocol's own and are already answered elsewhere — as
+ * `isFavourite` and as how loud a conversation may be — so they are left out of what is a list of this
+ * person's own names.
+ */
+export async function listMatrixConversationTags(
+  client: MatrixClient,
+  conversationId: string
+): Promise<readonly string[]> {
+  const { tags } = await client.getRoomTags(conversationId);
+  return Object.keys(tags ?? {}).filter(tag => !tag.startsWith("m."));
+}
+
+/** Which room versions this homeserver admits, which is what an upgrade has to choose from. */
+export async function listMatrixRoomVersions(client: MatrixClient): Promise<RoomVersions> {
+  const said = await client.getCapabilities();
+  const versions = said["m.room_versions"];
+  const available = Object.keys(versions?.available ?? {});
+  const preferred = versions?.default ?? available[0] ?? "";
+  // A homeserver that says nothing about versions still has one; saying nothing is not the same as none.
+  return { preferred, available: available.length > 0 ? available : [preferred].filter(Boolean) };
 }

@@ -51,6 +51,8 @@ participants  permissions   setRole       remove        ban           unban     
 rename        setTopic      setAvatar     setAlias      publish       discover
 setJoinRule   setHistoryVisibility        setUnread     setFavourite
 setNotifications            rotateKeys    upgrade
+
+forget        tag           untag         tags          versions
 ```
 
 `open(userId)` abre la conversación de dos con esa persona, creándola si no la hay. `create` es para las de
@@ -62,14 +64,30 @@ fuera, vetado) y si quien pregunta lo supera. Ese último lo decide el adaptador
 vetar ni recolocar a quien está a su altura o por encima — y un botón que siempre falla es peor que ninguno.
 Quien está vetado sigue en la lista, porque readmitirlo solo lo puede ofrecer una lista que lo tenga.
 
+`leave(id)` deja de recibirla; `forget(id)` la borra además de tu historial. Son dos pasos y en ese orden:
+olvidar una conversación en la que sigues la devuelve en la siguiente sincronización.
+
+`tag(id, "trabajo")` la archiva bajo un nombre tuyo, que nadie más ve. Favorita y prioridad baja no salen en
+`tags(id)`: son del protocolo y se preguntan por su lado (`setFavourite`, `setNotifications`).
+
+`versions()` dice qué versiones de sala admite el homeserver y cuál prefiere, que es entre lo que puede
+elegir un `upgrade`.
+
 ### `client.messages`
 
 ```
 list          loadMore      send          sendFile      sendVoice     sendSticker
 sendLocation  edit          delete        forward       report
-thread        threads       search        searchRemote
+thread        threads       search        searchRemote  around
 markRead      readBy        unreadSince   retry         cancel
 ```
+
+`around(id, mensajeId, cuantos)` abre la conversación **donde se dijo algo** en vez de en su final: el mensaje
+y lo que se dijo a cada lado. Es lo que le falta a un resultado de búsqueda, porque una línea suelta dice
+quién la dijo y casi nunca de qué iba.
+
+`searchRemote(consulta, { limit, cursor })` devuelve `{ messages, cursor }`. El cursor lo pone el homeserver;
+una búsqueda que ya lo dio todo no trae ninguno.
 
 `list` devuelve `Message[]`; `loadMore` sigue hacia atrás y devuelve una `MessagePage`, que además dice si
 queda más. `list(id, { atLeast })` pide **cuánto abrir**: lo que el sync haya traído no es un número que
@@ -122,11 +140,14 @@ La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegado
 | `client.users` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
 | `client.presence` | `set` (lo que haces tú), `of(userId)` (lo que hace otro) |
 | `client.sso` | `waysIn`, `startAt`, `finish` — entrar con el SSO de la organización, Google, GitHub |
+| `client.signInAsGuest(homeserver)` | entrar sin cuenta, donde el homeserver lo permita |
 | `client.devices` | `list` (la sesión que usas primero, luego por cuándo se vio cada una), `rename`, `verify`, `revoke`, `signOut`, `verification` |
 | `client.verification` | `request`, `qrCode`, `scan`, `accept`, `confirm`, `reject`, `cancel` |
 | `client.crypto` | `standing`, `status`, `backupStatus`, `setupRecovery`, `recover` |
 | `client.push` | `register`, `registered`, `unregister`, `watchFor`, `stopWatchingFor`, `keywords`, `pending`, `mute`, `unmute`, `muted`, `level`, `setLevel` |
-| `client.spaces` | `list`, `create`, `add`, `remove`, `conversations` |
+| `client.spaces` | `list`, `create`, `add`, `remove`, `conversations`, `children` (el árbol entero, con `depth`) |
+| `client.account` | `changePassword`, `close` (darse de baja), `remember(nombre, valor)`, `remembered(nombre)`, `addresses`, `addEmail`, `confirmEmail`, `removeAddress` |
+| `client.resetPassword(servidor, correo)` | volver a entrar cuando no te acuerdas; se termina con `finishResettingPassword` |
 
 ---
 

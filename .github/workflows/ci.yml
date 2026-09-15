@@ -58,6 +58,12 @@ jobs:
       - name: Check signing in through somebody else's identity provider
         run: xvfb-run --auto-servernum npm run check:sso
 
+      - name: Check filing a conversation away, changing a password and coming in as a guest
+        run: xvfb-run --auto-servernum npm run check:account
+
+      - name: Check proving an address and resetting a forgotten password by mail
+        run: npm run check:mail
+
       - name: Run RelayKit E2E smoke check
         run: npm run smoke:relaykit
 

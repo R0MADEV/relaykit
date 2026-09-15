@@ -1,6 +1,6 @@
 import { SdkError } from "./errors.js";
 import type { MessagingAdapter, SpacesAdapter } from "./adapter.js";
-import type { Conversation, ConversationId, CreateSpaceInput, Space } from "./models.js";
+import type { Conversation, ConversationId, CreateSpaceInput, Space, SpaceChild } from "./models.js";
 
 export interface SpaceOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -32,6 +32,12 @@ export class SpaceOperations {
   async remove(spaceId: ConversationId, conversationId: ConversationId): Promise<void> {
     this.context.assertStarted();
     await this.spaces.removeFromSpace(spaceId, conversationId);
+  }
+
+  /** What is inside a space, down as many levels as it goes. */
+  async children(spaceId: ConversationId): Promise<readonly SpaceChild[]> {
+    this.context.assertStarted();
+    return this.spaces.listSpaceChildren(spaceId);
   }
 
   async conversations(spaceId: ConversationId): Promise<readonly Conversation[]> {

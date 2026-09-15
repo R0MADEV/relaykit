@@ -1,4 +1,5 @@
 import type {
+  HistoryAdapter,
   AvatarImage,
   ConversationPermissions,
   ConversationRole,
@@ -29,6 +30,12 @@ import type {
   Reaction,
   MessagePage,
   Participant,
+  MessageId,
+  MessageSurroundings,
+  RemoteSearchOptions,
+  RemoteSearchPage,
+  RoomVersions,
+  SpaceChild,
   PresenceUpdate,
   UserId,
   UserPresence,
@@ -76,7 +83,12 @@ import {
   discoverMatrixConversations,
   knockMatrixConversation,
   listMatrixPinnedMessages,
+  forgetMatrixConversation,
+  listMatrixConversationTags,
+  listMatrixRoomVersions,
   markMatrixRead,
+  removeMatrixConversationTag,
+  setMatrixConversationTag,
   listMatrixThreads,
   setMatrixUnread,
   pinMatrixMessage,
@@ -108,6 +120,7 @@ import {
   createMatrixSpace,
   listMatrixSpaceConversations,
   listMatrixSpaces,
+  listMatrixSpaceChildren,
   removeFromMatrixSpace
 } from "./matrix-spaces.js";
 import { MatrixRuntime } from "./matrix-runtime.js";
@@ -135,7 +148,9 @@ import {
 } from "./matrix-profiles.js";
 import { withTranslatedErrors } from "./matrix-errors.js";
 import { MatrixCrypto } from "./matrix-crypto.js";
+import { readAroundMatrixMessage } from "./matrix-from-outside.js";
 import { MatrixSso } from "./matrix-sso.js";
+import { MatrixAccount, MatrixGuests } from "./matrix-account.js";
 import { MatrixShares } from "./matrix-shares.js";
 import { listMatrixPastCalls } from "./matrix-call-history.js";
 
@@ -150,7 +165,13 @@ export class MatrixJsAdapter implements MessagingAdapter {
   readonly editing: EditingAdapter = this;
   readonly ignoring: IgnoringAdapter = this;
   /** Signing in elsewhere happens before there is a session, so it is its own small thing. */
+  readonly history: HistoryAdapter = this;
   readonly sso = new MatrixSso();
+  readonly guests = new MatrixGuests();
+  readonly account = new MatrixAccount(
+    () => this.runtime.getClient(),
+    () => this.runtime.forgetTheRefreshToken()
+  );
   readonly moderation: ModerationAdapter = this;
   readonly pins: PinsAdapter = this;
   readonly presence: PresenceAdapter = this;
@@ -233,6 +254,46 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.reaching(conversationId, () =>
       listMatrixParticipants(this.runtime.getClient(), conversationId)
     );
+  }
+
+  async readAroundMessage(
+    conversationId: ConversationId,
+    messageId: MessageId,
+    limit: number
+  ): Promise<MessageSurroundings> {
+    return this.reaching(conversationId, () =>
+      readAroundMatrixMessage(this.runtime.getClient(), conversationId, messageId, limit)
+    );
+  }
+
+  async forgetConversation(conversationId: ConversationId): Promise<void> {
+    return this.run(() => forgetMatrixConversation(this.runtime.getClient(), conversationId));
+  }
+
+  async setConversationTag(conversationId: ConversationId, tag: string): Promise<void> {
+    return this.reaching(conversationId, () =>
+      setMatrixConversationTag(this.runtime.getClient(), conversationId, tag)
+    );
+  }
+
+  async removeConversationTag(conversationId: ConversationId, tag: string): Promise<void> {
+    return this.reaching(conversationId, () =>
+      removeMatrixConversationTag(this.runtime.getClient(), conversationId, tag)
+    );
+  }
+
+  async listConversationTags(conversationId: ConversationId): Promise<readonly string[]> {
+    return this.reaching(conversationId, () =>
+      listMatrixConversationTags(this.runtime.getClient(), conversationId)
+    );
+  }
+
+  async listRoomVersions(): Promise<RoomVersions> {
+    return this.run(() => listMatrixRoomVersions(this.runtime.getClient()));
+  }
+
+  async listSpaceChildren(spaceId: ConversationId): Promise<readonly SpaceChild[]> {
+    return this.run(() => listMatrixSpaceChildren(this.runtime.getClient(), spaceId));
   }
 
   async setPresence(update: PresenceUpdate): Promise<void> {
@@ -406,8 +467,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(async () => listMatrixSpaceConversations(this.runtime.getClient(), spaceId));
   }
 
-  searchMessages(query: string): Promise<readonly Message[]> {
-    return this.run(() => searchMatrixMessages(this.runtime.getClient(), query));
+  searchMessages(query: string, options: RemoteSearchOptions): Promise<RemoteSearchPage> {
+    return this.run(() => searchMatrixMessages(this.runtime.getClient(), query, options));
   }
 
   async listThread(conversationId: ConversationId, rootId: string): Promise<readonly Message[]> {
