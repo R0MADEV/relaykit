@@ -76,6 +76,13 @@ export class StoreForWhoeverIsSignedIn implements MessagingStorage {
   nowSignedInAs(session: Session | undefined): void {
     const whoNow = session?.userId;
     if (this.storage !== undefined && whoNow === this.openFor) return;
+    // Letting go rather than only forgetting: a database still open refuses to be deleted and refuses to be
+    // upgraded, and does it by waiting rather than by failing, so nobody finds out. Whether it let go is not
+    // allowed to decide whether the next person gets their own copy.
+    const letting = this.storage;
+    void Promise.resolve()
+      .then(() => letting?.close())
+      .catch(() => undefined);
     this.storage = undefined;
     this.openFor = whoNow;
     this.session = session;
@@ -215,10 +222,22 @@ function createBrowserStorage(
     return undefined;
   }
 
-  return new IndexedDbStorage(matrix?.storeName ?? `relaykit-app-${userId}`, { encryptionSecret });
+  return new IndexedDbStorage(createBrowserStoreName(matrix?.storeName, userId), { encryptionSecret });
 }
 
 // Everything from core except MessagingClient, which the local class above replaces.
 export * from "@relaykit/core";
 export { IndexedDbStorage } from "@relaykit/browser-storage";
 export { MatrixJsAdapter, type MatrixJsAdapterOptions } from "@relaykit/matrix-js";
+
+/**
+ * What to call the local copy. Always ends in whoever it belongs to.
+ *
+ * A name the application chose is a prefix, never the whole name. Taking it whole means every account that
+ * ever signs in on this browser shares one database — one person's conversations left where the next person
+ * to sign in can reach them, with nothing to make anybody suspect it. The Matrix store next door has always
+ * been named this way; this one had not.
+ */
+export function createBrowserStoreName(chosen: string | undefined, userId: string): string {
+  return `${chosen ?? "relaykit-app"}-${userId}`;
+}

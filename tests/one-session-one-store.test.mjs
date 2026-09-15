@@ -93,7 +93,7 @@ function storeThatRemembersWhoItOpenedFor() {
   const openedFor = [];
   const store = new StoreForWhoeverIsSignedIn(session => {
     openedFor.push(session?.userId ?? null);
-    return session?.userId ? { getConversations: async () => [] } : undefined;
+    return session?.userId ? { getConversations: async () => [], close: async () => undefined } : undefined;
   });
   return { store, openedFor };
 }
@@ -141,4 +141,22 @@ test("signing out lets go of the copy, so the next person cannot read it", async
   await store.getConversations();
 
   assert.deepEqual(openedFor, ["alice", null]);
+});
+
+test("two people never share a local copy, however the application names it", async () => {
+  const { createBrowserStoreName } = await import("../packages/web/dist/index.js");
+
+  // Without a name of its own, and with one: either way the name ends in whoever it belongs to. An
+  // application that named its store and got one database for every account it ever signed in would be
+  // handing one person's conversations to the next, and would have no way of knowing.
+  assert.notEqual(
+    createBrowserStoreName(undefined, "@alice:server"),
+    createBrowserStoreName(undefined, "@bob:server")
+  );
+  assert.notEqual(
+    createBrowserStoreName("acme-chat", "@alice:server"),
+    createBrowserStoreName("acme-chat", "@bob:server")
+  );
+  assert.ok(createBrowserStoreName("acme-chat", "@alice:server").startsWith("acme-chat-"));
+  assert.ok(createBrowserStoreName("acme-chat", "@alice:server").includes("@alice:server"));
 });

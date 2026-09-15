@@ -545,11 +545,13 @@ export class MessagingClient {
    * signed in follows one thing instead of remembering six.
    */
   private nowSignedInAs(session: Session | undefined): void {
-    if (this.session?.userId === session?.userId && this.session?.accessToken === session?.accessToken) {
-      return;
-    }
+    // Kept first and told second, and never the other way round: deciding whether this is news must not be
+    // able to decide whether it is written down. A password change revokes the refresh token and hands back
+    // the same person and the same access token, so anything that compared only those two would keep a token
+    // the homeserver has already thrown away.
+    const isNews = !theSameSession(this.session, session);
     this.session = session;
-    this.events.emit("session.changed", session);
+    if (isNews) this.events.emit("session.changed", session);
   }
 
   /** Signing in and out, starting, stopping, and putting back what was held while it was away. */
@@ -599,6 +601,16 @@ export class MessagingClient {
     return this.accountOperations.finishResettingPassword(homeserver, proof, newPassword);
   }
 
+  /**
+   * The session this client is holding, or nothing when it is holding none.
+   *
+   * Pairs with `session.changed`: the event says when, this says what. Anything that subscribed late — a
+   * screen drawn after a token was renewed on its own — has somewhere to ask instead of guessing.
+   */
+  currentSession(): Session | undefined {
+    return this.session;
+  }
+
   signInAsGuest(homeserver: string): Promise<Session> {
     return this.lifecycle.signInAsGuest(homeserver);
   }
@@ -637,3 +649,23 @@ export class MessagingClient {
 }
 
 export type ClientEvents = ClientEventMap;
+
+/**
+ * Whether two sessions are the same one.
+ *
+ * Every field, because every one of them can change on its own: a token renewed, a refresh token revoked by a
+ * password change, an expiry moved, a guest becoming somebody. Comparing a couple of them and calling it
+ * equal is how a client ends up holding something the homeserver no longer honours.
+ */
+function theSameSession(one: Session | undefined, other: Session | undefined): boolean {
+  if (one === undefined || other === undefined) return one === other;
+  return (
+    one.homeserver === other.homeserver &&
+    one.userId === other.userId &&
+    one.accessToken === other.accessToken &&
+    one.deviceId === other.deviceId &&
+    one.refreshToken === other.refreshToken &&
+    one.expiresAt === other.expiresAt &&
+    one.isGuest === other.isGuest
+  );
+}

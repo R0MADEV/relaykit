@@ -217,18 +217,33 @@ export class ClientLifecycle {
     this.setConnection("disconnected");
   }
 
+  /**
+   * Signing out, which is two things that must not depend on each other.
+   *
+   * The homeserver is told first, because stopping first would leave the token alive. But whether it heard is
+   * not what decides whether this device forgets: somebody who says sign me out on a train with no signal has
+   * to be signed out on that device, and a messenger that keeps their conversations because a server was
+   * unreachable has done the one thing they were trying to prevent. So the failure is still handed on, and
+   * the forgetting happens either way.
+   *
+   * And the local copy is emptied *before* the session goes, not after. The copy is named after whoever it
+   * belongs to, so saying there is nobody first leaves nothing pointing at the thing that has to be emptied.
+   */
   async logout(): Promise<void> {
-    // The adapter revokes the server session and stops itself; stopping first would leave the token valid.
+    let couldNotTellTheHomeserver: unknown;
     try {
       await this.context.adapter.logout();
+    } catch (error) {
+      couldNotTellTheHomeserver = error;
     } finally {
       this.started = false;
       this.context.forgetRunningState();
       this.setSync("idle");
       this.setConnection("disconnected");
+      await this.context.purgeStorage();
+      this.context.setSession(undefined);
     }
-    this.context.setSession(undefined);
-    await this.context.purgeStorage();
+    if (couldNotTellTheHomeserver) throw couldNotTellTheHomeserver;
   }
 
   /**
@@ -239,6 +254,10 @@ export class ClientLifecycle {
   async sessionEnded(): Promise<void> {
     if (!this.started) return;
     await this.stopAfterFailure(new Error("the session is no longer accepted, sign in again"));
+    // Let go of here as well. Holding a token the homeserver refuses is holding nothing, and it would be
+    // read back on the next start as if it were worth trying. The local copy stays: this is not signing out,
+    // and somebody who signs in again as the same person should find their conversations where they were.
+    this.context.setSession(undefined);
   }
 
   assertStarted(): void {

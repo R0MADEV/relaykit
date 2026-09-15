@@ -282,6 +282,17 @@ export class IndexedDbStorage implements MessagingStorage {
     );
   }
 
+  /**
+   * Lets go of the connection.
+   *
+   * A database that is still open from somewhere refuses to be deleted and refuses to be upgraded; it just
+   * blocks, silently, until whoever holds it lets go. On a browser where people sign in and out of different
+   * accounts, that is the difference between the last person's copy going away and sitting there for ever.
+   */
+  async close(): Promise<void> {
+    await this.database.then(database => database.close()).catch(() => undefined);
+  }
+
   private open(databaseName: string): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(databaseName, 5);

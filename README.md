@@ -16,7 +16,7 @@ Matrix como `room_id`, `event_id`, tokens de sincronización o eventos Matrix.
 npm install @relaykit/web
 ```
 
-`@relaykit/web` incluye el cliente, el adapter Matrix y el storage IndexedDB cifrado. Para Node o para adapters
+`@relaykit/web` incluye el cliente, el adapter Matrix y el storage IndexedDB, con el contenido cifrado en reposo. Para Node o para adapters
 propios, usar `@relaykit/core` directamente.
 
 ## Todo lo que hay
@@ -471,10 +471,23 @@ sube en el historial. Lo que sigue en la cola de envio nunca se descarta, porque
 const client = new MessagingClient({ cache: { messagesPerConversation: 2000 } });
 ```
 
-La fuente de verdad es el homeserver. Se cifra con una clave derivada de
-`storageSecret`, que por defecto es el access token. Si ese secreto cambia, los registros escritos con el anterior
-dejan de ser legibles: se descartan al leerlos, sin romper la aplicacion, y la cache se rellena desde el servidor.
-Para no perder la cache en cada rotacion de token, pasar un secreto estable por dispositivo.
+La fuente de verdad es el homeserver; esto es una copia local.
+
+**Qué se cifra, exactamente.** No es «IndexedDB cifrado». Se cifra **el contenido**: el cuerpo de los mensajes,
+los borradores, el cuerpo y los adjuntos de lo que está esperando salir. **No** se cifra la metadata que hace
+falta para indexar y para pintar una lista sin descifrar nada: identificadores, quién envió qué, marcas de
+tiempo, títulos de conversación, perfiles. Quien tenga acceso al navegador puede leer con quién hablas y
+cuándo, y no lo que dijisteis. Dicho así para que se pueda hacer un análisis de riesgos de verdad.
+
+**Con qué clave.** De `storageSecret` si se pasa uno; si no, de un secreto estable guardado una vez en este
+navegador; y solo si tampoco hay sitio para eso, del access token. El orden importa: con el access token, cada
+rotación de token deja ilegible lo escrito antes. Lo ilegible se descarta al leerlo, sin romper nada, y la
+copia se rellena desde el servidor.
+
+**De quién es la copia.** El nombre de la base de datos siempre acaba en quién está dentro, también cuando la
+aplicación elige el suyo: `storeName: "acme-chat"` da `acme-chat-@alice:server` y `acme-chat-@bob:server`. Dos
+cuentas en el mismo navegador nunca comparten copia, y al cambiar de persona la anterior se cierra — una base
+de datos abierta se niega a borrarse y a actualizarse, esperando en silencio.
 
 ## Verificacion de dispositivos
 

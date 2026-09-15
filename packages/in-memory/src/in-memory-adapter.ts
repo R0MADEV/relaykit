@@ -815,6 +815,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.currentPassword;
   }
 
+  /** Test helper: the homeserver refusing this session, without anybody here having asked it to. */
+  endTheSession(): void {
+    this.handlers.onSessionEnded?.();
+  }
+
   /** Test helper: the homeserver handing out a new access token before the old one runs out. */
   refreshTheSession(session: Session): void {
     this.handlers.onSessionRefreshed?.(session);

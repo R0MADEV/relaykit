@@ -7,6 +7,26 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
+  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
+- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
+  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
+  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
+  cobertura tiene que quedar fuera de ese dispositivo.
+- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
+  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
+  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
+  y se comparan todos los campos.
+- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
+  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
+  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
+- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
+  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
+  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
+  dentro, igual que ya hacía el almacén de Matrix.
+- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
+  actualizarse, y lo hace esperando en silencio.
+
 - **La sesión y el almacén local eran dos cosas distintas, y se separaban.** `@relaykit/web` solo se enteraba
   de quién estaba dentro al hacer `login()`. Registrarse, entrar como invitado y volver de un proveedor de
   identidad conseguían sesión **sin abrir IndexedDB** — la aplicación funcionaba y no guardaba nada. Y una vez
@@ -35,6 +55,9 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Añadido
 
+- `client.currentSession()`, que acompaña a `session.changed`: el evento dice cuándo, esto dice qué. Quien se
+  suscribió tarde tiene dónde preguntar.
+
 - **Diagnóstico.** `new MessagingClient({ diagnostics: { onEvent } })` cuenta qué está haciendo la librería y
   por qué falló algo: el primer sync y cuánto tardó, la conexión yéndose y volviendo, cada mensaje encolado,
   enviado, reintentado o fallido, lo que llegó sin clave, el almacenamiento negándose, y una llamada a la que
@@ -54,6 +77,26 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
+  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
+- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
+  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
+  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
+  cobertura tiene que quedar fuera de ese dispositivo.
+- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
+  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
+  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
+  y se comparan todos los campos.
+- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
+  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
+  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
+- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
+  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
+  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
+  dentro, igual que ya hacía el almacén de Matrix.
+- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
+  actualizarse, y lo hace esperando en silencio.
 
 - **La sesión y el almacén local eran dos cosas distintas, y se separaban.** `@relaykit/web` solo se enteraba
   de quién estaba dentro al hacer `login()`. Registrarse, entrar como invitado y volver de un proveedor de
@@ -114,6 +157,26 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
+  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
+- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
+  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
+  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
+  cobertura tiene que quedar fuera de ese dispositivo.
+- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
+  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
+  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
+  y se comparan todos los campos.
+- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
+  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
+  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
+- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
+  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
+  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
+  dentro, igual que ya hacía el almacén de Matrix.
+- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
+  actualizarse, y lo hace esperando en silencio.
 
 - **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
   `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
@@ -596,6 +659,26 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
+  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
+- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
+  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
+  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
+  cobertura tiene que quedar fuera de ese dispositivo.
+- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
+  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
+  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
+  y se comparan todos los campos.
+- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
+  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
+  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
+- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
+  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
+  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
+  dentro, igual que ya hacía el almacén de Matrix.
+- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
+  actualizarse, y lo hace esperando en silencio.
 
 - **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
   `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
