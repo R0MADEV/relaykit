@@ -76,3 +76,25 @@ test("a one-to-one conversation is still one to one for whoever was invited", as
   const [fromTheList] = (await client.conversations.list()).filter(each => each.id === invited.id);
   assert.equal(fromTheList?.isDirect, true);
 });
+
+test("what the local copy remembers does not outvote what the homeserver says now", async () => {
+  const adapter = new InMemoryAdapter();
+  const storage = new InMemoryStorage();
+  const first = new MessagingClient({ adapter, storage, session });
+  await first.start();
+  const conversation = await first.conversations.create({ participantIds: ["bob"], title: "Equipo" });
+  await first.conversations.list();
+  await first.stop();
+
+  // Learned about after it was written down. A conversation between two people is recorded in account data
+  // that arrives with the sync, so what was saved the moment it was made says it is not one — and reloading
+  // must not go on believing that for ever.
+  adapter.correctConversation({ ...conversation, isDirect: true, title: undefined });
+
+  const again = new MessagingClient({ adapter, storage, session });
+  await again.start();
+  const [seen] = (await again.conversations.list()).filter(each => each.id === conversation.id);
+
+  assert.equal(seen?.isDirect, true, "the stale local copy won");
+  await again.stop();
+});

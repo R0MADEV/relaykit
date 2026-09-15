@@ -805,6 +805,11 @@ export class InMemoryAdapter implements MessagingAdapter {
     return this.lastStamp;
   }
 
+  /** Test helper: the homeserver knowing something about a conversation that it did not say before. */
+  correctConversation(conversation: Conversation): void {
+    this.replaceConversation(conversation);
+  }
+
   /** Test helper: the person clicked the link in the message the homeserver sent to their address. */
   proveAddress(proofId: string): void {
     this.accountIn.prove(proofId);

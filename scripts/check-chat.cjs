@@ -88,6 +88,7 @@ async function main() {
   await openChannel(one, channel, "alice");
   await theOtherWalksIn(other, channel);
 
+  await aDirectStaysDirect(one, bob, channel);
   await theySeeWhatIsSaid(one, other);
   await aThreadHangsFromIt(one, other);
   await aPictureArrives(one, other);
@@ -155,6 +156,50 @@ async function theOtherWalksIn(page, name) {
     `document.getElementById("open-title").textContent.includes(${JSON.stringify(name)})`,
     60
   );
+}
+
+/**
+ * A conversation between two people is one on both screens, and stays one after a reload.
+ *
+ * Which side of it you are on should not change what it is. The one who starts it writes the record of it in
+ * their own account data and the one who accepts has to write theirs, and getting that wrong means the same
+ * conversation is a direct chat on one screen and a channel on the other — with the room's identifier
+ * standing in for a name, because a channel with no name has none.
+ */
+async function aDirectStaysDirect(one, otherAccount, goBackTo) {
+  // Through the screen, the way a person does it: the picker, the name, the row, the button.
+  await run(
+    one,
+    `document.querySelector('[data-opens="new-message"]').click();
+     document.getElementById("new-message-search").value = ${JSON.stringify(otherAccount.username)};
+     document.getElementById("new-message-search").dispatchEvent(new Event("input"));`
+  );
+  await waitFor(
+    one,
+    "the other person to be findable",
+    `document.querySelector('#new-message-people [data-picks="${otherAccount.userId}"]') !== null`,
+    60
+  );
+  await run(
+    one,
+    `document.querySelector('#new-message-people [data-picks="${otherAccount.userId}"]').click();
+     document.getElementById("new-message").querySelector('[value="start"]').click();`
+  );
+  const isADirect = section =>
+    `[...document.querySelectorAll("#${section} li")].some(row =>
+       row.textContent.includes(${JSON.stringify(otherAccount.username)}))`;
+
+  await waitFor(one, "the direct conversation on the side that started it", isADirect("directs"), 60);
+  // And it is not also sitting among the channels, which is what a lost mark looks like.
+  detail.startedItSeesAChannel = await read(one, isADirect("channels"));
+  if (detail.startedItSeesAChannel) throw new Error("the side that started it sees a channel as well");
+
+  // Reloaded, because that is when a screen paints from what it wrote down rather than from what it did.
+  await one.reload();
+  await waitFor(one, "it to still be a direct conversation after a reload", isADirect("directs"), 90);
+  detail.directSurvivedAReload = true;
+  // Put back where the rest of this check expects to find it: reloading opened whatever came first.
+  await openChannel(one, goBackTo, "alice");
 }
 
 async function theySeeWhatIsSaid(one, other) {

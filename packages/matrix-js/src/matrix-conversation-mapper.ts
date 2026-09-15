@@ -146,7 +146,13 @@ function mapRoomAvatar(room: Room): { avatar: MediaRef } | undefined {
  * by the other person, a group by who is in it. An identifier is not a name in any of those.
  */
 function whatItIsCalled(room: Room): { title?: string } {
-  const said = room.name;
-  if (!said || said === room.roomId) return {};
-  return { title: said };
+  // What the room was called, out of its own state. `room.name` is a convenience the SDK works out from the
+  // state plus the people in it, and it answers with the room id whenever it cannot — which on a browser
+  // restoring a local copy is every conversation for the first moments after it opens.
+  const given = room.currentState.getStateEvents(EventType.RoomName, "")?.getContent<{ name?: string }>();
+  if (typeof given?.name === "string" && given.name.trim()) return { title: given.name };
+  const worked = room.name;
+  // And an identifier is not a name, whoever handed it over.
+  if (!worked || worked === room.roomId) return {};
+  return { title: worked };
 }

@@ -814,3 +814,39 @@ test("a conversation with no name has no name, rather than being called by its i
 
   assert.equal(conversations.mapConversation(room).title, undefined);
 });
+
+test("a conversation between two people says so from the room itself, not only from account data", () => {
+  // Matrix records a direct chat twice over: in each person's own account data, and in the invitation that
+  // started it. Account data arrives with the sync and is restored last on a browser that has a local copy,
+  // so a screen that only reads that one paints every direct chat as a channel until it catches up — and the
+  // room's own state was there the whole time.
+  const { mapConversation } = conversations;
+  const invitedDirectly = {
+    ...fakeRoom([]),
+    client: { getAccountData: () => undefined },
+    currentState: {
+      getStateEvents: type =>
+        type === "m.room.member" ? [{ getContent: () => ({ membership: "invite", is_direct: true }) }] : null,
+      getHistoryVisibility: () => "shared"
+    }
+  };
+
+  assert.equal(mapConversation(invitedDirectly).isDirect, true);
+});
+
+test("a conversation is called what its own state says, not what the sdk could work out", () => {
+  const { mapConversation } = conversations;
+  // `room.name` is a convenience the sdk computes, and it answers with the room id whenever it cannot — which
+  // on a browser restoring a local copy is every conversation for the first moments. The name the room was
+  // given is in its state the whole time, so that is what is read.
+  const named = {
+    ...fakeRoom([]),
+    name: roomId,
+    currentState: {
+      getStateEvents: type => (type === "m.room.name" ? { getContent: () => ({ name: "Guardias" }) } : null),
+      getHistoryVisibility: () => "shared"
+    }
+  };
+
+  assert.equal(mapConversation(named).title, "Guardias");
+});

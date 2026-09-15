@@ -120,11 +120,31 @@ async function markAsDirect(
   await client.setAccountData(EventType.Direct, updated);
 }
 
+/**
+ * Whether a conversation is one person talking to another.
+ *
+ * Matrix records it twice over, and both are read because each one is missing at a different moment. The
+ * account data is the canonical one and belongs to each person separately — the one who starts a direct chat
+ * writes their own, the one who accepts writes theirs — but it arrives with the sync, and on a browser
+ * restoring a local copy it is among the last things back. A screen reading only that paints every direct
+ * chat as a channel until it catches up, with the room's identifier standing in for the name.
+ *
+ * The invitation that started it says so too, in the room's own state, and that is there from the first
+ * moment. Either is proof.
+ */
 export function isDirectRoom(room: Room): boolean {
   if (room.getDMInviter() !== undefined) return true;
   const directMap =
     room.client.getAccountData(EventType.Direct)?.getContent<Record<string, string[]>>() ?? {};
-  return Object.values(directMap).some(rooms => rooms.includes(room.roomId));
+  if (Object.values(directMap).some(rooms => rooms.includes(room.roomId))) return true;
+  return startedAsADirectInvitation(room);
+}
+
+/** The `is_direct` the homeserver keeps on the invitation, which is room state and needs no account data. */
+function startedAsADirectInvitation(room: Room): boolean {
+  const members = room.currentState.getStateEvents(EventType.RoomMember);
+  if (!Array.isArray(members)) return false;
+  return members.some(member => member.getContent().is_direct === true);
 }
 
 export async function leaveMatrixConversation(client: MatrixClient, conversationId: string): Promise<void> {
