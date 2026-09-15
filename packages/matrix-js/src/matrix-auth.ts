@@ -1,5 +1,5 @@
 import { MatrixError, createClient, type MatrixClient, AuthType } from "matrix-js-sdk";
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type { LoginCredentials, RegisterCredentials, Session } from "@relaykit/core";
 
 const passwordOnlyStages = new Set([AuthType.Dummy as string]);
@@ -40,13 +40,13 @@ function sessionFrom(homeserver: string, answer: WhatSigningInAnswers): Session 
  * word; Dendrite asks what it wants first and refuses on the second, once the conversation is finished. So
  * this is asked at every step rather than only at the beginning.
  */
-export function whatTheHomeserverMeant(error: unknown): SdkError | undefined {
+export function whatTheHomeserverMeant(error: unknown): RelayKitError | undefined {
   if (!(error instanceof MatrixError)) return undefined;
   if (error.errcode === "M_USER_IN_USE") {
-    return new SdkError("USERNAME_TAKEN", "That username is already taken");
+    return new RelayKitError("USERNAME_TAKEN", "That username is already taken");
   }
   if (error.errcode === "M_FORBIDDEN") {
-    return new SdkError("REGISTRATION_UNSUPPORTED", "This homeserver does not allow creating accounts");
+    return new RelayKitError("REGISTRATION_UNSUPPORTED", "This homeserver does not allow creating accounts");
   }
   return undefined;
 }
@@ -74,7 +74,7 @@ export async function registerWithPassword(credentials: RegisterCredentials): Pr
         throw whatTheHomeserverMeant(error) ?? error;
       });
     if (!response.access_token) {
-      throw new SdkError(
+      throw new RelayKitError(
         "REGISTRATION_UNSUPPORTED",
         "The homeserver did not return a session for the new account"
       );
@@ -100,7 +100,7 @@ async function startRegistration(client: MatrixClient, credentials: RegisterCred
     const simplest = flows.find(flow => (flow.stages ?? []).every(stage => passwordOnlyStages.has(stage)));
     if (!simplest || !session) {
       const stages = [...new Set(flows.flatMap(flow => flow.stages ?? []))];
-      throw new SdkError(
+      throw new RelayKitError(
         "REGISTRATION_UNSUPPORTED",
         stages.length > 0
           ? `This homeserver requires: ${stages.join(", ")}`
@@ -109,7 +109,7 @@ async function startRegistration(client: MatrixClient, credentials: RegisterCred
     }
     return session;
   }
-  throw new SdkError(
+  throw new RelayKitError(
     "REGISTRATION_UNSUPPORTED",
     "The homeserver answered the registration in an unexpected way"
   );

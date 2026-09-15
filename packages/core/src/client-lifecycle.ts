@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import {
   validateLoginCredentials,
   validateRegisterCredentials,
@@ -66,16 +66,16 @@ export class ClientLifecycle {
    */
   async wayInAddress(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string> {
     if (!comeBackTo.trim()) {
-      throw new SdkError("INVALID_INPUT", "Where to come back to is required");
+      throw new RelayKitError("INVALID_INPUT", "Where to come back to is required");
     }
     return this.sso.wayInAddress(whereThatIs(homeserver), comeBackTo.trim(), wayInId);
   }
 
   /** The one-time token the homeserver came back with, turned into a session. */
   async finishSigningIn(homeserver: string, token: string): Promise<Session> {
-    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before signing in again");
+    if (this.started) throw new RelayKitError("ALREADY_STARTED", "Stop the client before signing in again");
     if (!token.trim()) {
-      throw new SdkError("INVALID_INPUT", "A sign in token is required");
+      throw new RelayKitError("INVALID_INPUT", "A sign in token is required");
     }
     const session = await this.sso.signInWithToken(whereThatIs(homeserver), token.trim());
     this.context.setSession(session);
@@ -89,7 +89,7 @@ export class ClientLifecycle {
    * ones that do keep them on a short leash. Being refused here is the ordinary answer, not a failure.
    */
   async signInAsGuest(homeserver: string): Promise<Session> {
-    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before signing in again");
+    if (this.started) throw new RelayKitError("ALREADY_STARTED", "Stop the client before signing in again");
     const session = await this.guests.signInAsGuest(whereThatIs(homeserver));
     this.context.setSession(session);
     return session;
@@ -99,7 +99,7 @@ export class ClientLifecycle {
   private get guests(): GuestsAdapter {
     const found = this.context.adapter.guests;
     if (!found) {
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "Coming in without an account is not something this homeserver has"
       );
@@ -111,13 +111,13 @@ export class ClientLifecycle {
   private get sso(): SsoAdapter {
     const found = this.context.adapter.sso;
     if (!found) {
-      throw new SdkError("NOT_SUPPORTED", "Signing in elsewhere is not something this homeserver has");
+      throw new RelayKitError("NOT_SUPPORTED", "Signing in elsewhere is not something this homeserver has");
     }
     return found;
   }
 
   async register(credentials: RegisterCredentials): Promise<Session> {
-    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before registering");
+    if (this.started) throw new RelayKitError("ALREADY_STARTED", "Stop the client before registering");
     validateRegisterCredentials(credentials);
     const session = await this.context.adapter.register(credentials);
     this.context.setSession(session);
@@ -125,7 +125,7 @@ export class ClientLifecycle {
   }
 
   async login(credentials: LoginCredentials): Promise<Session> {
-    if (this.started) throw new SdkError("ALREADY_STARTED", "Stop the client before logging in again");
+    if (this.started) throw new RelayKitError("ALREADY_STARTED", "Stop the client before logging in again");
     validateLoginCredentials(credentials);
     const session = await this.context.adapter.login(credentials);
     this.context.setSession(session);
@@ -138,9 +138,9 @@ export class ClientLifecycle {
    * `sync.changed` says when it is done.
    */
   async start(options: StartOptions = {}): Promise<void> {
-    if (this.started) throw new SdkError("ALREADY_STARTED", "The client is already started");
+    if (this.started) throw new RelayKitError("ALREADY_STARTED", "The client is already started");
     const session = this.context.getSession();
-    if (!session) throw new SdkError("INVALID_SESSION", "A session is required to start the client");
+    if (!session) throw new RelayKitError("INVALID_SESSION", "A session is required to start the client");
     validateSession(session);
     this.started = true;
     this.caughtUp = false;
@@ -177,7 +177,7 @@ export class ClientLifecycle {
     } catch (error) {
       await this.stopAfterFailure(error);
       const reason = error instanceof Error ? error.message : String(error);
-      throw new SdkError("ADAPTER_ERROR", `The messaging adapter could not start: ${reason}`);
+      throw new RelayKitError("ADAPTER_ERROR", `The messaging adapter could not start: ${reason}`);
     }
   }
 
@@ -229,9 +229,9 @@ export class ClientLifecycle {
   assertStarted(): void {
     if (this.started) return;
     if (this.stoppedBecause) {
-      throw new SdkError("NOT_STARTED", `The client stopped: ${this.stoppedBecause}. Start it again.`);
+      throw new RelayKitError("NOT_STARTED", `The client stopped: ${this.stoppedBecause}. Start it again.`);
     }
-    throw new SdkError("NOT_STARTED", "Start the client before using it");
+    throw new RelayKitError("NOT_STARTED", "Start the client before using it");
   }
 
   isStarted(): boolean {
@@ -278,7 +278,7 @@ export class ClientLifecycle {
 /** A homeserver has to be somewhere. Said here so all three ways in refuse the same way. */
 function whereThatIs(homeserver: string): string {
   if (!homeserver.trim()) {
-    throw new SdkError("INVALID_INPUT", "A homeserver address is required");
+    throw new RelayKitError("INVALID_INPUT", "A homeserver address is required");
   }
   return homeserver.trim();
 }

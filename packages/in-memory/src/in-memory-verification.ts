@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type {
   AdapterHandlers,
   UserId,
@@ -60,7 +60,7 @@ export class InMemoryVerification {
     const session = this.require(sessionId);
     const expected = new TextDecoder().decode(this.qrCode(sessionId) ?? new Uint8Array());
     if (new TextDecoder().decode(code) !== expected) {
-      throw new SdkError("INVALID_INPUT", "That code does not belong to this verification");
+      throw new RelayKitError("INVALID_INPUT", "That code does not belong to this verification");
     }
     const { sas: _sas, ...withoutSas } = session;
     return this.update({ ...withoutSas, phase: "done" });
@@ -107,7 +107,8 @@ export class InMemoryVerification {
 
   private require(sessionId: string): VerificationSession {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new SdkError("VERIFICATION_NOT_FOUND", "The verification session does not exist");
+    if (!session)
+      throw new RelayKitError("VERIFICATION_NOT_FOUND", "The verification session does not exist");
     return session;
   }
 

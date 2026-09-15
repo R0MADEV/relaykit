@@ -375,24 +375,46 @@ devuelve solo su `id`, sin error.
 
 ## Errores
 
-Los fallos previsibles llegan como `SdkError` con un `code` estable, nunca como errores de Matrix. Los que una
-aplicacion necesita distinguir:
-
-| `code`            | Significado                                                            |
-| ----------------- | ---------------------------------------------------------------------- |
-| `INVALID_INPUT`   | los datos de la llamada no son validos                                 |
-| `INVALID_SESSION` | la sesion caduco o fue revocada: hay que volver a iniciar sesion        |
-| `RATE_LIMITED`    | el homeserver esta limitando al cliente; `retryAfterMs` dice cuanto esperar |
-| `NOT_STARTED`     | se uso el cliente antes de `start()`                                    |
-| `ADAPTER_ERROR`   | el homeserver o la red fallaron; el mensaje trae el motivo del servidor |
+Esta librería lanza **un solo tipo de error**: `RelayKitError`. Nunca un error de matrix-js-sdk, nunca un
+`Error` pelado, y nunca una frase escrita por un homeserver.
 
 ```ts
+import { RelayKitError } from "@relaykit/web";
+
 try {
-  await client.conversations.create({ participantIds: [userId] });
+  await client.messages.send(id, texto);
 } catch (error) {
-  if (error.code === "RATE_LIMITED") await wait(error.retryAfterMs ?? 1000);
+  if (error instanceof RelayKitError && error.code === "RATE_LIMITED") {
+    await esperar(error.retryAfterMs ?? 1000);
+  }
 }
 ```
+
+La lista completa de `code`, que es la promesa: sobre esto se decide, y no cambia porque cambie el servidor de
+debajo.
+
+| `code`                     | Significado                                                                |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `INVALID_INPUT`            | lo que se pidió no puede estar bien; se rechazó aquí, sin llegar a enviarse |
+| `INVALID_SESSION`          | la sesión ya no vale: hay que volver a entrar                              |
+| `FORBIDDEN`                | estás dentro y no puedes hacer eso; insistir no sirve                      |
+| `NOT_SUPPORTED`            | este homeserver o este tipo de llamada no hace eso                         |
+| `RATE_LIMITED`             | te piden ir más despacio; `retryAfterMs` dice cuánto                        |
+| `NETWORK_ERROR`            | no se pudo alcanzar el servidor; merece reintento                          |
+| `NOT_STARTED`              | se usó el cliente antes de `start()`                                       |
+| `ALREADY_STARTED`          | se arrancó dos veces                                                       |
+| `NOT_CONFIGURED`           | el cliente no está configurado para eso                                    |
+| `CONVERSATION_NOT_FOUND`   | no hay tal conversación                                                    |
+| `MESSAGE_NOT_FOUND`        | no hay tal mensaje                                                         |
+| `VERIFICATION_NOT_FOUND`   | no hay tal verificación                                                    |
+| `USERNAME_TAKEN`           | ese nombre ya es de alguien                                                |
+| `REGISTRATION_UNSUPPORTED` | este homeserver no deja crear cuentas                                      |
+| `ADAPTER_ERROR`            | falló por detrás y no hay mejor nombre; enseña algo genérico y registra `detail` |
+
+**`error.detail` no es para pintar.** Es lo que escribió el servidor, tal cual, en el idioma que le dio la gana
+y cambiando sin avisar. Está ahí para un log y para un informe de fallo, y por eso está separado de `message`
+en vez de mezclado dentro. Si algún día un `ADAPTER_ERROR` concreto merece tratarse distinto, se convierte en
+un `code` propio: no se resuelve leyendo `detail`.
 
 Los envios de mensajes no necesitan este manejo: el outbox los reintenta solo. Si el homeserver responde que vas
 demasiado rapido, el mensaje se reenvia solo pasada exactamente la espera que pide, sin que la aplicacion tenga que

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient, SdkError } from "@relaykit/core";
+import { MessagingClient, RelayKitError } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -42,7 +42,7 @@ test("a message can be read with what was said around it", async () => {
 test("what is around a message nobody said is refused, not made up", async () => {
   const { client } = await startClient();
   const { conversation } = await aConversationWith(client, 2);
-  await assert.rejects(() => client.messages.around(conversation.id, "no-such-message"), SdkError);
+  await assert.rejects(() => client.messages.around(conversation.id, "no-such-message"), RelayKitError);
 });
 
 test("searching the homeserver comes back a page at a time", async () => {

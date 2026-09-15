@@ -1,4 +1,4 @@
-import { SdkError, type Session, type SsoAdapter, type WayIn } from "@relaykit/core";
+import { RelayKitError, type Session, type SsoAdapter, type WayIn } from "@relaykit/core";
 
 /**
  * Signing in somewhere else, pretended convincingly enough to be worth testing against.
@@ -27,7 +27,7 @@ export class InMemorySso implements SsoAdapter {
   async wayInAddress(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string> {
     const going = this.offered.find(each => each.id === wayInId) ?? this.offered[0];
     if (!going) {
-      throw new SdkError("NOT_SUPPORTED", "This homeserver offers no way in but a password");
+      throw new RelayKitError("NOT_SUPPORTED", "This homeserver offers no way in but a password");
     }
     const token = `memory-sso-${this.nextToken++}`;
     this.issued.add(token);
@@ -40,7 +40,7 @@ export class InMemorySso implements SsoAdapter {
 
   async signInWithToken(homeserver: string, token: string): Promise<Session> {
     if (!this.issued.delete(token)) {
-      throw new SdkError("INVALID_INPUT", "That sign in token was not issued here");
+      throw new RelayKitError("INVALID_INPUT", "That sign in token was not issued here");
     }
     return this.context.signIn(`memory-user-${token}`);
   }

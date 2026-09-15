@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { LinkPreview, MediaLimits, MediaRef } from "./models.js";
 
@@ -38,7 +38,7 @@ export class MediaOperations {
   async download(media: MediaRef): Promise<Uint8Array> {
     this.context.assertStarted();
     if (!media.source) {
-      throw new SdkError("INVALID_INPUT", "The attachment has not been uploaded yet");
+      throw new RelayKitError("INVALID_INPUT", "The attachment has not been uploaded yet");
     }
     const kept = this.cache.get(media.source);
     // A copy, so whoever asked cannot change what everybody else will be given afterwards.
@@ -49,7 +49,7 @@ export class MediaOperations {
       return bytes;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new SdkError("ADAPTER_ERROR", `The attachment could not be downloaded: ${reason}`);
+      throw new RelayKitError("ADAPTER_ERROR", `The attachment could not be downloaded: ${reason}`);
     }
   }
 
@@ -62,7 +62,7 @@ export class MediaOperations {
     this.context.assertStarted();
     const wanted = url.trim();
     if (!isSomewhereToGo(wanted)) {
-      throw new SdkError("INVALID_INPUT", "A link preview needs an http or https address");
+      throw new RelayKitError("INVALID_INPUT", "A link preview needs an http or https address");
     }
     const now = this.context.now();
     const known = this.previews.get(wanted);
@@ -95,7 +95,8 @@ export class MediaOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get media(): MediaAdapter {
     const media = this.context.adapter.media;
-    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    if (!media)
+      throw new RelayKitError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
     return media;
   }
 }

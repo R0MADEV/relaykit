@@ -5,6 +5,17 @@ menores; los cambios incompatibles se listan aqui.
 
 ## Sin publicar
 
+### Incompatible
+
+- **`SdkError` pasa a llamarse `RelayKitError`**, y `SdkErrorCode` a `RelayKitErrorCode`. "SDK" no significa
+  nada para quien consume esta librería. Se hace ahora porque después de 1.0 ya no se puede.
+- **El tercer argumento del constructor es un objeto**, no un número: `new RelayKitError("RATE_LIMITED", ...,
+  { retryAfterMs })`. Lo que carga un fallo tiene nombres.
+- **`error.message` ya no trae lo que escribió el homeserver.** Lo escribe esta librería, y lo que dijo el
+  servidor vive en `error.detail`, que es para un log y no para una pantalla. Quien estuviera leyendo el
+  mensaje para decidir algo estaba acoplado a Synapse sin saberlo.
+
+
 ### Añadido
 
 - **Sesiones que caducan.** `login` pide un token de refresco y, cuando el homeserver cambia el de acceso, la
@@ -38,6 +49,16 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
+  `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
+  `"Guest access not allowed"`, `"No row found (access_tokens)"`. Ahora hay 17 `errcode` mapeados, respaldo
+  por estado HTTP, `NETWORK_ERROR` para cuando no se llegó al servidor, y 24 `Error` pelados que lanzaba la
+  propia librería pasan a llevar su código. Lo prueban los fallos reales que devolvió Synapse y un test de
+  contrato que provoca refusals contra el homeserver de verdad.
+- **`FORBIDDEN` y `NETWORK_ERROR` son códigos nuevos.** Antes los dos eran `ADAPTER_ERROR`, que es lo mismo
+  que decir "algo pasó": no se puede distinguir "no puedes hacer eso" de "no hay red", y son dos pantallas
+  distintas.
 
 - **Un borrador a medias se perdía al volver a la conversación.** Dos fallos en la misma ruta del ejemplo: al
   irte se guardaba contra la conversación equivocada, y al volver se leía el borrador y se tiraba porque se
@@ -510,6 +531,16 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
+  `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
+  `"Guest access not allowed"`, `"No row found (access_tokens)"`. Ahora hay 17 `errcode` mapeados, respaldo
+  por estado HTTP, `NETWORK_ERROR` para cuando no se llegó al servidor, y 24 `Error` pelados que lanzaba la
+  propia librería pasan a llevar su código. Lo prueban los fallos reales que devolvió Synapse y un test de
+  contrato que provoca refusals contra el homeserver de verdad.
+- **`FORBIDDEN` y `NETWORK_ERROR` son códigos nuevos.** Antes los dos eran `ADAPTER_ERROR`, que es lo mismo
+  que decir "algo pasó": no se puede distinguir "no puedes hacer eso" de "no hay red", y son dos pantallas
+  distintas.
 
 - El smoke de recuperacion comprobaba que el servidor contase una clave mas, y ese contador va por detras: dos de
   cada cuatro ejecuciones fallaban sin que hubiera nada roto. Ahora comprueba lo unico que importa, que el

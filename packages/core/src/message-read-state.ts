@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { ReceiptsAdapter } from "./adapter.js";
 import type {
   Conversation,
@@ -46,7 +46,7 @@ export class MessageReadState {
   async readBy(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]> {
     this.context.assertStarted();
     if (!messageId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A message id is required");
+      throw new RelayKitError("INVALID_INPUT", "A message id is required");
     }
     return this.receipts.getReadReceipts(conversationId, messageId);
   }
@@ -96,7 +96,8 @@ export class MessageReadState {
   /** The one place that answers whether this adapter does this at all. */
   private get receipts(): ReceiptsAdapter {
     const found = this.context.adapter.receipts;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Read receipts are not something this homeserver has");
+    if (!found)
+      throw new RelayKitError("NOT_SUPPORTED", "Read receipts are not something this homeserver has");
     return found;
   }
 }

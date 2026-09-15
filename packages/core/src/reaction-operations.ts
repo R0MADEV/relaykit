@@ -1,7 +1,7 @@
 import type { MessagingAdapter, ReactionsAdapter } from "./adapter.js";
 import type { ConversationId, MessageId, Reaction, Session } from "./models.js";
 import type { PendingActions } from "./pending-actions.js";
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 
 export interface ReactionOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -20,7 +20,7 @@ export class ReactionOperations {
   async add(conversationId: ConversationId, messageId: MessageId, key: string): Promise<Reaction> {
     this.context.assertStarted();
     if (!key.trim()) {
-      throw new SdkError("INVALID_INPUT", "Reaction key cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Reaction key cannot be empty");
     }
     // Asked for before trying, because what follows treats a failure as this side being offline and keeps it
     // to send later. Something the homeserver does not do would wait in that queue for ever.
@@ -59,7 +59,8 @@ export class ReactionOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get reactions(): ReactionsAdapter {
     const reactions = this.context.adapter.reactions;
-    if (!reactions) throw new SdkError("NOT_SUPPORTED", "Reactions are not something this homeserver has");
+    if (!reactions)
+      throw new RelayKitError("NOT_SUPPORTED", "Reactions are not something this homeserver has");
     return reactions;
   }
 }

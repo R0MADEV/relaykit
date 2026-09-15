@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient, SdkError } from "@relaykit/core";
+import { MessagingClient, RelayKitError } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -141,14 +141,14 @@ test("adding an address without the password is refused, however well proved it 
   const { client, adapter } = await startClient();
   const asked = await client.account.addEmail("alice@deitu.example");
   adapter.proveAddress(asked.id);
-  await assert.rejects(() => client.account.confirmEmail(asked, "la-que-no-es"), SdkError);
+  await assert.rejects(() => client.account.confirmEmail(asked, "la-que-no-es"), RelayKitError);
   assert.deepEqual(await client.account.addresses(), []);
 });
 
 test("an address not proved is refused, and nothing is added", async () => {
   const { client } = await startClient();
   const asked = await client.account.addEmail("nobody@deitu.example");
-  await assert.rejects(() => client.account.confirmEmail(asked, "token"), SdkError);
+  await assert.rejects(() => client.account.confirmEmail(asked, "token"), RelayKitError);
   assert.deepEqual(await client.account.addresses(), []);
 });
 
@@ -165,7 +165,7 @@ test("an address can be taken off an account", async () => {
 
 test("something that is not an address is refused before the homeserver is asked", async () => {
   const { client } = await startClient();
-  await assert.rejects(() => client.account.addEmail("no-es-un-correo"), SdkError);
+  await assert.rejects(() => client.account.addEmail("no-es-un-correo"), RelayKitError);
 });
 
 test("a forgotten password is reset with what arrives by mail, and not without it", async () => {
@@ -175,7 +175,7 @@ test("a forgotten password is reset with what arrives by mail, and not without i
   const asked = await client.resetPassword("memory://test", "alice@deitu.example");
   await assert.rejects(
     () => client.finishResettingPassword("memory://test", asked, "nueva-contraseña"),
-    SdkError,
+    RelayKitError,
     "nothing was proved yet"
   );
 
@@ -188,5 +188,5 @@ test("a new password too short to be one is refused before anything is sent", as
   const { client } = await startClient();
   await client.stop();
   const asked = await client.resetPassword("memory://test", "alice@deitu.example");
-  await assert.rejects(() => client.finishResettingPassword("memory://test", asked, "corta"), SdkError);
+  await assert.rejects(() => client.finishResettingPassword("memory://test", asked, "corta"), RelayKitError);
 });

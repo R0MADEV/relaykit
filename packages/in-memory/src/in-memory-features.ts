@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import type {
   AdapterHandlers,
   ConversationId,
@@ -27,7 +28,7 @@ export class InMemoryFeatures {
 
   private requireUserId(): UserId {
     const userId = this.getUserId();
-    if (!userId) throw new Error("The in-memory adapter is not started");
+    if (!userId) throw new RelayKitError("NOT_STARTED", "The client has not been started");
     return userId;
   }
 
@@ -86,7 +87,8 @@ export class InMemoryFeatures {
 
   async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
     const isKnownKey = this.recoveryKey !== undefined && recoveryKey === this.recoveryKey;
-    if (!isKnownKey) throw new Error("Unknown recovery key");
+    if (!isKnownKey)
+      throw new RelayKitError("INVALID_INPUT", "That recovery key is not one this account knows");
     return { total: 0, imported: 0 };
   }
   async setTyping(conversationId: ConversationId, isTyping: boolean): Promise<void> {

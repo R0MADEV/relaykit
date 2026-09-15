@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { AccountAdapter, MessagingAdapter } from "./adapter.js";
 import type { AccountAddress, AddressProof } from "./models.js";
 
@@ -21,10 +21,10 @@ export class AccountOperations {
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     this.context.assertStarted();
     if (!currentPassword) {
-      throw new SdkError("INVALID_INPUT", "The current password is required");
+      throw new RelayKitError("INVALID_INPUT", "The current password is required");
     }
     if (newPassword.length < 8) {
-      throw new SdkError("INVALID_INPUT", "A password must be at least eight characters");
+      throw new RelayKitError("INVALID_INPUT", "A password must be at least eight characters");
     }
     await this.account.changePassword(currentPassword, newPassword);
   }
@@ -38,7 +38,7 @@ export class AccountOperations {
   async close(password: string): Promise<void> {
     this.context.assertStarted();
     if (!password) {
-      throw new SdkError("INVALID_INPUT", "The password is required to close an account");
+      throw new RelayKitError("INVALID_INPUT", "The password is required to close an account");
     }
     await this.account.deactivateAccount(password);
   }
@@ -81,7 +81,7 @@ export class AccountOperations {
   async confirmEmail(proof: AddressProof, password: string): Promise<void> {
     this.context.assertStarted();
     if (!password) {
-      throw new SdkError("INVALID_INPUT", "The password is required to add an address");
+      throw new RelayKitError("INVALID_INPUT", "The password is required to add an address");
     }
     await this.account.finishAddingAddress(proof, password);
   }
@@ -89,7 +89,7 @@ export class AccountOperations {
   async removeAddress(kind: "email" | "phone", address: string): Promise<void> {
     this.context.assertStarted();
     if (!address.trim()) {
-      throw new SdkError("INVALID_INPUT", "An address is required");
+      throw new RelayKitError("INVALID_INPUT", "An address is required");
     }
     await this.account.removeAddress(kind, address.trim());
   }
@@ -103,14 +103,14 @@ export class AccountOperations {
    */
   async startResettingPassword(homeserver: string, email: string): Promise<AddressProof> {
     if (!homeserver.trim()) {
-      throw new SdkError("INVALID_INPUT", "A homeserver address is required");
+      throw new RelayKitError("INVALID_INPUT", "A homeserver address is required");
     }
     return this.account.startResettingPassword(homeserver.trim(), requireEmail(email));
   }
 
   async finishResettingPassword(homeserver: string, proof: AddressProof, newPassword: string): Promise<void> {
     if (newPassword.length < 8) {
-      throw new SdkError("INVALID_INPUT", "A password must be at least eight characters");
+      throw new RelayKitError("INVALID_INPUT", "A password must be at least eight characters");
     }
     await this.account.finishResettingPassword(homeserver.trim(), proof, newPassword);
   }
@@ -119,7 +119,7 @@ export class AccountOperations {
   private get account(): AccountAdapter {
     const found = this.context.adapter.account;
     if (!found) {
-      throw new SdkError("NOT_SUPPORTED", "Managing the account is not something this homeserver has");
+      throw new RelayKitError("NOT_SUPPORTED", "Managing the account is not something this homeserver has");
     }
     return found;
   }
@@ -134,7 +134,7 @@ export class AccountOperations {
 function requireEmail(email: string): string {
   const looksLikeOne = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   if (!looksLikeOne) {
-    throw new SdkError("INVALID_INPUT", "That does not look like an email address");
+    throw new RelayKitError("INVALID_INPUT", "That does not look like an email address");
   }
   return email.trim();
 }
@@ -142,7 +142,7 @@ function requireEmail(email: string): string {
 /** A setting nobody named is a setting nobody can read back. */
 function requireName(name: string): string {
   if (!name.trim()) {
-    throw new SdkError("INVALID_INPUT", "A setting name is required");
+    throw new RelayKitError("INVALID_INPUT", "A setting name is required");
   }
   return name.trim();
 }

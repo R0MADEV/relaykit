@@ -58,7 +58,7 @@ grep -r "matrix-js-sdk\|livekit\|IndexedDB\|window\.\|document\." packages/core/
 | `*-operations.ts` | **La lógica.** Una clase por asunto: conversaciones, mensajes, llamadas, cripto… |
 | `live.ts` | Listas que se mantienen solas: `createConversationList`, `createMessageTimeline` |
 | `events.ts` | El bus tipado |
-| `errors.ts` | `SdkError` y sus códigos |
+| `errors.ts` | `RelayKitError` y sus códigos. **La lista es la promesa pública** |
 | `unavailable-adapter.ts` | Lo que responde cuando no hay backend configurado |
 
 Cuando una clase de operaciones junta dos asuntos, se parte por el asunto — no por longitud:
@@ -112,7 +112,7 @@ Cuando un backend podría legítimamente no tenerla.
 ```ts
 private get x(): XAdapter {
   const found = this.context.adapter.x;
-  if (!found) throw new SdkError("NOT_SUPPORTED", "X no es algo que este homeserver tenga");
+  if (!found) throw new RelayKitError("NOT_SUPPORTED", "X no es algo que este homeserver tenga");
   return found;
 }
 ```
@@ -224,3 +224,25 @@ Si vas a partir uno de estos, **mide la cobertura primero** y ten un motivo mejo
 
 Ver también: [README.md](README.md) (qué hay), [API.md](API.md) (la superficie), [PIEZAS.md](PIEZAS.md) (qué
 usa por debajo).
+
+## Añadir un código de error
+
+`RelayKitErrorCode` es API pública y la parte más cara de cambiar. La regla:
+
+```
+¿una aplicación haría algo DISTINTO por este fallo?
+              │
+       ┌──────┴──────┐
+      sí             no
+       │              │
+  código propio   ADAPTER_ERROR + detail
+```
+
+No se añade un código porque Matrix tenga un `errcode` para eso. Se añade cuando alguien pintaría otra
+pantalla. Mientras tanto vive como `ADAPTER_ERROR` con lo que dijo el servidor en `detail`, que es donde se
+mira para decidir si merece ascender.
+
+Dónde se traduce: `packages/matrix-js/src/matrix-errors.ts`, un solo sitio. Todo lo que sale del adaptador
+pasa por `withTranslatedErrors`, así que nada crudo del SDK escapa. Lo prueban
+`tests/one-kind-of-error.test.mjs` (con los fallos reales que devolvió Synapse) y el test de contrato
+«refuses in this library's words», que provoca refusals de verdad contra el homeserver de desarrollo.

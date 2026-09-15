@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import { notificationLevels } from "./models.js";
 import type {
   MessagingAdapter,
@@ -56,7 +56,7 @@ export class DeviceOperations {
   async revoke(userId: string, deviceId: string): Promise<void> {
     this.context.assertStarted();
     if (!userId.trim() || !deviceId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A person and a device are required");
+      throw new RelayKitError("INVALID_INPUT", "A person and a device are required");
     }
     await this.crypto.setDeviceVerified(userId.trim(), deviceId.trim(), false);
   }
@@ -65,7 +65,7 @@ export class DeviceOperations {
   async watchFor(word: string): Promise<void> {
     this.context.assertStarted();
     if (!word.trim()) {
-      throw new SdkError("INVALID_INPUT", "A word is required, or everything would interrupt");
+      throw new RelayKitError("INVALID_INPUT", "A word is required, or everything would interrupt");
     }
     await this.push.watchForKeyword(word.trim());
   }
@@ -88,7 +88,7 @@ export class DeviceOperations {
     this.context.assertStarted();
     const limit = options.limit ?? notificationsPerAsk;
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new SdkError("INVALID_INPUT", "How many notifications must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "How many notifications must be a positive whole number");
     }
     return this.push.listPendingNotifications(limit);
   }
@@ -116,7 +116,7 @@ export class DeviceOperations {
   async setLevel(level: NotificationLevel): Promise<void> {
     this.context.assertStarted();
     if (!notificationLevels.includes(level)) {
-      throw new SdkError("INVALID_INPUT", `There is no such notification level: ${level}`);
+      throw new RelayKitError("INVALID_INPUT", `There is no such notification level: ${level}`);
     }
     await this.push.setNotificationLevel(level);
   }
@@ -125,7 +125,7 @@ export class DeviceOperations {
     this.context.assertStarted();
     const wanted = userId.trim();
     if (!wanted) {
-      throw new SdkError("INVALID_INPUT", "A user id is required");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required");
     }
     return wanted;
   }
@@ -134,13 +134,13 @@ export class DeviceOperations {
   async registerPush(registration: PushRegistration): Promise<void> {
     this.context.assertStarted();
     if (!registration.gatewayUrl.trim()) {
-      throw new SdkError("INVALID_INPUT", "A push gateway address is required");
+      throw new RelayKitError("INVALID_INPUT", "A push gateway address is required");
     }
     if (!registration.deviceToken.trim()) {
-      throw new SdkError("INVALID_INPUT", "A device token is required");
+      throw new RelayKitError("INVALID_INPUT", "A device token is required");
     }
     if (!registration.appId.trim() || !registration.appName.trim()) {
-      throw new SdkError("INVALID_INPUT", "An application id and name are required");
+      throw new RelayKitError("INVALID_INPUT", "An application id and name are required");
     }
     await this.push.registerPush({
       ...registration,
@@ -162,7 +162,7 @@ export class DeviceOperations {
   async rename(deviceId: string, displayName: string): Promise<void> {
     this.context.assertStarted();
     if (!deviceId.trim() || !displayName.trim()) {
-      throw new SdkError("INVALID_INPUT", "A device and a name are required");
+      throw new RelayKitError("INVALID_INPUT", "A device and a name are required");
     }
     await this.devices.renameDevice(deviceId.trim(), displayName.trim());
   }
@@ -171,7 +171,7 @@ export class DeviceOperations {
     this.context.assertStarted();
     const wanted = deviceIds.map(deviceId => deviceId.trim()).filter(deviceId => deviceId.length > 0);
     if (wanted.length === 0) {
-      throw new SdkError("INVALID_INPUT", "At least one device is required");
+      throw new RelayKitError("INVALID_INPUT", "At least one device is required");
     }
     await this.devices.signOutDevices(wanted, options);
   }
@@ -179,7 +179,7 @@ export class DeviceOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get crypto(): CryptoAdapter {
     const crypto = this.context.adapter.crypto;
-    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    if (!crypto) throw new RelayKitError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
     return crypto;
   }
 
@@ -187,14 +187,15 @@ export class DeviceOperations {
   private get devices(): DevicesAdapter {
     const devices = this.context.adapter.devices;
     if (!devices)
-      throw new SdkError("NOT_SUPPORTED", "Other devices are not something this homeserver knows about");
+      throw new RelayKitError("NOT_SUPPORTED", "Other devices are not something this homeserver knows about");
     return devices;
   }
 
   /** The one place that answers whether this adapter does this at all. */
   private get push(): PushAdapter {
     const push = this.context.adapter.push;
-    if (!push) throw new SdkError("NOT_SUPPORTED", "Being pushed to is not something this homeserver does");
+    if (!push)
+      throw new RelayKitError("NOT_SUPPORTED", "Being pushed to is not something this homeserver does");
     return push;
   }
 
@@ -202,7 +203,10 @@ export class DeviceOperations {
   private get ignoring(): IgnoringAdapter {
     const found = this.context.adapter.ignoring;
     if (!found)
-      throw new SdkError("NOT_SUPPORTED", "Ignoring and muting people is not something this homeserver has");
+      throw new RelayKitError(
+        "NOT_SUPPORTED",
+        "Ignoring and muting people is not something this homeserver has"
+      );
     return found;
   }
 }

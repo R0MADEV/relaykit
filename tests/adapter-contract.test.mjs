@@ -2,6 +2,26 @@ import assert from "node:assert/strict";
 import { describe, it, before, after } from "node:test";
 import { InMemoryAdapter } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { RelayKitError } from "@relaykit/core";
+
+/** The whole promise: an application branches on these and never on what a backend called it. */
+const knownCodes = [
+  "NOT_STARTED",
+  "ALREADY_STARTED",
+  "NOT_CONFIGURED",
+  "INVALID_SESSION",
+  "INVALID_INPUT",
+  "MESSAGE_NOT_FOUND",
+  "CONVERSATION_NOT_FOUND",
+  "VERIFICATION_NOT_FOUND",
+  "FORBIDDEN",
+  "NOT_SUPPORTED",
+  "RATE_LIMITED",
+  "USERNAME_TAKEN",
+  "REGISTRATION_UNSUPPORTED",
+  "NETWORK_ERROR",
+  "ADAPTER_ERROR"
+];
 
 /**
  * One suite that every MessagingAdapter must satisfy. It runs against the in-memory adapter always and
@@ -181,6 +201,33 @@ function runContract(name, setup) {
         around.after.map(message => message.body),
         ["después uno", "después dos"]
       );
+    });
+
+    it("refuses in this library's words, whatever the backend calls it", async () => {
+      // Four ways of being told no, asked for on purpose. What matters is not which code comes back but that
+      // every one of them is one of ours, and that nothing a backend wrote reaches the message.
+      const waysOfBeingRefused = [
+        ["a conversation that is not there", () => adapter.listParticipants("!nothing:localhost")],
+        ["a message that is not there", () => adapter.editMessage(conversationId, "$nothing", "hola")],
+        ["a profile nobody has", () => adapter.getProfile("@nobody-at-all:localhost")],
+        ["leaving somewhere never joined", () => adapter.leaveConversation("!nothing:localhost")]
+      ];
+
+      for (const [what, tryIt] of waysOfBeingRefused) {
+        const refusal = await tryIt().then(
+          () => undefined,
+          error => error
+        );
+        if (!refusal) continue;
+        assert.ok(refusal instanceof RelayKitError, `${what} came back as ${refusal.constructor.name}`);
+        assert.ok(knownCodes.includes(refusal.code), `${what} came back as ${refusal.code}`);
+        // The promise is not one fixed sentence per code — our own failures say what actually happened. It
+        // is that the message is written here: whatever the backend wrote lives in `detail` and nowhere else.
+        assert.ok(
+          refusal.detail === undefined || !refusal.message.includes(refusal.detail),
+          `${what} said «${refusal.message}», which is what the backend wrote`
+        );
+      }
     });
 
     it("reports the participant it invited as not having accepted yet", async () => {

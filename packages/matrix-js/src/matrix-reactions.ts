@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import { EventType, RelationType, type MatrixClient } from "matrix-js-sdk";
 import type { ConversationId, MessageId, Reaction } from "@relaykit/core";
 
@@ -12,7 +13,7 @@ export async function addMatrixReaction(
   });
   const senderId = client.getUserId();
   if (!senderId) {
-    throw new Error("Matrix client has no user ID");
+    throw new RelayKitError("NOT_STARTED", "The client has not been started");
   }
   return { id: response.event_id, messageId, senderId, key, createdAt: Date.now() };
 }

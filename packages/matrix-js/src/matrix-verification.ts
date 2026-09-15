@@ -9,7 +9,7 @@ import {
   type VerificationRequest,
   type Verifier
 } from "matrix-js-sdk/lib/crypto-api/index.js";
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type {
   AdapterHandlers,
   VerificationMethod,
@@ -58,10 +58,10 @@ export class MatrixVerificationTracker {
   ): Promise<VerificationSession> {
     const client = this.requireClient();
     const crypto = client.getCrypto();
-    if (!crypto) throw new Error("Matrix crypto is not initialized");
+    if (!crypto) throw new RelayKitError("NOT_CONFIGURED", "The client is not configured for that");
     const isOwnUser = userId === client.getSafeUserId();
     if (!deviceId && !isOwnUser && !options.conversationId) {
-      throw new SdkError(
+      throw new RelayKitError(
         "INVALID_INPUT",
         "Verifying another person needs a conversation the two of you share"
       );
@@ -96,7 +96,7 @@ export class MatrixVerificationTracker {
       // The sdk checks for its own verifier right after handing the code to the rust side, and that check can
       // run before the change that creates it. The scan itself went through, so what is left is to wait.
       if (!reason.includes("no verifier")) {
-        throw new SdkError("INVALID_INPUT", `That code does not belong to this verification: ${reason}`);
+        throw new RelayKitError("INVALID_INPUT", `That code does not belong to this verification: ${reason}`);
       }
       return undefined;
     });
@@ -119,7 +119,7 @@ export class MatrixVerificationTracker {
     return new Promise((resolve, reject) => {
       const giveUp = setTimeout(() => {
         tracked.request.off(VerificationRequestEvent.Change, look);
-        reject(new SdkError("INVALID_INPUT", "That code did not start a verification"));
+        reject(new RelayKitError("INVALID_INPUT", "That code did not start a verification"));
       }, 4000);
       const look = () => {
         const verifier = tracked.request.verifier ?? tracked.verifier;
@@ -235,18 +235,19 @@ export class MatrixVerificationTracker {
 
   private require(sessionId: string): TrackedVerification {
     const tracked = this.sessions.get(sessionId);
-    if (!tracked) throw new SdkError("VERIFICATION_NOT_FOUND", "The verification session does not exist");
+    if (!tracked)
+      throw new RelayKitError("VERIFICATION_NOT_FOUND", "The verification session does not exist");
     return tracked;
   }
 
   private requireSas(sessionId: string): ShowSasCallbacks {
     const { sas } = this.require(sessionId);
-    if (!sas) throw new SdkError("INVALID_INPUT", "The verification has not reached the SAS phase yet");
+    if (!sas) throw new RelayKitError("INVALID_INPUT", "The verification has not reached the SAS phase yet");
     return sas;
   }
 
   private requireClient(): MatrixClient {
-    if (!this.client) throw new Error("The Matrix adapter is not started");
+    if (!this.client) throw new RelayKitError("NOT_STARTED", "The client has not been started");
     return this.client;
   }
 

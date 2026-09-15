@@ -1,5 +1,5 @@
 import {
-  SdkError,
+  RelayKitError,
   type ConversationId,
   type Message,
   type MessageId,
@@ -27,7 +27,7 @@ export class InMemoryFromOutside {
   ): Promise<MessageSurroundings> {
     const said = this.said(conversationId);
     const at = said.findIndex(message => message.id === messageId);
-    if (at < 0) throw new SdkError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
+    if (at < 0) throw new RelayKitError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
     return {
       message: said[at] as Message,
       before: said.slice(Math.max(0, at - limit), at),

@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import { longestLocationShareMs } from "./models.js";
 import type { MessagingAdapter, LocationAdapter } from "./adapter.js";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "./models.js";
@@ -18,10 +18,10 @@ export class LocationOperations {
   async start(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation> {
     this.context.assertStarted();
     if (!Number.isFinite(input.durationMs) || input.durationMs <= 0) {
-      throw new SdkError("INVALID_INPUT", "Sharing where somebody is needs to say for how long");
+      throw new RelayKitError("INVALID_INPUT", "Sharing where somebody is needs to say for how long");
     }
     if (input.durationMs > longestLocationShareMs) {
-      throw new SdkError("INVALID_INPUT", "Sharing where somebody is cannot last longer than a day");
+      throw new RelayKitError("INVALID_INPUT", "Sharing where somebody is cannot last longer than a day");
     }
     return this.location.startLiveLocation(conversationId, input);
   }
@@ -46,7 +46,7 @@ export class LocationOperations {
   private get location(): LocationAdapter {
     const location = this.context.adapter.location;
     if (!location)
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "Telling where somebody is live is not something this homeserver does"
       );
@@ -57,6 +57,6 @@ export class LocationOperations {
 function requirePlace(position: GeoLocation): void {
   const isSomewhereOnEarth = Math.abs(position.latitude) <= 90 && Math.abs(position.longitude) <= 180;
   if (!isSomewhereOnEarth) {
-    throw new SdkError("INVALID_INPUT", "That is not a place on Earth");
+    throw new RelayKitError("INVALID_INPUT", "That is not a place on Earth");
   }
 }

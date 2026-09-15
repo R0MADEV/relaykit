@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, SpacesAdapter } from "./adapter.js";
 import type { Conversation, ConversationId, CreateSpaceInput, Space, SpaceChild } from "./models.js";
 
@@ -19,7 +19,7 @@ export class SpaceOperations {
   async create(input: CreateSpaceInput): Promise<Space> {
     this.context.assertStarted();
     if (!input.title.trim()) {
-      throw new SdkError("INVALID_INPUT", "A space needs a name");
+      throw new RelayKitError("INVALID_INPUT", "A space needs a name");
     }
     return this.spaces.createSpace({ title: input.title.trim() });
   }
@@ -48,7 +48,7 @@ export class SpaceOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get spaces(): SpacesAdapter {
     const spaces = this.context.adapter.spaces;
-    if (!spaces) throw new SdkError("NOT_SUPPORTED", "Spaces are not something this homeserver has");
+    if (!spaces) throw new RelayKitError("NOT_SUPPORTED", "Spaces are not something this homeserver has");
     return spaces;
   }
 }

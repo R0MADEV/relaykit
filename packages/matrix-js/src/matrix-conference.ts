@@ -6,7 +6,7 @@ import {
   streamOf,
   whoIs
 } from "./call-memberships.js";
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import { qualityFrom, statsIn } from "./call-quality.js";
 import { keysFor } from "./conference-keys.js";
 import type {
@@ -222,7 +222,7 @@ export class MatrixConference {
   /** Picking up what rang: the call the room announced is entered, and it stops being a thing apart. */
   async answer(client: MatrixClient, callId: string, options: PlaceCallOptions): Promise<Call> {
     const ringing = this.announced.get(callId);
-    if (!ringing) throw new SdkError("INVALID_INPUT", "That call is not ringing here");
+    if (!ringing) throw new RelayKitError("INVALID_INPUT", "That call is not ringing here");
     return this.join(client, ringing.conversationId, options, { ring: false });
   }
 
@@ -353,7 +353,7 @@ export class MatrixConference {
 
   private require(callId: string): Joined {
     const going = this.joined.get(callId);
-    if (!going) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!going) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     return going;
   }
 

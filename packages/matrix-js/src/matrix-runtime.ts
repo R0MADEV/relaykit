@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import type { MatrixEvent, IndexedDBStore, AccessTokens } from "matrix-js-sdk";
 import {
   ClientEvent,
@@ -215,7 +216,7 @@ export class MatrixRuntime {
   }
 
   getClient(): MatrixClient {
-    if (!this.client) throw new Error("The Matrix adapter is not started");
+    if (!this.client) throw new RelayKitError("NOT_STARTED", "The client has not been started");
     return this.client;
   }
 

@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
 import type {
   CryptoStatus,
@@ -54,7 +54,7 @@ export class CryptoOperations {
   async recover(recoveryKey: string): Promise<KeyBackupRestoreSummary> {
     this.context.assertStarted();
     if (!recoveryKey.trim()) {
-      throw new SdkError("INVALID_INPUT", "Recovery key cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Recovery key cannot be empty");
     }
     try {
       return await this.crypto.recover(recoveryKey.trim());
@@ -66,15 +66,15 @@ export class CryptoOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get crypto(): CryptoAdapter {
     const crypto = this.context.adapter.crypto;
-    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    if (!crypto) throw new RelayKitError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
     return crypto;
   }
 }
 
-function adapterError(summary: string, error: unknown): SdkError {
-  if (error instanceof SdkError) return error;
+function adapterError(summary: string, error: unknown): RelayKitError {
+  if (error instanceof RelayKitError) return error;
   const reason = error instanceof Error ? error.message : String(error);
-  return new SdkError("ADAPTER_ERROR", `${summary}: ${reason}`);
+  return new RelayKitError("ADAPTER_ERROR", `${summary}: ${reason}`);
 }
 
 /** The decision itself, apart from the asking, because it is the part worth being sure about. */

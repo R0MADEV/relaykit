@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { CallingAdapter, MessagingAdapter } from "./adapter.js";
 import type { Call, CallQuality, ConversationId, PastCall, PlaceCallOptions } from "./models.js";
 
@@ -99,7 +99,7 @@ export class CallOperations {
   private get calling(): CallingAdapter {
     const calling = this.context.adapter.calling;
     if (!calling) {
-      throw new SdkError("NOT_SUPPORTED", "Conferences are not something this homeserver holds");
+      throw new RelayKitError("NOT_SUPPORTED", "Conferences are not something this homeserver holds");
     }
     return calling;
   }
@@ -108,28 +108,31 @@ export class CallOperations {
   async history(conversationId: ConversationId, limit = 20): Promise<readonly PastCall[]> {
     this.context.assertStarted();
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new SdkError("INVALID_INPUT", "How many past calls to fetch has to be a whole number above zero");
+      throw new RelayKitError(
+        "INVALID_INPUT",
+        "How many past calls to fetch has to be a whole number above zero"
+      );
     }
     return this.calling.listPastCalls(this.requireConversation(conversationId), limit);
   }
 
   private requireConversation(conversationId: ConversationId): ConversationId {
     if (!conversationId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A call needs a conversation to happen in");
+      throw new RelayKitError("INVALID_INPUT", "A call needs a conversation to happen in");
     }
     return conversationId;
   }
 
   private requireDevice(deviceId: string): string {
     if (!deviceId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A device is needed to choose one");
+      throw new RelayKitError("INVALID_INPUT", "A device is needed to choose one");
     }
     return deviceId;
   }
 
   private require(callId: string): string {
     if (!callId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A call id is required");
+      throw new RelayKitError("INVALID_INPUT", "A call id is required");
     }
     return callId;
   }

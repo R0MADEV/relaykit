@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import { historyVisibilities, joinRules } from "./models.js";
 import type { ConversationSettingsAdapter, PinsAdapter } from "./adapter.js";
 import type {
@@ -64,7 +64,7 @@ export class ConversationSettings {
   async rename(conversationId: string, title: string): Promise<Conversation> {
     this.context.assertStarted();
     if (!title.trim()) {
-      throw new SdkError("INVALID_INPUT", "Conversation title cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Conversation title cannot be empty");
     }
     return this.save(await this.conversationSettings.renameConversation(conversationId, title.trim()));
   }
@@ -95,7 +95,7 @@ export class ConversationSettings {
   async setAvatar(conversationId: string, image: AvatarImage): Promise<Conversation> {
     this.context.assertStarted();
     if (image.data.byteLength === 0 || !image.mimeType.trim()) {
-      throw new SdkError("INVALID_INPUT", "A picture needs content and a type");
+      throw new RelayKitError("INVALID_INPUT", "A picture needs content and a type");
     }
     return this.save(await this.conversationSettings.setConversationAvatar(conversationId, image));
   }
@@ -107,7 +107,7 @@ export class ConversationSettings {
   async pin(conversationId: string, messageId: string): Promise<void> {
     this.context.assertStarted();
     if (!messageId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A message id is required");
+      throw new RelayKitError("INVALID_INPUT", "A message id is required");
     }
     await this.pins.pinMessage(conversationId, messageId.trim());
   }
@@ -149,7 +149,7 @@ export class ConversationSettings {
     const wanted = alias.trim();
     const looksLikeAnAlias = wanted.startsWith("#") && wanted.includes(":") && wanted.length > 3;
     if (!looksLikeAnAlias) {
-      throw new SdkError("INVALID_INPUT", "An alias looks like #name:server");
+      throw new RelayKitError("INVALID_INPUT", "An alias looks like #name:server");
     }
     return this.save(await this.conversationSettings.setConversationAlias(conversationId, wanted));
   }
@@ -165,7 +165,7 @@ export class ConversationSettings {
   async setJoinRule(conversationId: string, rule: JoinRule): Promise<Conversation> {
     this.context.assertStarted();
     if (!joinRules.includes(rule)) {
-      throw new SdkError("INVALID_INPUT", `Unknown join rule: ${rule}`);
+      throw new RelayKitError("INVALID_INPUT", `Unknown join rule: ${rule}`);
     }
     return this.save(await this.conversationSettings.setJoinRule(conversationId, rule));
   }
@@ -173,7 +173,7 @@ export class ConversationSettings {
   async setHistoryVisibility(conversationId: string, visibility: HistoryVisibility): Promise<Conversation> {
     this.context.assertStarted();
     if (!historyVisibilities.includes(visibility)) {
-      throw new SdkError("INVALID_INPUT", `Unknown history visibility: ${visibility}`);
+      throw new RelayKitError("INVALID_INPUT", `Unknown history visibility: ${visibility}`);
     }
     return this.save(await this.conversationSettings.setHistoryVisibility(conversationId, visibility));
   }
@@ -181,7 +181,7 @@ export class ConversationSettings {
   private get conversationSettings(): ConversationSettingsAdapter {
     const found = this.context.adapter.conversationSettings;
     if (!found)
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "Changing what a conversation is is not something this homeserver has"
       );
@@ -191,7 +191,8 @@ export class ConversationSettings {
   /** The one place that answers whether this adapter does this at all. */
   private get pins(): PinsAdapter {
     const found = this.context.adapter.pins;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Pinning messages is not something this homeserver has");
+    if (!found)
+      throw new RelayKitError("NOT_SUPPORTED", "Pinning messages is not something this homeserver has");
     return found;
   }
 }
@@ -199,7 +200,7 @@ export class ConversationSettings {
 /** A name nobody typed is not a name, and the homeserver would keep it for ever. */
 function requireTag(tag: string): string {
   if (!tag.trim()) {
-    throw new SdkError("INVALID_INPUT", "A tag name is required");
+    throw new RelayKitError("INVALID_INPUT", "A tag name is required");
   }
   return tag.trim();
 }

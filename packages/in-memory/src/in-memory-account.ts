@@ -1,5 +1,5 @@
 import {
-  SdkError,
+  RelayKitError,
   type AccountAdapter,
   type AccountAddress,
   type AddressProof,
@@ -29,14 +29,14 @@ export class InMemoryAccount implements AccountAdapter {
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     if (currentPassword !== this.context.password()) {
-      throw new SdkError("INVALID_INPUT", "That is not the current password");
+      throw new RelayKitError("INVALID_INPUT", "That is not the current password");
     }
     this.context.changed(newPassword);
   }
 
   async deactivateAccount(password: string): Promise<void> {
     if (password !== this.context.password()) {
-      throw new SdkError("INVALID_INPUT", "That is not the current password");
+      throw new RelayKitError("INVALID_INPUT", "That is not the current password");
     }
     this.settings.clear();
   }
@@ -56,11 +56,11 @@ export class InMemoryAccount implements AccountAdapter {
 
   async finishAddingAddress(proof: AddressProof, password: string): Promise<void> {
     if (password !== this.context.password()) {
-      throw new SdkError("INVALID_INPUT", "That is not the current password");
+      throw new RelayKitError("INVALID_INPUT", "That is not the current password");
     }
     const asked = this.waiting.get(proof.id);
     if (!asked || !this.proved.has(proof.id)) {
-      throw new SdkError("INVALID_INPUT", "That address has not been proved yet");
+      throw new RelayKitError("INVALID_INPUT", "That address has not been proved yet");
     }
     this.addresses.push({ ...asked, provedAt: Date.now() });
     this.waiting.delete(proof.id);
@@ -82,7 +82,7 @@ export class InMemoryAccount implements AccountAdapter {
 
   async finishResettingPassword(homeserver: string, proof: AddressProof, newPassword: string): Promise<void> {
     if (!this.proved.has(proof.id)) {
-      throw new SdkError("INVALID_INPUT", "That address has not been proved yet");
+      throw new RelayKitError("INVALID_INPUT", "That address has not been proved yet");
     }
     this.proved.delete(proof.id);
     this.context.changed(newPassword);

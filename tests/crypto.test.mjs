@@ -28,11 +28,12 @@ test("setupRecovery returns a recovery key that can restore the backup", async (
   await client.stop();
 });
 
-test("recover rejects an unknown recovery key with an adapter error", async () => {
+test("a recovery key that is not this account's is the caller's mistake, not the server's", async () => {
   const client = await startClient();
   await client.crypto.setupRecovery();
 
-  await assert.rejects(client.crypto.recover("wrong key"), { code: "ADAPTER_ERROR" });
+  // Bad input rather than a backend failure: nothing went wrong anywhere, the key is simply not the one.
+  await assert.rejects(client.crypto.recover("wrong key"), { code: "INVALID_INPUT" });
   await client.stop();
 });
 

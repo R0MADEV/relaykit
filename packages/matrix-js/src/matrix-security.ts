@@ -1,7 +1,7 @@
 import { MatrixError, SecretStorage, type AuthDict, type MatrixClient, AuthType } from "matrix-js-sdk";
 import type { CryptoCallbacks } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key.js";
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import { stringAt } from "./reading-content.js";
 import type {
   CryptoStatus,
@@ -42,7 +42,7 @@ export class SecretStorageKeyHolder {
 
 function requireCrypto(client: MatrixClient) {
   const crypto = client.getCrypto();
-  if (!crypto) throw new Error("Matrix crypto is not initialized");
+  if (!crypto) throw new RelayKitError("NOT_CONFIGURED", "The client is not configured for that");
   return crypto;
 }
 
@@ -103,7 +103,8 @@ export async function setupRecovery(
   const crypto = requireCrypto(client);
   const generated = await crypto.createRecoveryKeyFromPassphrase();
   const recoveryKey = generated.encodedPrivateKey;
-  if (!recoveryKey) throw new Error("Matrix did not return an encoded recovery key");
+  if (!recoveryKey)
+    throw new RelayKitError("ADAPTER_ERROR", "The homeserver did not return an encoded recovery key");
   await keys.use(generated.privateKey, async () => {
     // Three steps, and the order of them is the whole difficulty.
     //
@@ -179,7 +180,7 @@ async function proveWhoYouAre(
   } catch (error) {
     if (!(error instanceof MatrixError) || error.httpStatus !== 401) throw error;
     if (!password) {
-      throw new SdkError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
+      throw new RelayKitError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
     }
     const session = stringAt(error.data, "session");
     // Built as the one kind of auth this asks for, rather than assembled and then said to be some kind of

@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import {
   ConditionKind,
   EventType,
@@ -207,7 +208,7 @@ export async function markMatrixRead(
   options: MarkReadOptions = {}
 ): Promise<void> {
   const room = client.getRoom(conversationId);
-  if (!room) throw new Error("The conversation does not exist");
+  if (!room) throw new RelayKitError("CONVERSATION_NOT_FOUND", "There is no such conversation");
   const event = room.findEventById(messageId);
   // A thread is read on its own. The marker belongs to the whole conversation, so moving it here would say
   // the conversation was read, which is exactly what reading one thread does not mean.

@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { RecentIds } from "./recent-ids.js";
 import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
@@ -48,19 +48,19 @@ export class OutboxOperations {
   ): Promise<Message> {
     this.context.assertStarted();
     if (!body.trim()) {
-      throw new SdkError("INVALID_INPUT", "Message body cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Message body cannot be empty");
     }
     if (options.replyTo !== undefined && !options.replyTo.trim()) {
-      throw new SdkError("INVALID_INPUT", "The message being replied to must be identified");
+      throw new RelayKitError("INVALID_INPUT", "The message being replied to must be identified");
     }
     if (options.threadId !== undefined && !options.threadId.trim()) {
-      throw new SdkError("INVALID_INPUT", "The message the thread hangs from must be identified");
+      throw new RelayKitError("INVALID_INPUT", "The message the thread hangs from must be identified");
     }
     if (options.formattedBody !== undefined && !options.formattedBody.trim()) {
-      throw new SdkError("INVALID_INPUT", "Formatted text cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Formatted text cannot be empty");
     }
     if ((options.mentions?.userIds ?? []).some(userId => !userId.trim())) {
-      throw new SdkError("INVALID_INPUT", "A mention must name somebody");
+      throw new RelayKitError("INVALID_INPUT", "A mention must name somebody");
     }
     const base = this.createLocalMessage(conversationId, body);
     const localMessage: Message = {
@@ -81,10 +81,10 @@ export class OutboxOperations {
   async sendLocation(conversationId: ConversationId, location: GeoLocation): Promise<Message> {
     this.context.assertStarted();
     if (!Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90) {
-      throw new SdkError("INVALID_INPUT", "The latitude must be between -90 and 90");
+      throw new RelayKitError("INVALID_INPUT", "The latitude must be between -90 and 90");
     }
     if (!Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) {
-      throw new SdkError("INVALID_INPUT", "The longitude must be between -180 and 180");
+      throw new RelayKitError("INVALID_INPUT", "The longitude must be between -180 and 180");
     }
     const described = location.description?.trim();
     const body =
@@ -100,7 +100,7 @@ export class OutboxOperations {
 
   async sendVoice(conversationId: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message> {
     if (!Number.isFinite(voice.durationMs) || voice.durationMs <= 0) {
-      throw new SdkError("INVALID_INPUT", "A voice note needs the length it lasts");
+      throw new RelayKitError("INVALID_INPUT", "A voice note needs the length it lasts");
     }
     return this.sendFile(conversationId, { ...file, voice }, {});
   }
@@ -148,7 +148,7 @@ export class OutboxOperations {
   private createLocalMessage(conversationId: ConversationId, body: string): Message {
     const session = this.context.getSession();
     if (!session) {
-      throw new SdkError("INVALID_SESSION", "A session is required to send a message");
+      throw new RelayKitError("INVALID_SESSION", "A session is required to send a message");
     }
     const transactionId = crypto.randomUUID();
     // Whatever comes back carrying this transaction id is our own echo, not somebody else writing.
@@ -167,7 +167,7 @@ export class OutboxOperations {
   private async requireStoredMessage(messageId: MessageId): Promise<Message> {
     const message = await this.context.storage?.getMessage(messageId);
     if (!message) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
     return message;
   }
@@ -191,7 +191,7 @@ export class OutboxOperations {
       : false;
     const isBeingDelivered = message.status === "sent" || (this.inFlight.has(message.id) && !wasStopped);
     if (isBeingDelivered) {
-      throw new SdkError("INVALID_INPUT", "Only queued or failed messages can be cancelled");
+      throw new RelayKitError("INVALID_INPUT", "Only queued or failed messages can be cancelled");
     }
     await this.context.storage?.deleteOutboxOperation(message.id);
     await this.context.storage?.deleteMessage(message.id);
@@ -257,9 +257,9 @@ export class OutboxOperations {
     } catch (error) {
       await this.fail(message, error);
       // A typed error from the adapter, such as a rate limit, is worth more than a generic one.
-      if (error instanceof SdkError) throw error;
+      if (error instanceof RelayKitError) throw error;
       const reason = error instanceof Error ? error.message : String(error);
-      throw new SdkError("ADAPTER_ERROR", `The message could not be sent: ${reason}`);
+      throw new RelayKitError("ADAPTER_ERROR", `The message could not be sent: ${reason}`);
     }
   }
 
@@ -277,7 +277,7 @@ export class OutboxOperations {
       });
     }
     if (!file) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The file content of this message is no longer available");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The file content of this message is no longer available");
     }
     return this.media.sendAttachment(
       message.conversationId,
@@ -373,7 +373,7 @@ export class OutboxOperations {
   private async fail(message: Message, error: unknown): Promise<void> {
     await this.saveAndEmit({ ...message, status: "failed" });
     const retryAfterMs =
-      error instanceof SdkError && error.code === "RATE_LIMITED" ? error.retryAfterMs : undefined;
+      error instanceof RelayKitError && error.code === "RATE_LIMITED" ? error.retryAfterMs : undefined;
     const operation = await this.findOperation(message.id);
     if (operation) {
       const attempts = operation.attempts + 1;
@@ -426,19 +426,20 @@ export class OutboxOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get media(): MediaAdapter {
     const media = this.context.adapter.media;
-    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    if (!media)
+      throw new RelayKitError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
     return media;
   }
 }
 
 function validateFile(file: FileInput): void {
   if (!file.name.trim()) {
-    throw new SdkError("INVALID_INPUT", "File name cannot be empty");
+    throw new RelayKitError("INVALID_INPUT", "File name cannot be empty");
   }
   if (!file.mimeType.trim()) {
-    throw new SdkError("INVALID_INPUT", "File MIME type cannot be empty");
+    throw new RelayKitError("INVALID_INPUT", "File MIME type cannot be empty");
   }
   if (file.data.byteLength === 0) {
-    throw new SdkError("INVALID_INPUT", "File content cannot be empty");
+    throw new RelayKitError("INVALID_INPUT", "File content cannot be empty");
   }
 }

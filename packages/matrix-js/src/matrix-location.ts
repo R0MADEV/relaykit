@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import { M_BEACON, M_BEACON_INFO, type MatrixClient, ContentHelpers, LocationAssetType } from "matrix-js-sdk";
 import { placeAt } from "./geo-uri.js";
 import type { ConversationId, GeoLocation, LiveLocation, ShareLocationInput } from "@relaykit/core";
@@ -55,7 +56,7 @@ export async function updateMatrixLiveLocation(
   const { conversationId, sharedBy } = splitSharingId(sharingId);
   const beacon = await findBeacon(client, conversationId, sharedBy);
   if (!beacon?.isLive) {
-    throw new Error("That sharing is no longer live");
+    throw new RelayKitError("MESSAGE_NOT_FOUND", "That sharing is no longer live");
   }
   await client.sendEvent(
     conversationId,
@@ -129,6 +130,6 @@ async function findBeacon(client: MatrixClient, conversationId: string, sharedBy
 
 function splitSharingId(sharingId: string): { conversationId: string; sharedBy: string } {
   const divide = sharingId.lastIndexOf("|");
-  if (divide < 1) throw new Error(`That is not something being shared: ${sharingId}`);
+  if (divide < 1) throw new RelayKitError("MESSAGE_NOT_FOUND", "There is no such message");
   return { conversationId: sharingId.slice(0, divide), sharedBy: sharingId.slice(divide + 1) };
 }

@@ -1,6 +1,6 @@
 import type { MatrixClient, MatrixEvent } from "matrix-js-sdk";
 
-import { SdkError, type ConversationId, type MessageId, type MessageSurroundings } from "@relaykit/core";
+import { RelayKitError, type ConversationId, type MessageId, type MessageSurroundings } from "@relaykit/core";
 import { mapMessages } from "./matrix-mapper.js";
 
 /**
@@ -18,20 +18,20 @@ export async function readAroundMatrixMessage(
 ): Promise<MessageSurroundings> {
   const room = client.getRoom(conversationId);
   if (!room) {
-    throw new SdkError("CONVERSATION_NOT_FOUND", `There is no conversation called ${conversationId}`);
+    throw new RelayKitError("CONVERSATION_NOT_FOUND", `There is no conversation called ${conversationId}`);
   }
   const timeline = await client
     .getEventTimeline(room.getUnfilteredTimelineSet(), messageId)
     .catch(() => null);
-  if (!timeline) throw new SdkError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
+  if (!timeline) throw new RelayKitError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
   const events = timeline.getEvents();
   const at = events.findIndex(event => event.getId() === messageId);
-  if (at < 0) throw new SdkError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
+  if (at < 0) throw new RelayKitError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
   for (const event of events) {
     if (event.isEncrypted()) await client.decryptEventIfNeeded(event);
   }
   const [message] = await mapMessages([events[at] as MatrixEvent]);
-  if (!message) throw new SdkError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
+  if (!message) throw new RelayKitError("MESSAGE_NOT_FOUND", `There is no message called ${messageId}`);
   return {
     message,
     before: await mapMessages(events.slice(Math.max(0, at - limit), at)),

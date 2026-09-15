@@ -66,7 +66,7 @@ import type {
   UserPresence,
   VerificationSession
 } from "@relaykit/core";
-import { SdkError, conversationLinkedIn } from "@relaykit/core";
+import { RelayKitError, conversationLinkedIn } from "@relaykit/core";
 import { InMemoryCalls } from "./in-memory-calls.js";
 import { InMemoryCrypto } from "./in-memory-crypto.js";
 import { InMemoryPeople, type HeldProfile } from "./in-memory-people.js";
@@ -216,13 +216,13 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   async register(credentials: RegisterCredentials): Promise<Session> {
     if (this.requiredRegistrationStages.length > 0) {
-      throw new SdkError(
+      throw new RelayKitError(
         "REGISTRATION_UNSUPPORTED",
         `This homeserver requires: ${this.requiredRegistrationStages.join(", ")}`
       );
     }
     if (this.takenUsernames.has(credentials.username)) {
-      throw new SdkError("USERNAME_TAKEN", "That username is already taken");
+      throw new RelayKitError("USERNAME_TAKEN", "That username is already taken");
     }
     this.takenUsernames.add(credentials.username);
     return {
@@ -433,7 +433,7 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   private requireConversation(conversationId: ConversationId): Conversation {
     const conversation = this.findConversation(conversationId);
-    if (!conversation) throw new Error("The conversation does not exist");
+    if (!conversation) throw new RelayKitError("CONVERSATION_NOT_FOUND", "There is no such conversation");
     return conversation;
   }
 
@@ -768,7 +768,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   }
 
   private requireUserId(): UserId {
-    if (!this.currentUserId) throw new Error("The in-memory adapter is not started");
+    if (!this.currentUserId) throw new RelayKitError("NOT_STARTED", "The client has not been started");
     return this.currentUserId;
   }
 
@@ -888,7 +888,7 @@ export class InMemoryAdapter implements MessagingAdapter {
   async downloadAttachment(media: MediaRef): Promise<Uint8Array> {
     const data = this.attachments.get(media.source);
     if (!data) {
-      throw new Error("The attachment does not exist");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The attachment does not exist");
     }
     return new Uint8Array(data);
   }
@@ -906,7 +906,7 @@ export class InMemoryAdapter implements MessagingAdapter {
       item => item.id === messageId && item.conversationId === conversationId
     );
     if (!message) {
-      throw new Error("The message does not exist");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
     return message;
   }

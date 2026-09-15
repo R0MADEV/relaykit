@@ -1,5 +1,5 @@
 import { MatrixError, type MatrixClient, AuthType } from "matrix-js-sdk";
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import { downloadFromMediaServer, uploadAvatarImage } from "./matrix-media.js";
 import type { AvatarImage, Device, SignOutOptions, User, UserId, UserPresence } from "@relaykit/core";
 import { presenceStates } from "@relaykit/core";
@@ -97,7 +97,10 @@ export async function signOutMatrixDevices(
   } catch (error) {
     if (!(error instanceof MatrixError) || error.httpStatus !== 401) throw error;
     if (!options.password) {
-      throw new SdkError("INVALID_INPUT", "The homeserver asks for the password to close other sessions");
+      throw new RelayKitError(
+        "INVALID_INPUT",
+        "The homeserver asks for the password to close other sessions"
+      );
     }
     const session = (error.data as { session?: string }).session;
     await client.deleteMultipleDevices([...deviceIds], {

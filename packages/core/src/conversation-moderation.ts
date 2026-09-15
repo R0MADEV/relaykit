@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { ModerationAdapter } from "./adapter.js";
 import type {
   Conversation,
@@ -60,7 +60,7 @@ export class ConversationModeration {
   private requireUser(userId: UserId): UserId {
     this.context.assertStarted();
     if (!userId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A user id is required");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required");
     }
     return userId.trim();
   }
@@ -69,7 +69,10 @@ export class ConversationModeration {
   private get moderation(): ModerationAdapter {
     const found = this.context.adapter.moderation;
     if (!found) {
-      throw new SdkError("NOT_SUPPORTED", "Moderating a conversation is not something this homeserver has");
+      throw new RelayKitError(
+        "NOT_SUPPORTED",
+        "Moderating a conversation is not something this homeserver has"
+      );
     }
     return found;
   }

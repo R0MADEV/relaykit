@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import {
   RelationType,
   ClientEvent,
@@ -99,7 +100,7 @@ export async function waitUntilRoomIsUsable(room: Room, timeoutMs = 15000): Prom
     if (isJoined && hasState) return;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw new Error("The conversation is not ready yet");
+  throw new RelayKitError("CONVERSATION_NOT_FOUND", "The conversation is not ready yet");
 }
 
 export async function listMatrixThread(

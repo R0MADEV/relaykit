@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { InMemoryAdapter, InMemoryStorage } from "@relaykit/in-memory";
-import { MessagingClient, SdkError } from "@relaykit/core";
+import { MessagingClient, RelayKitError } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
@@ -313,7 +313,7 @@ class RateLimitedAdapter extends InMemoryAdapter {
     this.sends += 1;
     if (this.limitOnce) {
       this.limitOnce = false;
-      throw new SdkError("RATE_LIMITED", "El homeserver esta limitando", 60);
+      throw new RelayKitError("RATE_LIMITED", "El homeserver esta limitando", { retryAfterMs: 60 });
     }
     return super.sendMessage(conversationId, body, ...rest);
   }
@@ -360,7 +360,7 @@ test("retrying or cancelling something that was never sent says which message is
 
   for (const attempt of [client.messages.retry("no-existe"), client.messages.cancel("no-existe")]) {
     await assert.rejects(attempt, error => {
-      assert.ok(error instanceof SdkError);
+      assert.ok(error instanceof RelayKitError);
       assert.equal(error.code, "MESSAGE_NOT_FOUND");
       return true;
     });

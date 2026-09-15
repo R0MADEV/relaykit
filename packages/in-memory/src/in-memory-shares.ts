@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type {
   ConversationId,
   LocationAdapter,
@@ -49,7 +49,7 @@ export class InMemoryShares implements PollsAdapter, LocationAdapter {
   async updateLiveLocation(sharingId: string, position: GeoLocation): Promise<void> {
     const sharing = this.requireSharing(sharingId);
     // Stopped or expired takes no more: otherwise somebody who said stop would still be telling where they are.
-    if (!sharing.isLive) throw new SdkError("INVALID_INPUT", "That sharing is no longer live");
+    if (!sharing.isLive) throw new RelayKitError("INVALID_INPUT", "That sharing is no longer live");
     this.locations.set(sharingId, { ...sharing, lastPosition: position });
   }
 
@@ -64,7 +64,7 @@ export class InMemoryShares implements PollsAdapter, LocationAdapter {
 
   private requireSharing(sharingId: string): LiveLocation {
     const sharing = this.locations.get(sharingId);
-    if (!sharing) throw new Error("That sharing does not exist");
+    if (!sharing) throw new RelayKitError("MESSAGE_NOT_FOUND", "That sharing does not exist");
     return sharing;
   }
 
@@ -102,7 +102,7 @@ export class InMemoryShares implements PollsAdapter, LocationAdapter {
 
   private requirePoll(pollId: MessageId): Poll {
     const poll = this.polls.get(pollId);
-    if (!poll) throw new Error("The poll does not exist");
+    if (!poll) throw new RelayKitError("MESSAGE_NOT_FOUND", "The poll does not exist");
     return poll;
   }
 

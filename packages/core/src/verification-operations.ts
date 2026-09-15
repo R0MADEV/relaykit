@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
 import { verificationMethods } from "./models.js";
 import type { Conversation, Session, VerificationRequestOptions, VerificationSession } from "./models.js";
@@ -21,10 +21,10 @@ export class VerificationOperations {
   ): Promise<VerificationSession> {
     this.context.assertStarted();
     if (!userId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A user id is required to request verification");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required to request verification");
     }
     if (options.method !== undefined && !verificationMethods.includes(options.method)) {
-      throw new SdkError("INVALID_INPUT", `Unknown verification method: ${options.method}`);
+      throw new RelayKitError("INVALID_INPUT", `Unknown verification method: ${options.method}`);
     }
     // Verifying another person happens inside a conversation the two of them share, so there has to be one.
     const needsConversation =
@@ -51,7 +51,7 @@ export class VerificationOperations {
   /** Reads a code scanned from the other device, which proves it is the device it says it is. */
   async scan(sessionId: string, code: Uint8Array): Promise<VerificationSession> {
     if (code.byteLength === 0) {
-      throw new SdkError("INVALID_INPUT", "An empty code cannot verify anything");
+      throw new RelayKitError("INVALID_INPUT", "An empty code cannot verify anything");
     }
     return this.run(sessionId, id => this.crypto.scanVerificationQrCode(id, code));
   }
@@ -75,7 +75,7 @@ export class VerificationOperations {
   private async run<T>(sessionId: string, action: (id: string) => Promise<T>): Promise<T> {
     this.context.assertStarted();
     if (!sessionId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A verification session id is required");
+      throw new RelayKitError("INVALID_INPUT", "A verification session id is required");
     }
     return action(sessionId);
   }
@@ -83,7 +83,7 @@ export class VerificationOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get crypto(): CryptoAdapter {
     const crypto = this.context.adapter.crypto;
-    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    if (!crypto) throw new RelayKitError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
     return crypto;
   }
 }

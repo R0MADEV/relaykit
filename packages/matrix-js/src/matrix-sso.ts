@@ -1,5 +1,5 @@
 import { createClient, SSOAction, type MatrixClient } from "matrix-js-sdk";
-import { SdkError, type Session, type SsoAdapter, type WayIn } from "@relaykit/core";
+import { RelayKitError, type Session, type SsoAdapter, type WayIn } from "@relaykit/core";
 import { withTranslatedErrors } from "./matrix-errors.js";
 
 /**
@@ -47,7 +47,7 @@ export class MatrixSso implements SsoAdapter {
       // button that cannot be dead.
       const waysIn = await this.listWaysIn(homeserver);
       if (waysIn.length === 0) {
-        throw new SdkError("NOT_SUPPORTED", "This homeserver offers no way in but a password");
+        throw new RelayKitError("NOT_SUPPORTED", "This homeserver offers no way in but a password");
       }
       return forHomeserver(homeserver).getSsoLoginUrl(
         comeBackTo,

@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 
 /**
  * Turning what is kept locally into bytes nobody else on this machine can read, and back.
@@ -35,7 +35,7 @@ export class LockedAway {
     // Browsers only offer this on a secure origin. Opening the same page over http on a LAN address instead
     // of localhost is the usual way to end up without it, and saying so beats a TypeError about `undefined`.
     if (!globalThis.crypto?.subtle) {
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_CONFIGURED",
         "Encrypted storage needs a secure origin: serve the page over https, or reach it on localhost"
       );

@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MediaAdapter } from "./adapter.js";
 import type {
   ConversationId,
@@ -51,7 +51,7 @@ export class MessageSending {
     const allowed = (await this.context.whatTheHomeserverTakes()).maxUploadBytes;
     const size = file.data.byteLength;
     if (size <= allowed) return;
-    throw new SdkError(
+    throw new RelayKitError(
       "INVALID_INPUT",
       `This homeserver takes files up to ${allowed} bytes and this one is ${size}`
     );
@@ -73,10 +73,10 @@ export class MessageSending {
     this.context.assertStarted();
     const original = await this.findMessage(messageId);
     if (!original) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
     if (original.undecryptable || original.deletedAt) {
-      throw new SdkError("INVALID_INPUT", "A message that cannot be read cannot be passed on");
+      throw new RelayKitError("INVALID_INPUT", "A message that cannot be read cannot be passed on");
     }
     const { attachment } = original;
     if (attachment) {
@@ -117,7 +117,8 @@ export class MessageSending {
   /** The one place that answers whether this adapter does this at all. */
   private get media(): MediaAdapter {
     const media = this.context.adapter.media;
-    if (!media) throw new SdkError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
+    if (!media)
+      throw new RelayKitError("NOT_SUPPORTED", "Carrying files is not something this homeserver does");
     return media;
   }
 }

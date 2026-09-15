@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type {
   ConversationId,
   CryptoAdapter,
@@ -40,7 +40,7 @@ export class MatrixCrypto implements CryptoAdapter {
     return this.once(async () => {
       await this.runtime.reachFor(conversationId);
       const crypto = this.runtime.getClient().getCrypto();
-      if (!crypto) throw new SdkError("NOT_CONFIGURED", "This session has no encryption");
+      if (!crypto) throw new RelayKitError("NOT_CONFIGURED", "This session has no encryption");
       await crypto.forceDiscardSession(conversationId);
     });
   }

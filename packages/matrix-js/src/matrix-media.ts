@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import { ClientPrefix, EventType, Method, MsgType, type MatrixClient } from "matrix-js-sdk";
 import "./matrix-proposals.js";
 import type { EncryptedFile, FileInfo } from "matrix-js-sdk/lib/@types/media.js";
@@ -264,7 +265,7 @@ function splitMxcUrl(mxcUrl: string): { readonly server: string; readonly mediaI
   const withoutScheme = mxcUrl.startsWith("mxc://") ? mxcUrl.slice("mxc://".length) : "";
   const divide = withoutScheme.indexOf("/");
   if (divide < 1 || divide === withoutScheme.length - 1) {
-    throw new Error(`This does not point at anything on a media server: ${mxcUrl}`);
+    throw new RelayKitError("INVALID_INPUT", "That does not point at anything on a media server");
   }
   return { server: withoutScheme.slice(0, divide), mediaId: withoutScheme.slice(divide + 1) };
 }
@@ -274,9 +275,10 @@ function parseSource(source: string): MatrixAttachmentSource {
   try {
     parsed = JSON.parse(source);
   } catch {
-    throw new Error("The attachment source is not valid");
+    throw new RelayKitError("INVALID_INPUT", "The attachment source is not valid");
   }
-  if (!isAttachmentSource(parsed)) throw new Error("The attachment source is not valid");
+  if (!isAttachmentSource(parsed))
+    throw new RelayKitError("INVALID_INPUT", "The attachment source is not valid");
   return parsed;
 }
 

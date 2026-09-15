@@ -273,7 +273,7 @@ test("a rate limit becomes a typed error carrying how long to wait", () => {
     })
   );
 
-  assert.equal(translated.name, "SdkError");
+  assert.equal(translated.name, "RelayKitError");
   assert.equal(translated.code, "RATE_LIMITED");
   assert.equal(translated.retryAfterMs, 4200);
 });
@@ -284,10 +284,17 @@ test("an expired or revoked token becomes an invalid session error", () => {
   assert.equal(translated.code, "INVALID_SESSION");
 });
 
-test("errors that are not Matrix errors are passed through untouched", () => {
+test("something that is not the homeserver at all still comes out as one of ours", () => {
+  // A bug in here, or the browser refusing. Whoever catches it should not have to tell those apart from a
+  // homeserver's answer to know it is not something they can act on.
   const original = new Error("socket hang up");
 
-  assert.equal(translateMatrixError(original), original);
+  const translated = translateMatrixError(original);
+
+  assert.equal(translated.name, "RelayKitError");
+  assert.equal(translated.code, "ADAPTER_ERROR");
+  assert.ok(!translated.message.includes("socket hang up"), "not a sentence for a screen");
+  assert.ok(translated.detail?.includes("socket hang up"), "but findable in a log");
 });
 
 test("the adapter reports a rate limited send as a typed error", async () => {
@@ -337,18 +344,18 @@ test("mapMessage reads what a message replies to", () => {
   assert.equal(message.body, "me viene bien");
 });
 
-test("any other homeserver error is still reported as an SDK error, never as a Matrix one", () => {
+test("what the homeserver wrote goes to the log, and never into the message", () => {
+  const itsOwnWords = "Can't join remote room because no servers that are in the room have been provided.";
   const translated = translateMatrixError(
-    matrixError({
-      httpStatus: 404,
-      errcode: "M_NOT_FOUND",
-      data: { error: "Can't join remote room because no servers that are in the room have been provided." }
-    })
+    matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: itsOwnWords } })
   );
 
-  assert.equal(translated.name, "SdkError");
-  assert.equal(translated.code, "ADAPTER_ERROR");
-  assert.match(translated.message, /no servers that are in the room/);
+  assert.equal(translated.name, "RelayKitError");
+  assert.equal(translated.code, "CONVERSATION_NOT_FOUND");
+  // The whole promise in one line: an application reads this, and it does not change because Synapse
+  // reworded something or because the homeserver on the other end is a different one.
+  assert.equal(translated.message, "There is no such conversation");
+  assert.ok(translated.detail?.includes(itsOwnWords), "and what it said is still there for a bug report");
 });
 
 test("the adapter never lets a Matrix error reach the caller", async () => {
@@ -364,7 +371,10 @@ test("the adapter never lets a Matrix error reach the caller", async () => {
     widenTheWindow: async () => {}
   };
 
-  await assert.rejects(adapter.joinConversation("!room:example.org"), error => error.name === "SdkError");
+  await assert.rejects(
+    adapter.joinConversation("!room:example.org"),
+    error => error.name === "RelayKitError"
+  );
 });
 
 test("a message that cannot be decrypted is flagged instead of showing the internal placeholder", () => {

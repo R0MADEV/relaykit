@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 import { MsgType, RelationType, type MatrixClient } from "matrix-js-sdk";
 import type { ConversationId, Message, MessageId } from "@relaykit/core";
 
@@ -28,7 +29,7 @@ export async function deleteMatrixMessage(
 export function findMessage(messages: readonly Message[], messageId: MessageId): Message {
   const message = messages.find(item => item.id === messageId);
   if (!message) {
-    throw new Error("The message does not exist");
+    throw new RelayKitError("MESSAGE_NOT_FOUND", "The message does not exist");
   }
   return message;
 }

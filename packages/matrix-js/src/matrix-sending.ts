@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/core";
 /**
  * Putting a message on the wire, and getting back what it became.
  *
@@ -246,7 +247,7 @@ async function mapSentEvent(
       content
     })
   );
-  if (!local) throw new Error("Matrix did not return the sent message");
+  if (!local) throw new RelayKitError("ADAPTER_ERROR", "The homeserver did not return the sent message");
   return local;
 }
 
@@ -257,7 +258,10 @@ async function resolvePendingEvent(client: MatrixClient, room: Room, pending: Ma
   const eventId = pending.getId();
   // A local echo id means the previous attempt is still in flight and has no server id yet.
   if (!eventId || eventId.startsWith("~")) {
-    throw new Error("A previous send with the same transaction id is still in flight");
+    throw new RelayKitError(
+      "INVALID_INPUT",
+      "A previous send with the same transaction id is still in flight"
+    );
   }
   return eventId;
 }

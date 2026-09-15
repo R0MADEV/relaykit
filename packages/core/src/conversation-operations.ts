@@ -12,7 +12,7 @@ import type {
 } from "./models.js";
 import { ConversationModeration } from "./conversation-moderation.js";
 import { ConversationSettings } from "./conversation-settings.js";
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 
 export interface ConversationOperationsContext {
   readonly adapter: MessagingAdapter;
@@ -51,7 +51,7 @@ export class ConversationOperations {
     this.context.assertStarted();
     const limit = options.limit;
     if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
-      throw new SdkError("INVALID_INPUT", "How many conversations must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "How many conversations must be a positive whole number");
     }
     const storedConversations = this.context.storage ? await this.context.storage.getConversations() : [];
     try {
@@ -75,18 +75,18 @@ export class ConversationOperations {
     this.context.assertStarted();
     // A public conversation can start empty: people join it instead of being invited.
     if (input.participantIds.length === 0 && input.public !== true) {
-      throw new SdkError("INVALID_INPUT", "A conversation requires at least one participant");
+      throw new RelayKitError("INVALID_INPUT", "A conversation requires at least one participant");
     }
     const hasEmptyParticipant = input.participantIds.some(participantId => !participantId.trim());
     if (hasEmptyParticipant) {
-      throw new SdkError("INVALID_INPUT", "Conversation participants cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Conversation participants cannot be empty");
     }
     const uniqueParticipants = new Set(input.participantIds);
     if (uniqueParticipants.size !== input.participantIds.length) {
-      throw new SdkError("INVALID_INPUT", "Conversation participants must be unique");
+      throw new RelayKitError("INVALID_INPUT", "Conversation participants must be unique");
     }
     if (input.title !== undefined && !input.title.trim()) {
-      throw new SdkError("INVALID_INPUT", "Conversation title cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Conversation title cannot be empty");
     }
 
     const conversation = await this.context.adapter.createConversation(input);
@@ -108,7 +108,7 @@ export class ConversationOperations {
   async open(userId: UserId): Promise<Conversation> {
     this.context.assertStarted();
     if (!userId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A user id is required to open a conversation");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required to open a conversation");
     }
     const conversations = await this.list();
     const joined = this.directWith(conversations, userId, "join");
@@ -136,7 +136,7 @@ export class ConversationOperations {
   async search(query: string): Promise<readonly Conversation[]> {
     const needle = query.trim().toLowerCase();
     if (!needle) {
-      throw new SdkError("INVALID_INPUT", "Search query cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Search query cannot be empty");
     }
     const conversations = await this.list();
     return conversations.filter(conversation => {
@@ -167,7 +167,7 @@ export class ConversationOperations {
   async invite(conversationId: string, userId: UserId): Promise<Conversation> {
     this.context.assertStarted();
     if (!userId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A user id is required to invite someone");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required to invite someone");
     }
     return this.save(await this.context.adapter.inviteToConversation(conversationId, userId.trim()));
   }
@@ -233,7 +233,7 @@ export class ConversationOperations {
     const seen = new Set<string>();
     let conversation = byId.get(conversationId);
     if (!conversation) {
-      throw new SdkError("CONVERSATION_NOT_FOUND", "The conversation does not exist");
+      throw new RelayKitError("CONVERSATION_NOT_FOUND", "The conversation does not exist");
     }
     // A chain that loops back on itself would spin forever, so every conversation is followed once.
     while (conversation.replacedBy && !seen.has(conversation.id)) {
@@ -252,7 +252,7 @@ export class ConversationOperations {
   async rotateKeys(conversationId: string): Promise<void> {
     this.context.assertStarted();
     if (!conversationId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A conversation is required");
+      throw new RelayKitError("INVALID_INPUT", "A conversation is required");
     }
     await this.crypto.rotateConversationKeys(conversationId.trim());
   }
@@ -271,7 +271,7 @@ export class ConversationOperations {
     this.context.assertStarted();
     const wanted = conversationId.trim();
     if (!wanted) {
-      throw new SdkError("INVALID_INPUT", "A link needs a conversation to lead to");
+      throw new RelayKitError("INVALID_INPUT", "A link needs a conversation to lead to");
     }
     const known = (await this.list()).find(conversation => conversation.id === wanted);
     return `https://matrix.to/#/${encodeURIComponent(known?.alias ?? wanted)}`;
@@ -299,7 +299,7 @@ export class ConversationOperations {
   async typing(conversationId: string, isTyping: boolean, timeoutMs = 5000): Promise<void> {
     this.context.assertStarted();
     if (!Number.isInteger(timeoutMs) || timeoutMs < 0) {
-      throw new SdkError("INVALID_INPUT", "Typing timeout must be a non-negative integer");
+      throw new RelayKitError("INVALID_INPUT", "Typing timeout must be a non-negative integer");
     }
     const announcedAt = this.typingSince.get(conversationId);
     if (!isTyping) {
@@ -324,7 +324,7 @@ export class ConversationOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get crypto(): CryptoAdapter {
     const crypto = this.context.adapter.crypto;
-    if (!crypto) throw new SdkError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
+    if (!crypto) throw new RelayKitError("NOT_SUPPORTED", "Cryptography is not something this adapter does");
     return crypto;
   }
 
@@ -332,14 +332,14 @@ export class ConversationOperations {
   private get presence(): PresenceAdapter {
     const found = this.context.adapter.presence;
     if (!found)
-      throw new SdkError("NOT_SUPPORTED", "Presence and typing are not something this homeserver has");
+      throw new RelayKitError("NOT_SUPPORTED", "Presence and typing are not something this homeserver has");
     return found;
   }
 
   /** The one place that answers whether this adapter does this at all. */
   private get searching(): SearchAdapter {
     const found = this.context.adapter.search;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    if (!found) throw new RelayKitError("NOT_SUPPORTED", "Searching is not something this homeserver has");
     return found;
   }
 }

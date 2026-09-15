@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, EditingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type { ConversationId, Message, MessageId } from "./models.js";
@@ -18,7 +18,7 @@ export class MessageMutations {
   async edit(conversationId: ConversationId, messageId: MessageId, body: string): Promise<Message> {
     this.context.assertStarted();
     if (!body.trim()) {
-      throw new SdkError("INVALID_INPUT", "Message body cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Message body cannot be empty");
     }
 
     // With no homeserver to tell, the new wording is remembered and sent when there is one. Only the last
@@ -63,7 +63,7 @@ export class MessageMutations {
   private get editing(): EditingAdapter {
     const found = this.context.adapter.editing;
     if (!found)
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "Editing and deleting messages is not something this homeserver has"
       );

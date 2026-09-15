@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type { ConversationId } from "@relaykit/core";
 import { EventType, type MatrixClient, type Room } from "matrix-js-sdk";
 import type { RoomPowerLevelsEventContent } from "matrix-js-sdk/lib/@types/state_events.js";
@@ -42,14 +42,17 @@ export class MatrixRtc {
     }
     const advertised: unknown = client.getClientWellKnown()?.[rtcFociWellKnownKey];
     if (!Array.isArray(advertised)) {
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "This homeserver does not say where conferences are carried, so there is nowhere to hold one"
       );
     }
     const livekit = advertised.find(isLivekitTransportConfig);
     if (!livekit) {
-      throw new SdkError("NOT_SUPPORTED", "This homeserver carries conferences somewhere this cannot reach");
+      throw new RelayKitError(
+        "NOT_SUPPORTED",
+        "This homeserver carries conferences somewhere this cannot reach"
+      );
     }
     return livekit;
   }
@@ -77,7 +80,7 @@ export class MatrixRtc {
     });
     if (!response.ok) {
       const said = await response.text();
-      throw new SdkError(
+      throw new RelayKitError(
         "ADAPTER_ERROR",
         `The conference service refused to let this device in: ${response.status} ${said}`
       );
@@ -161,7 +164,10 @@ export class MatrixRtc {
   sessionFor(client: MatrixClient, conversationId: ConversationId): MatrixRTCSession {
     const room = client.getRoom(conversationId);
     if (!room) {
-      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to hold a conference in");
+      throw new RelayKitError(
+        "CONVERSATION_NOT_FOUND",
+        "That conversation is not here to hold a conference in"
+      );
     }
     // The SDK's own manager keeps one session per room. Asking it, and not making another, is what makes the
     // conference that rang and the conference that is joined the same object with the same memberships.
@@ -191,11 +197,14 @@ function theDoorToCalls(
 function readTicket(answer: unknown): ConferenceTicket {
   const saysWhereAndHow = typeof answer === "object" && answer !== null && "url" in answer && "jwt" in answer;
   if (!saysWhereAndHow) {
-    throw new SdkError("ADAPTER_ERROR", "The conference service answered without somewhere to connect to");
+    throw new RelayKitError(
+      "ADAPTER_ERROR",
+      "The conference service answered without somewhere to connect to"
+    );
   }
   const { url, jwt } = answer;
   if (typeof url !== "string" || typeof jwt !== "string") {
-    throw new SdkError(
+    throw new RelayKitError(
       "ADAPTER_ERROR",
       "The conference service answered with something that is not a way in"
     );

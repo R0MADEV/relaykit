@@ -1,4 +1,4 @@
-import { SdkError } from "@relaykit/core";
+import { RelayKitError } from "@relaykit/core";
 import type {
   AdapterHandlers,
   PastCall,
@@ -63,7 +63,7 @@ export class InMemoryCalls implements CallingAdapter {
    */
   async joinCall(conversationId: ConversationId, options: PlaceCallOptions): Promise<Call> {
     if (!this.context.hasConversation(conversationId)) {
-      throw new SdkError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
+      throw new RelayKitError("CONVERSATION_NOT_FOUND", "That conversation is not here to call");
     }
     const going = [...this.calls.values()].find(call => call.conversationId === conversationId);
     if (going) return this.enter(going);
@@ -83,7 +83,7 @@ export class InMemoryCalls implements CallingAdapter {
   /** Picking up what rang is walking into it. */
   async answerCall(callId: string, _options: PlaceCallOptions): Promise<Call> {
     const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!call) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     const answered = this.enter(call);
     this.context.handlers().onCallChanged?.(answered);
     return answered;
@@ -164,7 +164,7 @@ export class InMemoryCalls implements CallingAdapter {
 
   /** A double has no line to measure, so it says nothing rather than making numbers up. */
   async callQuality(callId: string): Promise<CallQuality> {
-    if (!this.calls.has(callId)) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!this.calls.has(callId)) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     return {};
   }
 
@@ -196,7 +196,7 @@ export class InMemoryCalls implements CallingAdapter {
 
   private change(callId: string, change: Partial<Call>): void {
     const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!call) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     const changed: Call = { ...call, ...change };
     this.calls.set(callId, changed);
     this.context.handlers().onCallChanged?.(changed);
@@ -247,7 +247,7 @@ export class InMemoryCalls implements CallingAdapter {
   /** Test helper: somebody else walks into a call that is already going on. */
   joinAs(callId: string, userId: UserId): void {
     const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!call) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     const joined = this.withParticipant(call, userId);
     this.calls.set(callId, joined);
     this.context.handlers().onCallChanged?.(joined);
@@ -264,7 +264,7 @@ export class InMemoryCalls implements CallingAdapter {
    */
   shareScreenAs(callId: string): void {
     const call = this.calls.get(callId);
-    if (!call) throw new SdkError("INVALID_INPUT", "That call is not going on");
+    if (!call) throw new RelayKitError("INVALID_INPUT", "That call is not going on");
     if (!call.isSharingScreen) return;
     this.change(callId, { isSharingScreen: false });
   }

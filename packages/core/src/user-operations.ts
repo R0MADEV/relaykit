@@ -1,4 +1,4 @@
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import type { MessagingAdapter, IgnoringAdapter, SearchAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type {
@@ -130,11 +130,11 @@ export class UserOperations {
     this.context.assertStarted();
     const wanted = query.trim();
     if (!wanted) {
-      throw new SdkError("INVALID_INPUT", "A search needs something to look for");
+      throw new RelayKitError("INVALID_INPUT", "A search needs something to look for");
     }
     const limit = options.limit ?? peoplePerSearch;
     if (limit < 1) {
-      throw new SdkError("INVALID_INPUT", "A search cannot ask for fewer than one person");
+      throw new RelayKitError("INVALID_INPUT", "A search cannot ask for fewer than one person");
     }
     return this.searching.searchUsers(wanted, limit);
   }
@@ -161,7 +161,7 @@ export class UserOperations {
   async setDisplayName(displayName: string): Promise<void> {
     this.context.assertStarted();
     if (!displayName.trim()) {
-      throw new SdkError("INVALID_INPUT", "A display name cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "A display name cannot be empty");
     }
     await this.context.adapter.setDisplayName(displayName.trim());
     this.forget();
@@ -170,7 +170,7 @@ export class UserOperations {
   async setAvatar(image: AvatarImage): Promise<void> {
     this.context.assertStarted();
     if (image.data.byteLength === 0 || !image.mimeType.trim()) {
-      throw new SdkError("INVALID_INPUT", "An avatar needs content and a type");
+      throw new RelayKitError("INVALID_INPUT", "An avatar needs content and a type");
     }
     await this.context.adapter.setAvatar(image);
     this.forget();
@@ -180,7 +180,7 @@ export class UserOperations {
     this.context.assertStarted();
     const trimmed = userId.trim();
     if (!trimmed) {
-      throw new SdkError("INVALID_INPUT", "A user id is required");
+      throw new RelayKitError("INVALID_INPUT", "A user id is required");
     }
     return trimmed;
   }
@@ -189,14 +189,17 @@ export class UserOperations {
   private get ignoring(): IgnoringAdapter {
     const found = this.context.adapter.ignoring;
     if (!found)
-      throw new SdkError("NOT_SUPPORTED", "Ignoring and muting people is not something this homeserver has");
+      throw new RelayKitError(
+        "NOT_SUPPORTED",
+        "Ignoring and muting people is not something this homeserver has"
+      );
     return found;
   }
 
   /** The one place that answers whether this adapter does this at all. */
   private get searching(): SearchAdapter {
     const found = this.context.adapter.search;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    if (!found) throw new RelayKitError("NOT_SUPPORTED", "Searching is not something this homeserver has");
     return found;
   }
 }

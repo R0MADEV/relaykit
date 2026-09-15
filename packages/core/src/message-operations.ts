@@ -1,6 +1,6 @@
 import { MessageReadState } from "./message-read-state.js";
 import { MessageSending } from "./message-sending.js";
-import { SdkError } from "./errors.js";
+import { RelayKitError } from "./errors.js";
 import { byRecentActivity } from "./conversation-operations.js";
 import { RecentIds } from "./recent-ids.js";
 
@@ -91,7 +91,7 @@ export class MessageOperations {
     this.context.assertStarted();
     const atLeast = options.atLeast;
     if (atLeast !== undefined && (!Number.isInteger(atLeast) || atLeast < 1)) {
-      throw new SdkError("INVALID_INPUT", "At least how many must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "At least how many must be a positive whole number");
     }
     const stored = this.context.storage ? await this.context.storage.getMessages(conversationId) : [];
     try {
@@ -112,7 +112,7 @@ export class MessageOperations {
   async loadMoreMessages(conversationId: ConversationId, limit: number): Promise<MessagePage> {
     this.context.assertStarted();
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new SdkError("INVALID_INPUT", "Message limit must be a positive integer");
+      throw new RelayKitError("INVALID_INPUT", "Message limit must be a positive integer");
     }
     const stored = this.context.storage ? await this.context.storage.getMessages(conversationId) : [];
     try {
@@ -146,11 +146,11 @@ export class MessageOperations {
   async searchRemote(query: string, options: RemoteSearchOptions = {}): Promise<RemoteSearchPage> {
     this.context.assertStarted();
     if (!query.trim()) {
-      throw new SdkError("INVALID_INPUT", "Search query cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Search query cannot be empty");
     }
     const limit = options.limit;
     if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
-      throw new SdkError("INVALID_INPUT", "The search limit must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "The search limit must be a positive whole number");
     }
     return this.searching.searchMessages(query.trim(), options);
   }
@@ -169,10 +169,10 @@ export class MessageOperations {
   ): Promise<MessageSurroundings> {
     this.context.assertStarted();
     if (!messageId.trim()) {
-      throw new SdkError("INVALID_INPUT", "A message id is required");
+      throw new RelayKitError("INVALID_INPUT", "A message id is required");
     }
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new SdkError("INVALID_INPUT", "The limit must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "The limit must be a positive whole number");
     }
     return this.atAMoment.readAroundMessage(conversationId, messageId.trim(), limit);
   }
@@ -185,7 +185,7 @@ export class MessageOperations {
     this.context.assertStarted();
     const root = rootId.trim();
     if (!root) {
-      throw new SdkError("INVALID_INPUT", "A message id is required");
+      throw new RelayKitError("INVALID_INPUT", "A message id is required");
     }
     const stored = this.context.storage ? await this.context.storage.getMessages(conversationId) : [];
     const storedAnswers = stored.filter(message => message.threadId === root).sort(byOldestFirst);
@@ -214,11 +214,11 @@ export class MessageOperations {
     this.context.assertStarted();
     const needle = query.trim().toLowerCase();
     if (!needle) {
-      throw new SdkError("INVALID_INPUT", "Search query cannot be empty");
+      throw new RelayKitError("INVALID_INPUT", "Search query cannot be empty");
     }
     const limit = options.limit ?? defaultSearchResults;
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new SdkError("INVALID_INPUT", "The search limit must be a positive whole number");
+      throw new RelayKitError("INVALID_INPUT", "The search limit must be a positive whole number");
     }
     // Reading local history means decrypting it, so the search walks the conversations with the most recent
     // activity first and stops as soon as it has enough. On a full account that is the difference between
@@ -252,11 +252,11 @@ export class MessageOperations {
   async report(messageId: MessageId, reason: string): Promise<void> {
     this.context.assertStarted();
     if (!reason.trim()) {
-      throw new SdkError("INVALID_INPUT", "A report needs a reason, or nobody can act on it");
+      throw new RelayKitError("INVALID_INPUT", "A report needs a reason, or nobody can act on it");
     }
     const message = await this.findMessage(messageId);
     if (!message) {
-      throw new SdkError("MESSAGE_NOT_FOUND", "The message does not exist");
+      throw new RelayKitError("MESSAGE_NOT_FOUND", "The message does not exist");
     }
     await this.editing.reportMessage(message.conversationId, messageId, reason.trim());
   }
@@ -370,7 +370,7 @@ export class MessageOperations {
   private get editing(): EditingAdapter {
     const found = this.context.adapter.editing;
     if (!found)
-      throw new SdkError(
+      throw new RelayKitError(
         "NOT_SUPPORTED",
         "Editing and deleting messages is not something this homeserver has"
       );
@@ -381,7 +381,10 @@ export class MessageOperations {
   private get atAMoment(): HistoryAdapter {
     const found = this.context.adapter.history;
     if (!found) {
-      throw new SdkError("NOT_SUPPORTED", "Reading around a message is not something this homeserver has");
+      throw new RelayKitError(
+        "NOT_SUPPORTED",
+        "Reading around a message is not something this homeserver has"
+      );
     }
     return found;
   }
@@ -389,14 +392,14 @@ export class MessageOperations {
   /** The one place that answers whether this adapter does this at all. */
   private get searching(): SearchAdapter {
     const found = this.context.adapter.search;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Searching is not something this homeserver has");
+    if (!found) throw new RelayKitError("NOT_SUPPORTED", "Searching is not something this homeserver has");
     return found;
   }
 
   /** The one place that answers whether this adapter does this at all. */
   private get threading(): ThreadsAdapter {
     const found = this.context.adapter.threads;
-    if (!found) throw new SdkError("NOT_SUPPORTED", "Threads are not something this homeserver has");
+    if (!found) throw new RelayKitError("NOT_SUPPORTED", "Threads are not something this homeserver has");
     return found;
   }
 }
