@@ -805,3 +805,12 @@ test("anything else on the general stream is left alone", () => {
 
   assert.deepEqual(seen, []);
 });
+
+test("a conversation with no name has no name, rather than being called by its identifier", () => {
+  // matrix-js-sdk answers `room.name` with the room id when it cannot work one out — no name event, and the
+  // people in it not loaded yet. Handing that on as a title is passing an identifier off as something a
+  // person chose, and every screen then paints `!xUJktYKBXBpvxYpryi:localhost` where a name should be.
+  const room = { ...fakeRoom([]), name: roomId };
+
+  assert.equal(conversations.mapConversation(room).title, undefined);
+});

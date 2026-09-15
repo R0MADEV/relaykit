@@ -14,8 +14,23 @@ import { element, pressedIn, safe } from "./dom.js";
  * A conversation always has a name: where nobody gave it one, the adapter works it out from who is in it,
  * the way the protocol says to. Nothing is invented here on top of that.
  */
-export function titleOf(conversation: Conversation): string {
-  return conversation.title ?? conversation.alias ?? conversation.id;
+/**
+ * What to call a conversation on screen.
+ *
+ * The library says nothing rather than handing over an identifier dressed as a name, so this is where the
+ * decision is made: a one-to-one is called by the other person, and anything else falls back to the address
+ * it can be reached at. The identifier is the last resort and looks like one, which is honest.
+ */
+export function titleOf(
+  conversation: Conversation,
+  where?: { readonly people: People; readonly me: UserId }
+): string {
+  if (conversation.title) return conversation.title;
+  if (where && isBetweenTwo(conversation)) {
+    const other = conversation.participantIds.find(participant => participant !== where.me);
+    if (other) return where.people.nameOf(other);
+  }
+  return conversation.alias ?? conversation.id;
 }
 
 /** Whether a conversation is one person talking to another, which is a thing the protocol records. */
@@ -64,7 +79,7 @@ export function paintDirects(into: HTMLElement, conversations: readonly Conversa
   into.innerHTML = conversations
     .map(conversation => {
       const other = conversation.participantIds.find(participant => participant !== where.me);
-      const name = titleOf(conversation);
+      const name = titleOf(conversation, where);
       const theirs = other ? face(where.people, other) : '<span class="avatar">·</span>';
       return row(conversation, where, `${theirs}<span class="name">${safe(name)}</span>`);
     })

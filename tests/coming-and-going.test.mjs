@@ -61,3 +61,18 @@ test("a conversation somebody joined is in the live list without asking for ever
   list.stop();
   await client.stop();
 });
+
+test("a one-to-one conversation is still one to one for whoever was invited", async () => {
+  const { adapter, client } = await startClient();
+  const invited = adapter.receiveInvitation("bob", { direct: true });
+  assert.equal(invited.isDirect, true, "it arrives as what it is");
+
+  const joined = await client.conversations.join(invited.id);
+
+  // Matrix records this in each person's own account data, and the one who created it writes only their own.
+  // Whoever accepts has to write theirs, or the same conversation is a direct chat on one screen and a
+  // channel on the other — which is what it looked like.
+  assert.equal(joined.isDirect, true, "accepting turned a direct chat into a channel");
+  const [fromTheList] = (await client.conversations.list()).filter(each => each.id === invited.id);
+  assert.equal(fromTheList?.isDirect, true);
+});

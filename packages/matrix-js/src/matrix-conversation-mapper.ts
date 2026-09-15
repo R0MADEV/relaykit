@@ -37,7 +37,7 @@ export function mapConversation(room: Room): Conversation {
     );
   const conversation: Conversation = {
     id: room.roomId,
-    title: room.name,
+    ...whatItIsCalled(room),
     // Whoever left or was banned is no longer part of the conversation, only those in it or invited to it.
     participantIds: members.map(member => member.userId),
     invitedIds: members
@@ -132,4 +132,21 @@ function mapRoomAvatar(room: Room): { avatar: MediaRef } | undefined {
   const url = room.currentState.getStateEvents(EventType.RoomAvatar, "")?.getContent<{ url?: string }>().url;
   if (typeof url !== "string" || url.length === 0) return undefined;
   return { avatar: { mimeType: "image/*", source: JSON.stringify({ url }) } };
+}
+
+/**
+ * What a conversation is called, when it is called anything.
+ *
+ * matrix-js-sdk answers `room.name` with the room id when it cannot work one out — no name of its own, and
+ * the people in it not loaded yet, which is every conversation for the first moments of a sync. Handing that
+ * on is passing an identifier off as something a person chose, and every screen then paints
+ * `!xUJktYKBXBpvxYpryi:localhost` where a name belongs.
+ *
+ * Nothing is the honest answer, and it is one an application can do something with: a one-to-one is called
+ * by the other person, a group by who is in it. An identifier is not a name in any of those.
+ */
+function whatItIsCalled(room: Room): { title?: string } {
+  const said = room.name;
+  if (!said || said === room.roomId) return {};
+  return { title: said };
 }

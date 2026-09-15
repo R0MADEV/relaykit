@@ -14,7 +14,7 @@ export function paintHead(
     readonly onIt: boolean;
   }
 ): void {
-  const name = titleOf(conversation);
+  const name = titleOf(conversation, what);
   const person = isBetweenTwo(conversation);
   // A heading is read on its own and gets the space; a placeholder is read as one word and does not.
   element("open-title").textContent = person ? name : `# ${name}`;

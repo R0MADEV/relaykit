@@ -7,6 +7,13 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
+  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
+  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
+  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
+  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
+  dos por la otra persona.
+
 - **Salir de una conversación no se lo decía a nadie.** Entrar en una sí lo anunciaba y salir no, así que
   cualquier lista viva se enteraba de las llegadas y nunca de las salidas: pulsabas «Salir y olvidarla» y la
   conversación seguía ahí. Ahora sale `conversation.left` —evento propio, porque una conversación que dejaste
@@ -172,6 +179,13 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
+  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
+  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
+  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
+  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
+  dos por la otra persona.
+
 - **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
   te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
   en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
@@ -314,6 +328,13 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
+  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
+  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
+  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
+  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
+  dos por la otra persona.
 
 - **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
   te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
@@ -879,6 +900,13 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
+  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
+  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
+  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
+  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
+  dos por la otra persona.
 
 - **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
   te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola

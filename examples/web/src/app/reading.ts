@@ -112,7 +112,7 @@ export class Reading {
   /** What a conversation is called, for anywhere that has an identifier and needs a name. */
   nameOf(conversationId: ConversationId): string | undefined {
     const known = this.around.conversations().find(each => each.id === conversationId);
-    return known ? titleOf(known) : undefined;
+    return known ? titleOf(known, { people: this.people, me: this.me }) : undefined;
   }
 
   /** One of the messages already on screen, by its identifier. */
