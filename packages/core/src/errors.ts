@@ -28,6 +28,13 @@ export type RelayKitErrorCode =
   /** The server could not be reached. Worth trying again, and nothing is known about whether it happened. */
   | "NETWORK_ERROR"
   /**
+   * Writing to, or emptying, the local copy failed. Almost always the browser refusing.
+   *
+   * Almost everything about the local copy is a convenience and its failures are swallowed; this exists for
+   * the one that is not — being told to leave a device and not managing to take the conversations off it.
+   */
+  | "STORAGE_ERROR"
+  /**
    * The backend failed in a way this library has no better name for.
    *
    * Nothing to branch on: show something general and log `detail`. Every one of these that turns out to be

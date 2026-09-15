@@ -25,6 +25,8 @@ const ourOwnWords = [
   "That username is already taken",
   "This homeserver does not allow creating accounts",
   "The homeserver could not be reached",
+  "The local copy could not be read or written",
+  "The local copy could not be emptied",
   "The homeserver refused the request"
 ];
 

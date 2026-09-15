@@ -43,6 +43,9 @@ const inTheseWords: Record<RelayKitErrorCode, string> = {
   USERNAME_TAKEN: "That username is already taken",
   REGISTRATION_UNSUPPORTED: "This homeserver does not allow creating accounts",
   NETWORK_ERROR: "The homeserver could not be reached",
+  // Nothing a backend can produce; here because the list has to be complete, and being complete is what
+  // makes the compiler say so the next time a code is added.
+  STORAGE_ERROR: "The local copy could not be read or written",
   ADAPTER_ERROR: "The homeserver refused the request"
 };
 

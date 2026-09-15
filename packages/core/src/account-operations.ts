@@ -5,6 +5,8 @@ import type { AccountAddress, AddressProof } from "./models.js";
 export interface AccountOperationsContext {
   readonly adapter: MessagingAdapter;
   readonly assertStarted: () => void;
+  /** Stops the client and lets go of the session and the local copy, for when the account itself is gone. */
+  readonly nothingLeftToBe: () => Promise<void>;
 }
 
 /**
@@ -41,6 +43,10 @@ export class AccountOperations {
       throw new RelayKitError("INVALID_INPUT", "The password is required to close an account");
     }
     await this.account.deactivateAccount(password);
+    // And then this client is over. Leaving it running leaves a session worth nothing, a sync that will be
+    // refused, and a copy of conversations nobody can ever open again — until some later request happens to
+    // find out. Whoever just deleted their account should not have to wait for that.
+    await this.context.nothingLeftToBe();
   }
 
   /** Something this account remembers about itself: a theme, a layout, whatever the application decides. */

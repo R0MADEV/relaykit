@@ -230,20 +230,21 @@ export class ClientLifecycle {
    * belongs to, so saying there is nobody first leaves nothing pointing at the thing that has to be emptied.
    */
   async logout(): Promise<void> {
-    let couldNotTellTheHomeserver: unknown;
-    try {
-      await this.context.adapter.logout();
-    } catch (error) {
-      couldNotTellTheHomeserver = error;
-    } finally {
-      this.started = false;
-      this.context.forgetRunningState();
-      this.setSync("idle");
-      this.setConnection("disconnected");
-      await this.context.purgeStorage();
-      this.context.setSession(undefined);
-    }
-    if (couldNotTellTheHomeserver) throw couldNotTellTheHomeserver;
+    // Three things, and not one of them may stop the others. The homeserver is told first, because stopping
+    // first would leave the token alive. Then the local copy is emptied, while this still knows whose it is.
+    // Then the credential goes — always, whatever the first two did, because somebody who says sign me out
+    // on a train with no signal has to be signed out on that device.
+    const couldNotTellTheHomeserver = await whatWentWrong(() => this.context.adapter.logout());
+    this.started = false;
+    this.context.forgetRunningState();
+    this.setSync("idle");
+    this.setConnection("disconnected");
+    const couldNotEmptyTheCopy = await whatWentWrong(() => this.context.purgeStorage());
+    this.context.setSession(undefined);
+    // The copy first when both failed: conversations still sitting on a device somebody just left is worse
+    // to be told about late than a token that will expire on its own.
+    const wentWrong = couldNotEmptyTheCopy ?? couldNotTellTheHomeserver;
+    if (wentWrong) throw wentWrong;
   }
 
   /**
@@ -251,6 +252,22 @@ export class ClientLifecycle {
    * provisions the accounts, revoked from another device, or simply expired. There is no working client left,
    * so it is put back to a stopped state, and whoever is looking at a screen is told to sign in again.
    */
+  /**
+   * The account itself is gone, which this client asked for and the homeserver did.
+   *
+   * Everything signing out does, and for the same reasons — the local copy goes too, because there is
+   * nowhere left for it to be a copy of.
+   */
+  async accountIsGone(): Promise<void> {
+    this.started = false;
+    this.context.forgetRunningState();
+    this.setSync("idle");
+    this.setConnection("disconnected");
+    await this.context.adapter.stop().catch(error => this.context.emitError(error));
+    await this.context.purgeStorage();
+    this.context.setSession(undefined);
+  }
+
   async sessionEnded(): Promise<void> {
     if (!this.started) return;
     await this.stopAfterFailure(new Error("the session is no longer accepted, sign in again"));
@@ -322,4 +339,14 @@ function whereThatIs(homeserver: string): string {
     throw new RelayKitError("INVALID_INPUT", "A homeserver address is required");
   }
   return homeserver.trim();
+}
+
+/** Runs something and hands back what went wrong instead of throwing it, for work that must not stop. */
+async function whatWentWrong(work: () => Promise<void>): Promise<unknown> {
+  try {
+    await work();
+    return undefined;
+  } catch (error) {
+    return error;
+  }
 }

@@ -897,7 +897,7 @@ Un backend que no sea Matrix implementa **diecisiete metodos**: entrar, registra
 listar, crear, entrar, salir e invitar en conversaciones; listar mensajes, traer mas y enviar; y quien es
 alguien. Eso es lo que la mensajeria *es*.
 
-Todo lo demas son **dieciocho capacidades opcionales** que se declaran por separado y se pueden dejar fuera
+Todo lo demas son **22 capacidades opcionales** que se declaran por separado y se pueden dejar fuera
 enteras: `moderation`, `conversationSettings`, `threads`, `pins`, `receipts`, `search`, `presence`,
 `editing`, `ignoring`, `calling`, `polls`, `location`, `spaces`, `media`, `push`, `devices`, `reactions`,
 `crypto`.

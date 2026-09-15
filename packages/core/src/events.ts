@@ -69,9 +69,22 @@ class EventChannel<Payload> {
     return () => this.listeners.delete(listener);
   }
 
-  emit(payload: Payload): void {
-    for (const listener of this.listeners) {
-      listener(payload);
+  /**
+   * Tells everybody, and lets nobody stop the telling.
+   *
+   * These are emitted from the middle of the library's own work — a message arriving, a session changing, a
+   * call moving — so a bug in one application's screen would otherwise stop the next listener hearing about
+   * it and leave that work half done. What went wrong is handed on instead, and everybody still hears.
+   *
+   * Over a copy, because a listener may well unsubscribe itself, or subscribe another, while being told.
+   */
+  emit(payload: Payload, wentWrong: (error: unknown) => void): void {
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(payload);
+      } catch (error) {
+        wentWrong(error);
+      }
     }
   }
 }
@@ -106,7 +119,15 @@ export class EventBus {
     return this.channels[name].on(listener);
   }
 
-  emit<Name extends EventName>(name: Name, payload: ClientEventMap[Name]): void {
-    this.channels[name].emit(payload);
+  /**
+   * `wentWrong` is told about a listener that threw, and nothing else happens. A library cannot decide what
+   * an application should do about its own bug, and it certainly cannot stop working over one.
+   */
+  emit<Name extends EventName>(
+    name: Name,
+    payload: ClientEventMap[Name],
+    wentWrong: (error: unknown) => void
+  ): void {
+    this.channels[name].emit(payload, wentWrong);
   }
 }

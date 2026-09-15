@@ -7,6 +7,25 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
+  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
+  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
+  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
+  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
+  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
+- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
+  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
+  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
+- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
+  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
+  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
+- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
+  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
+  dos primeros.
+- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
+  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
+  descubriera. Ahora para, suelta la sesión y borra la copia.
+
 - **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
   como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
 - **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
@@ -55,6 +74,9 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Añadido
 
+- `STORAGE_ERROR`, para lo único que lo necesitaba: no haber podido quitar las conversaciones de un
+  dispositivo del que alguien acaba de salir.
+
 - `client.currentSession()`, que acompaña a `session.changed`: el evento dice cuándo, esto dice qué. Quien se
   suscribió tarde tiene dónde preguntar.
 
@@ -77,6 +99,25 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
+  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
+  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
+  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
+  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
+  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
+- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
+  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
+  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
+- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
+  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
+  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
+- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
+  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
+  dos primeros.
+- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
+  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
+  descubriera. Ahora para, suelta la sesión y borra la copia.
 
 - **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
   como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
@@ -157,6 +198,25 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
+  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
+  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
+  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
+  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
+  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
+- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
+  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
+  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
+- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
+  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
+  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
+- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
+  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
+  dos primeros.
+- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
+  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
+  descubriera. Ahora para, suelta la sesión y borra la copia.
 
 - **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
   como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
@@ -659,6 +719,25 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
+  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
+  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
+  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
+  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
+  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
+- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
+  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
+  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
+- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
+  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
+  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
+- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
+  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
+  dos primeros.
+- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
+  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
+  descubriera. Ahora para, suelta la sesión y borra la copia.
 
 - **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
   como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.

@@ -12,6 +12,7 @@ import { MediaOperations } from "./media-operations.js";
 import { UserOperations } from "./user-operations.js";
 import { AccountOperations } from "./account-operations.js";
 import { codeOf, Diagnostics } from "./diagnostics.js";
+import { RelayKitError } from "./errors.js";
 import { SpaceOperations } from "./space-operations.js";
 import { ReactionOperations } from "./reaction-operations.js";
 import { UnavailableAdapter } from "./unavailable-adapter.js";
@@ -436,14 +437,14 @@ export class MessagingClient {
     const messageContext: MessageOperationsContext = {
       ...base,
       getSession,
-      emitMessageUpdated: message => this.events.emit("message.updated", message),
+      emitMessageUpdated: message => this.announce("message.updated", message),
       emitMessageReceived: message => {
         // Something arrived that this device has no key for. Nothing here is broken and nothing will fix
         // itself, so it only ever shows up as a hole in a conversation somebody else can read.
         if (message.undecryptable) {
           this.diagnostics.say("crypto.undecryptable", { what: message.conversationId });
         }
-        this.events.emit("message.received", message);
+        this.announce("message.received", message);
       },
       // Built after this one, so it is reached when it is needed rather than when this is put together.
       wasRead: conversationId => this.conversationOperations.settings.clearUnreadMark(conversationId),
@@ -457,14 +458,14 @@ export class MessagingClient {
       ...base,
       ...storageContext,
       waiting: this.waiting,
-      emitUpdated: message => this.events.emit("message.updated", message)
+      emitUpdated: message => this.announce("message.updated", message)
     });
     this.conversationOperations = new ConversationOperations({
       ...base,
       ...storageContext,
       getSession,
       now,
-      emitUpdated: conversation => this.events.emit("conversation.updated", conversation),
+      emitUpdated: conversation => this.announce("conversation.updated", conversation),
       isCaughtUp: () => this.lifecycle.isCaughtUp(),
       ...(config.cache?.conversations !== undefined
         ? { cachedConversations: config.cache.conversations }
@@ -495,9 +496,12 @@ export class MessagingClient {
     this.locationOperations = new LocationOperations(base);
     this.callOperations = new CallOperations(base);
     this.spaceOperations = new SpaceOperations(base);
-    this.accountOperations = new AccountOperations(base);
+    this.accountOperations = new AccountOperations({
+      ...base,
+      nothingLeftToBe: () => this.lifecycle.accountIsGone()
+    });
     this.session = config.session;
-    this.lifecycle = this.lifecycleFor(adapter, storage);
+    this.lifecycle = this.lifecycleFor(adapter, storage, config.storage);
   }
 
   /** Everything the adapter says while it runs, and the one place each of those goes. */
@@ -508,31 +512,31 @@ export class MessagingClient {
         this.userOperations.forgetConversation(conversation.id);
         // Keeping it, not only announcing it: otherwise anything read from the local store goes stale.
         void storage?.saveConversation(conversation);
-        this.events.emit("conversation.updated", conversation);
+        this.announce("conversation.updated", conversation);
       },
       onMessageReceived: message => this.messageOperations.receiveMessage(message),
       onMessageUpdated: message => this.messageOperations.updateMessage(message),
-      onReactionAdded: reaction => this.events.emit("reaction.added", reaction),
-      onReactionRemoved: reaction => this.events.emit("reaction.removed", reaction),
-      onTypingChanged: update => this.events.emit("typing.changed", update),
-      onReceiptReceived: receipt => this.events.emit("receipt.received", receipt),
-      onPresenceChanged: presence => this.events.emit("presence.changed", presence),
-      onNotification: notification => this.events.emit("notification", notification),
-      onCallIncoming: call => this.events.emit("call.incoming", call),
-      onCallChanged: call => this.events.emit("call.changed", call),
-      onCallSpeaking: speaking => this.events.emit("call.speaking", speaking),
+      onReactionAdded: reaction => this.announce("reaction.added", reaction),
+      onReactionRemoved: reaction => this.announce("reaction.removed", reaction),
+      onTypingChanged: update => this.announce("typing.changed", update),
+      onReceiptReceived: receipt => this.announce("receipt.received", receipt),
+      onPresenceChanged: presence => this.announce("presence.changed", presence),
+      onNotification: notification => this.announce("notification", notification),
+      onCallIncoming: call => this.announce("call.incoming", call),
+      onCallChanged: call => this.announce("call.changed", call),
+      onCallSpeaking: speaking => this.announce("call.speaking", speaking),
       onSessionEnded: () => {
         // Stopping first, so whatever the application does when told finds a client that is honestly stopped
         // rather than one that still looks alive and fails on the next thing it is asked.
-        void this.lifecycle.sessionEnded().finally(() => this.events.emit("session.ended", undefined));
+        void this.lifecycle.sessionEnded().finally(() => this.announce("session.ended", undefined));
       },
       onSessionRefreshed: session => {
         // Held here as well as handed out, so anything asked next uses the token that still works.
         this.nowSignedInAs(session);
-        this.events.emit("session.refreshed", session);
+        this.announce("session.refreshed", session);
       },
-      onVerificationRequested: verification => this.events.emit("verification.requested", verification),
-      onVerificationChanged: verification => this.events.emit("verification.changed", verification),
+      onVerificationRequested: verification => this.announce("verification.requested", verification),
+      onVerificationChanged: verification => this.announce("verification.changed", verification),
       onError: error => this.emitError(error)
     };
   }
@@ -551,11 +555,16 @@ export class MessagingClient {
     // the homeserver has already thrown away.
     const isNews = !theSameSession(this.session, session);
     this.session = session;
-    if (isNews) this.events.emit("session.changed", session);
+    if (isNews) this.announce("session.changed", session);
   }
 
   /** Signing in and out, starting, stopping, and putting back what was held while it was away. */
-  private lifecycleFor(adapter: MessagingAdapter, storage: MessagingStorage | undefined): ClientLifecycle {
+  private lifecycleFor(
+    adapter: MessagingAdapter,
+    storage: MessagingStorage | undefined,
+    /** The store as it was handed in, not wrapped: emptying it is the one thing that may not fail quietly. */
+    theRealStore: MessagingStorage | undefined
+  ): ClientLifecycle {
     return new ClientLifecycle({
       adapter,
       getSession: () => this.session,
@@ -567,8 +576,19 @@ export class MessagingClient {
         await this.waiting.runWhatIsWaiting(error => this.emitError(error));
       },
       purgeStorage: async () => {
-        await storage?.clear();
-        this.mediaOperations.forget();
+        // The real store, not the forgiving wrapper the rest of the library uses. Everywhere else a failed
+        // write is a lost convenience and is swallowed on purpose; here somebody asked for their
+        // conversations to be gone from this device, and quietly not doing it is the worst possible answer.
+        try {
+          await theRealStore?.clear();
+        } catch (error) {
+          this.diagnostics.say("storage.failed", codeOf(error));
+          throw new RelayKitError("STORAGE_ERROR", "The local copy could not be emptied", {
+            detail: error instanceof Error ? error.message : String(error)
+          });
+        } finally {
+          this.mediaOperations.forget();
+        }
       },
       forgetRunningState: () => {
         this.waiting.clear();
@@ -577,8 +597,8 @@ export class MessagingClient {
         this.userOperations.forget();
       },
       handlers: this.handlersFor(storage),
-      emitConnection: status => this.events.emit("connection.changed", status),
-      emitSync: status => this.events.emit("sync.changed", status),
+      emitConnection: status => this.announce("connection.changed", status),
+      emitSync: status => this.announce("sync.changed", status),
       emitError: error => this.emitError(error),
       diagnostics: this.diagnostics
     });
@@ -643,8 +663,20 @@ export class MessagingClient {
     this.emitError(error);
   }
 
+  /**
+   * Tells whoever is listening, and keeps going whatever they do about it.
+   *
+   * One place, so no future emission can forget: a bug in one application's screen must not stop the next
+   * listener hearing about something, nor leave the work this was emitted from half finished.
+   */
+  private announce<Name extends EventName>(name: Name, payload: ClientEvents[Name]): void {
+    this.events.emit(name, payload, (error: unknown) => this.emitError(error));
+  }
+
   private emitError(error: unknown): void {
-    this.events.emit("error", error instanceof Error ? error : new Error(String(error)));
+    // A listener that throws while being told about an error is told to nobody. There is nowhere left to
+    // say it, and saying it again is a loop.
+    this.events.emit("error", error instanceof Error ? error : new Error(String(error)), () => undefined);
   }
 }
 

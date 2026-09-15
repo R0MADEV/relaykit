@@ -11,6 +11,7 @@ import {
   type RoomMember
 } from "matrix-js-sdk";
 import type { AdapterHandlers, Session } from "@relaykit/core";
+import { theSessionAfterRefreshing } from "./matrix-tokens.js";
 import { createBrowserStore, handleSync, waitForInitialSync } from "./matrix-sync.js";
 import {
   handleClientEvent,
@@ -63,21 +64,21 @@ export class MatrixRuntime {
    * with the new one. Nobody else would know: an application that wrote the first session down and is never
    * told about this one signs its user out the next time it opens, for no reason anybody can see.
    */
-  private async refreshTheToken(session: Session, refreshToken: string): Promise<AccessTokens> {
+  private async refreshTheToken(refreshToken: string): Promise<AccessTokens> {
+    const held = this.session;
+    if (!held) {
+      throw new RelayKitError("INVALID_SESSION", "There is no session to renew");
+    }
     const answer = await this.getClient().refreshToken(refreshToken);
-    const expiry = answer.expires_in_ms ? new Date(Date.now() + answer.expires_in_ms) : undefined;
-    const refreshed = {
-      ...session,
-      accessToken: answer.access_token,
-      ...(answer.refresh_token ? { refreshToken: answer.refresh_token } : {}),
-      ...(expiry ? { expiresAt: expiry.getTime() } : {})
-    };
+    // Built from the session as it is now, never from the one this client started with: renewals happen for
+    // as long as a session lasts, and the one held at the start has the first refresh token in it.
+    const refreshed = theSessionAfterRefreshing(held, answer, refreshToken);
     this.session = refreshed;
     this.handlers.onSessionRefreshed?.(refreshed);
     return {
-      accessToken: answer.access_token,
-      ...(answer.refresh_token ? { refreshToken: answer.refresh_token } : {}),
-      ...(expiry ? { expiry } : {})
+      accessToken: refreshed.accessToken,
+      ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
+      ...(refreshed.expiresAt ? { expiry: new Date(refreshed.expiresAt) } : {})
     };
   }
 
@@ -114,7 +115,7 @@ export class MatrixRuntime {
       ...(session.refreshToken
         ? {
             refreshToken: session.refreshToken,
-            tokenRefreshFunction: (refreshToken: string) => this.refreshTheToken(session, refreshToken)
+            tokenRefreshFunction: (refreshToken: string) => this.refreshTheToken(refreshToken)
           }
         : {}),
       ...(this.store ? { store: this.store } : {}),
