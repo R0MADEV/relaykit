@@ -58,6 +58,9 @@ jobs:
       - name: Check signing in through somebody else's identity provider
         run: xvfb-run --auto-servernum npm run check:sso
 
+      - name: Check two people talking, threading, attaching and keeping a draft
+        run: xvfb-run --auto-servernum npm run check:chat
+
       - name: Check filing a conversation away, changing a password and coming in as a guest
         run: xvfb-run --auto-servernum npm run check:account
 

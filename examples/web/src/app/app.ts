@@ -2,6 +2,7 @@ import {
   createConversationList,
   type Conversation,
   type ConversationId,
+  type MessageId,
   type LiveCollection,
   type Notification,
   type Session
@@ -11,7 +12,7 @@ import { DoingToMessages } from "./doing-to-messages.js";
 import { Exploring } from "./exploring.js";
 import { CallScreen } from "./call-screen.js";
 import { Composing } from "./composing.js";
-import { element, input, onClick, pressedIn } from "./dom.js";
+import { element, input, onClick, pressedIn, sayWhatWentWrong } from "./dom.js";
 import { MakingThings } from "./making-things.js";
 import { Moderating } from "./moderating.js";
 import { People } from "./people.js";
@@ -74,7 +75,8 @@ class Deitu {
     this.searching = new Searching(this.client, this.people, {
       openId: () => this.reading?.openId(),
       nameOf: id => this.reading?.nameOf(id),
-      open: id => void this.openConversation(id)
+      open: id => void this.openConversation(id),
+      openAt: (id, messageId) => void this.openConversation(id, messageId)
     });
     this.searching.wire();
     this.thread = new ThreadPanel(this.client, this.people, {
@@ -279,20 +281,16 @@ class Deitu {
   }
 
   /** Opening a conversation, which is the one thing every part of this asks the shell to do. */
-  private async openConversation(conversationId: ConversationId): Promise<void> {
+  /** Opening a conversation, at its end or where something was said — which is what a result is for. */
+  private async openConversation(conversationId: ConversationId, at?: MessageId): Promise<void> {
     this.typing?.stop();
     element("shell").removeAttribute("data-list-open");
     await this.composing?.moveTo(conversationId);
-    await this.reading?.open(conversationId);
+    await (at ? this.reading?.openAt(conversationId, at) : this.reading?.open(conversationId));
   }
 
   private wentWrong(error: unknown): undefined {
-    const said = error instanceof Error ? error.message : String(error);
-    const where = element("sign-in-wrong");
-    where.textContent = said;
-    where.hidden = false;
-    window.setTimeout(() => (where.hidden = true), 6000);
-    return undefined;
+    return sayWhatWentWrong(error);
   }
 }
 

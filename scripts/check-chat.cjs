@@ -1,11 +1,6 @@
 "use strict";
 // Two people using the application, in two real browsers.
 //
-// NOT IN CI YET. Everything up to and including the search passes; the step where the other side sees what
-// was said is failing and the cause is not settled. The library is not it — two clients joining a public
-// room and reading it works outside the browser, checked — so it is this application or this script, and a
-// check nobody has made pass is a check that teaches nothing.
-//
 // The unit tests prove what the library answers and the contract tests prove what the homeserver does.
 // Neither can say whether somebody can attach a picture and have the other side see it, open a thread, find
 // something that was said, take a moderator's rank away, or come back to a half-written message. That is the
@@ -120,18 +115,15 @@ async function makeTheChannel(page, name) {
     document.querySelector('input[name="visibility"][value="public"]').checked = true;
   `
   );
-  console.log(
-    "before clicking:",
-    await read(
-      page,
-      `JSON.stringify({
-    name: document.getElementById("channel-name").value,
-    checked: document.querySelector('input[name="visibility"]:checked')?.value,
-    button: Boolean(document.querySelector('#create-channel button[value="create"]'))
-  })`
-    )
-  );
   await run(page, `document.querySelector('#create-channel button[value="create"]').click();`);
+  // Waited for rather than assumed: a person sees the channel appear before they do anything else, and
+  // opening the dialog again while the last one is still being made is how two channels end up with one name.
+  await waitFor(
+    page,
+    `#${name} to appear in the list`,
+    `[...document.querySelectorAll(".lists li button")].some(each => each.textContent.includes(${JSON.stringify(name)}))`,
+    60
+  );
   detail.channel = name;
 }
 

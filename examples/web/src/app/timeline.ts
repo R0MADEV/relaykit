@@ -50,7 +50,7 @@ export function paintTimeline(into: HTMLElement, entries: readonly Entry[], read
 
 function said(message: Message, reading: Reading): string {
   const who = reading.people.nameOf(message.senderId);
-  return `<div class="said">${whatCanBeDone(message, reading)}
+  return `<div class="said" data-message="${safe(message.id)}">${whatCanBeDone(message, reading)}
     ${face(reading.people, message.senderId, true)}
     <div>
       <p class="who"><strong>${safe(who)}</strong><span class="at">${timeOf(message.createdAt)}</span></p>
@@ -60,7 +60,7 @@ function said(message: Message, reading: Reading): string {
 }
 
 function saidAgain(message: Message, reading: Reading): string {
-  return `<div class="said same">${whatCanBeDone(message, reading)}<span class="at">${timeOf(message.createdAt)}</span>
+  return `<div class="said same" data-message="${safe(message.id)}">${whatCanBeDone(message, reading)}<span class="at">${timeOf(message.createdAt)}</span>
     <div>${body(message, reading)}${reactions(message, reading)}${thread(message, reading)}</div>
   </div>`;
 }

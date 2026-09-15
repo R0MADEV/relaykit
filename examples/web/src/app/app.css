@@ -1429,3 +1429,10 @@ a.file {
   justify-content: center;
   padding: 10px;
 }
+
+/* El mensaje que alguien estaba buscando, para que no tenga que encontrarlo otra vez al llegar. */
+.said[data-found] {
+  border-radius: 8px;
+  background: var(--accent-wash);
+  box-shadow: 0 0 0 2px var(--accent);
+}

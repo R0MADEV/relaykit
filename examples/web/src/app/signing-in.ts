@@ -4,6 +4,11 @@ import { element, input, onClick, onSubmit, pressedIn, safe } from "./dom.js";
 /** Where this example keeps the session, so opening it again does not ask who you are. */
 const remembered = "deitu-session";
 
+/** The one place the session is written down, so there is one thing to keep in step with the homeserver. */
+function keep(session: Session): void {
+  localStorage.setItem(remembered, JSON.stringify(session));
+}
+
 /**
  * Getting in: the form, the session kept from last time, and the client built around whichever of the two
  * answered. Everything else takes a session for granted, which is what this is here to make true.
@@ -15,6 +20,10 @@ export class SigningIn {
     private readonly entered: (session: Session) => Promise<void>,
     private readonly wentWrong: (error: unknown) => void
   ) {
+    // The homeserver hands out a new access token before the old one runs out, and nobody else would know.
+    // Writing it down here is the whole point: what is kept has to be what the homeserver would accept, or
+    // opening this again signs the person out for no reason they can see.
+    this.client.on("session.refreshed", session => keep(session));
     onSubmit("sign-in", () => void this.signIn());
     // Which ways in there are depends on which homeserver was typed, so they are asked for again when it is.
     input("homeserver").addEventListener("change", () => void drawWaysIn(this.client, this.wentWrong));
@@ -29,7 +38,7 @@ export class SigningIn {
       try {
         const session = await this.client.sso.finish(cameBack.homeserver, cameBack.token);
         forgetTheToken();
-        localStorage.setItem(remembered, JSON.stringify(session));
+        keep(session);
         await this.entered(session);
         return;
       } catch (error) {
@@ -61,7 +70,7 @@ export class SigningIn {
   private async signInAsGuest(): Promise<void> {
     try {
       const session = await this.client.signInAsGuest(input("homeserver").value.trim());
-      localStorage.setItem(remembered, JSON.stringify(session));
+      keep(session);
       await this.entered(session);
     } catch (error) {
       this.wentWrong(error);
@@ -75,7 +84,7 @@ export class SigningIn {
         username: input("username").value.trim(),
         password: input("password").value
       });
-      localStorage.setItem(remembered, JSON.stringify(session));
+      keep(session);
       await this.entered(session);
     } catch (error) {
       this.wentWrong(error);

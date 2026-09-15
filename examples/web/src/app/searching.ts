@@ -1,4 +1,4 @@
-import type { ConversationId, Message, MessagingClient } from "@relaykit/web";
+import type { ConversationId, Message, MessageId, MessagingClient } from "@relaykit/web";
 import { element, input, onClick, pressedIn, safe } from "./dom.js";
 import { face, type People } from "./people.js";
 import { dayOf, timeOf } from "./when.js";
@@ -24,6 +24,8 @@ export class Searching {
       readonly openId: () => ConversationId | undefined;
       readonly nameOf: (conversationId: ConversationId) => string | undefined;
       readonly open: (conversationId: ConversationId) => void;
+      /** Opens a conversation where something was said, which is what a result is for. */
+      readonly openAt: (conversationId: ConversationId, messageId: MessageId) => void;
     }
   ) {}
 
@@ -33,9 +35,10 @@ export class Searching {
     onClick("results-close", () => this.close());
     element("results-list").addEventListener("click", event => {
       const conversationId = pressedIn(event, "found-in");
-      if (!conversationId) return;
+      const messageId = pressedIn(event, "found-said");
+      if (!conversationId || !messageId) return;
       this.close();
-      this.where.open(conversationId);
+      this.where.openAt(conversationId, messageId);
     });
   }
 
@@ -90,7 +93,7 @@ export class Searching {
 
   private row(message: Message): string {
     const where = this.where.nameOf(message.conversationId) ?? message.conversationId;
-    return `<button class="found" data-found-in="${safe(message.conversationId)}">
+    return `<button class="found" data-found-in="${safe(message.conversationId)}" data-found-said="${safe(message.id)}">
       ${face(this.people, message.senderId, true)}
       <span class="found-what">
         <span class="who">

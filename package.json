@@ -51,6 +51,7 @@
     "check:sso": "npm run build --workspace=@relaykit/example-web && electron scripts/check-sso.cjs --no-sandbox",
     "check:account": "npm run build --workspace=@relaykit/example-web && electron scripts/check-account.cjs --no-sandbox",
     "check:mail": "npm run build && node scripts/check-mail.mjs",
+    "sweep:rooms": "npm run build && node scripts/sweep-rooms.mjs",
     "check:chat": "npm run build --workspace=@relaykit/example-web && electron scripts/check-chat.cjs --no-sandbox",
     "check:keys": "npm run build --workspace=@relaykit/example-web && electron scripts/check-keys.cjs --no-sandbox",
     "check:calls": "npm run build --workspace=@relaykit/example-web && electron scripts/check-calls.cjs --no-sandbox",

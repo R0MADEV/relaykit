@@ -77,6 +77,29 @@ export class Reading {
     return this.conversationId;
   }
 
+  /**
+   * Opens a conversation where something was said, rather than at its end.
+   *
+   * What a search result needs: a line on its own says who said it and almost never what it was about. The
+   * homeserver is asked for what surrounded it, because whatever the sync happened to bring is almost never
+   * the right part of the history.
+   */
+  async openAt(conversationId: ConversationId, messageId: MessageId): Promise<void> {
+    await this.open(conversationId);
+    const around = await this.client.messages
+      .around(conversationId, messageId, enoughToOpenWith / 2)
+      .catch(() => undefined);
+    if (!around || this.conversationId !== conversationId) return;
+    const said = [...around.before, around.message, ...around.after];
+    this.entries = said.map(message => ({ kind: "message", at: message.createdAt, message }));
+    this.people.learn(
+      said.map(message => message.senderId),
+      conversationId
+    );
+    this.repaint();
+    showWhereItWasSaid(messageId);
+  }
+
   /** Nothing is open any more, because what was open is gone. */
   close(): void {
     this.conversationId = undefined;
@@ -243,4 +266,17 @@ export class Reading {
 
 function isThere<Thing>(thing: Thing | undefined): thing is Thing {
   return thing !== undefined;
+}
+
+/**
+ * Puts the message somebody was looking for in front of them and says which one it is.
+ *
+ * Scrolled to rather than left at the bottom, because the whole point of opening here was that the end of the
+ * conversation is not where the answer was.
+ */
+function showWhereItWasSaid(messageId: MessageId): void {
+  const said = document.querySelector(`[data-message="${CSS.escape(messageId)}"]`);
+  if (!(said instanceof HTMLElement)) return;
+  said.scrollIntoView({ block: "center" });
+  said.dataset.found = "true";
 }

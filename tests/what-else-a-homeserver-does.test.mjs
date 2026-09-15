@@ -70,3 +70,19 @@ test("a session refreshed on its own is handed out, so it can be kept", async ()
   assert.equal(kept.length, 1);
   assert.equal(kept[0].accessToken, "token-2");
 });
+
+test("going back in a conversation does not drag thread answers into it", async () => {
+  const { client } = await startClient();
+  const conversation = await client.conversations.create({ participantIds: ["bob"], title: "Hilos" });
+  const root = await client.messages.send(conversation.id, "la pregunta");
+  await client.messages.send(conversation.id, "en el hilo", { threadId: root.id });
+  await client.messages.send(conversation.id, "otra cosa");
+
+  const older = await client.messages.loadMore(conversation.id, 50);
+
+  assert.deepEqual(
+    older.messages.map(message => message.body),
+    ["la pregunta", "otra cosa"],
+    "what hangs from a thread is read as a thread, going back as well as coming in"
+  );
+});

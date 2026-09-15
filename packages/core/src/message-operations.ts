@@ -118,8 +118,11 @@ export class MessageOperations {
     try {
       const page = await this.context.adapter.loadMoreMessages(conversationId, limit);
       for (const message of page.messages) this.receivedMessageIds.add(message.id);
-      const merged = this.merge(stored, page.messages);
-      // The same decision as reading a conversation: keep the newest up to the limit and nothing else. Writing
+      // The same decision as reading a conversation, and for the same reason: what hangs from a thread is
+      // read as a thread. Without it a conversation reads one way when it is opened and another way after
+      // somebody scrolls back, which is the same conversation telling two stories.
+      const merged = this.merge(stored, page.messages).filter(message => message.threadId === undefined);
+      // And the same decision about the cache: keep the newest up to the limit and nothing else. Writing
       // down history that the cache is about to drop was work for nothing, on every look back.
       await this.updateCache(merged, stored);
       return { messages: merged, hasMore: page.hasMore };

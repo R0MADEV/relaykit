@@ -71,6 +71,46 @@ async function makeAConversation(page) {
   await waitFor(page, "the conversation to open", `document.getElementById("open-title").textContent`, 60);
 }
 
+/**
+ * A search result that opens where it was said.
+ *
+ * The point of the whole thing: a line on its own says who said it and almost never what it was about, so
+ * what is checked is that the messages around it are on screen afterwards — not only that something opened.
+ */
+async function openAResultWhereItWasSaid(page) {
+  for (const what of ["antes de todo", "la aguja", "después de todo"]) {
+    await run(
+      page,
+      `document.getElementById("write").value = ${JSON.stringify(what)};
+      document.getElementById("composer").requestSubmit();`
+    );
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+  await waitFor(page, "the three messages", `document.querySelectorAll("[data-message]").length >= 3`, 60);
+
+  await run(
+    page,
+    `
+    document.getElementById("search").value = "aguja";
+    document.getElementById("search").dispatchEvent(new Event("input"));
+  `
+  );
+  await waitFor(page, "the result", `document.querySelector("[data-found-said]")`, 60);
+  await run(page, `document.querySelector("[data-found-said]").click();`);
+
+  await waitFor(page, "it to land on the message", `document.querySelector("[data-found]")`, 60);
+  detail.landedOn = await read(
+    page,
+    `document.querySelector("[data-found]").textContent.replace(/\\s+/g, " ").trim()`
+  );
+  if (!detail.landedOn.includes("la aguja")) {
+    throw new Error(`it opened on ${detail.landedOn}, which is not what was searched for`);
+  }
+  // And what was said around it is there, which is the whole reason for opening here.
+  detail.around = await read(page, `document.querySelectorAll("[data-message]").length`);
+  if (detail.around < 3) throw new Error("it opened on the message with nothing around it");
+}
+
 async function fileItAway(page) {
   await run(
     page,
@@ -217,6 +257,7 @@ async function main() {
   await signIn(page);
   await makeAConversation(page);
   await fileItAway(page);
+  await openAResultWhereItWasSaid(page);
   // A second session, open elsewhere, so the claim that they get closed is checked rather than believed.
   const elsewhere = await fetch(`${homeserver}/_matrix/client/v3/login`, {
     method: "POST",
@@ -233,7 +274,8 @@ async function main() {
   server.close();
   report(
     true,
-    `filed under ${detail.filedUnder}, changed the password, closed the account, ` +
+    `filed under ${detail.filedUnder}, opened a result on «${detail.landedOn}» with ` +
+      `${detail.around} messages around it, changed the password, closed the account, ` +
       `and came back in as ${detail.guest}`
   );
 }

@@ -37,6 +37,19 @@ menores; los cambios incompatibles se listan aqui.
 - **El árbol de un espacio.** `spaces.children(id)` baja todos los niveles, no uno: cada hijo trae su `depth`,
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
+### Corregido
+
+- **Un borrador a medias se perdía al volver a la conversación.** Dos fallos en la misma ruta del ejemplo: al
+  irte se guardaba contra la conversación equivocada, y al volver se leía el borrador y se tiraba porque se
+  comparaba con lo que había abierto, que todavía no había cambiado. Era exactamente lo que la función existe
+  para evitar.
+- **Ir hacia atrás en una conversación arrastraba las respuestas de los hilos a la conversación.** El filtro
+  estaba en lo que llega en vivo y al abrir, pero no al paginar: la misma conversación se leía de una manera al
+  abrirla y de otra al subir.
+- `check:chat` entra en CI. Estaba fuera desde hacía días; los dos fallos de arriba eran la causa.
+- `npm run sweep:rooms` recoge las salas que dejan las comprobaciones. Las cuentas de desarrollo tenían 722 y
+  267: no es desorden, es que una cuenta con setecientas salas sincroniza distinto a la que tiene cualquiera.
+
 ### Cambiado
 
 - **`messages.searchRemote` devuelve `{ messages, cursor }`**, no una lista. Incompatible a propósito: la

@@ -58,3 +58,16 @@ function asDatasetKey(mark: string): string {
 // Escaping lives with the text that needs it, and is handed on from here so nothing has two places
 // to import the same thing from.
 export { safe } from "./writing.js";
+
+/**
+ * Says what went wrong where somebody is looking, and takes it away again.
+ *
+ * One place, because an application with two ways of showing a failure ends up with screens that show none.
+ */
+export function sayWhatWentWrong(error: unknown): undefined {
+  const where = element("sign-in-wrong");
+  where.textContent = error instanceof Error ? error.message : String(error);
+  where.hidden = false;
+  window.setTimeout(() => (where.hidden = true), 6000);
+  return undefined;
+}

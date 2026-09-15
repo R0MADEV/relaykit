@@ -47,13 +47,15 @@ export class Composing {
 
   /** Reads back what was left here last time, and puts away what is here now. */
   async moveTo(conversationId: ConversationId | undefined): Promise<void> {
-    await this.keep();
+    await this.keep(conversationId);
     const box = input("write");
     box.value = "";
     if (!conversationId) return;
     const kept = await this.client.conversations.draft(conversationId).catch(() => undefined);
     // Somebody who moved on again while this was coming back is not looking at that conversation any more.
-    if (this.where.openId() === conversationId && kept) box.value = kept;
+    // Compared against where this box is headed, not against what is open: what is open catches up after
+    // this runs, so asking it would say no every time and throw away every draft it just read.
+    if (this.wasIn === conversationId && kept) box.value = kept;
   }
 
   private keepShortly(): void {
@@ -61,10 +63,17 @@ export class Composing {
     this.keeping = window.setTimeout(() => void this.keep(), 500);
   }
 
-  private async keep(): Promise<void> {
+  /**
+   * Puts away what is in the box, against the conversation it was written in.
+   *
+   * `movingTo` is given when somebody is on their way somewhere else, because by then what is open has not
+   * caught up yet: without it, coming back to a conversation saves the empty box over the draft that is
+   * about to be read out of it, and what somebody half wrote is gone the moment they return for it.
+   */
+  private async keep(movingTo?: ConversationId | undefined): Promise<void> {
     window.clearTimeout(this.keeping);
     const conversationId = this.wasIn;
-    this.wasIn = this.where.openId();
+    this.wasIn = movingTo ?? this.where.openId();
     if (!conversationId) return;
     await this.client.conversations.saveDraft(conversationId, input("write").value).catch(() => undefined);
   }
