@@ -8,13 +8,9 @@
 import { MessagingClient } from "@relaykit/core";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
 import { InMemoryStorage } from "@relaykit/in-memory";
+import { surviveWhatTheSdkThrows } from "./surviving-the-sdk.mjs";
 
-// matrix-js-sdk fetches thread roots while it syncs, and on a room whose history this account cannot see the
-// homeserver answers 403. The SDK does not catch it, so in node it takes the process with it. Nothing here
-// asked for that request and nothing here can wrap it, so it is noted and stepped over.
-process.on("unhandledRejection", error => {
-  console.log(`RELAYKIT_SWEEP_STEPPED_OVER ${error instanceof Error ? error.message : String(error)}`);
-});
+surviveWhatTheSdkThrows();
 
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 const accounts = (process.env.RELAYKIT_SWEEP_USERS ?? "alice,bob,carol").split(",");

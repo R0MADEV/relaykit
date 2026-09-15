@@ -40,6 +40,11 @@ export class MatrixConference {
   private readonly joined = new Map<string, Joined>();
   /** Going on without this side: the room says so, nobody here has entered, and there is no media yet. */
   private readonly announced = new Map<string, Announced>();
+  /** Which session each room's conference is, so a new one under an old name is told apart from it. */
+  private readonly watching = new Map<string, MatrixRTCSession>();
+  private readonly stopWatching = new Map<string, () => void>();
+  /** Calls this side is in the middle of entering. Somebody on their way in is not somebody to ring. */
+  private readonly onTheWayIn = new Set<string>();
   private report: ((call: Call) => void) | undefined;
   private speaking: ((speaking: CallSpeaking) => void) | undefined;
   private announce: ((call: Call) => void) | undefined;
@@ -65,32 +70,32 @@ export class MatrixConference {
    * screen ring for a room: nobody is called, but something has begun that can be joined.
    */
   follow(client: MatrixClient): void {
-    const started = (roomId: string, session: MatrixRTCSession): void => {
+    // Watched rather than waited on. The SDK says a conference started once and ended once, and in a room
+    // where people call each other all day it can hold one session alive across all of them — so the second
+    // call rang nobody, silently, and the third and the fourth. Who is on it is the thing that changes, so
+    // that is the thing this follows: every time it changes, the answer is worked out again from what is
+    // actually there rather than from an edge that may never come round again.
+    const watch = (roomId: string, session: MatrixRTCSession): void => {
       const callId = callIdFor(roomId);
-      const alreadyKnown = this.joined.has(callId) || this.announced.has(callId);
-      if (alreadyKnown) return;
-      // This side's own membership arriving is not somebody else's call. Only other people ring.
-      const somebodyElse = session.memberships.some(member => !isThisDevice(client, member));
-      if (!somebodyElse) return;
-      const changed = (): void => {
-        const going = this.announced.get(callId);
-        if (going) this.report?.(this.describeAnnounced(callId, going));
-      };
+      const alreadyWatching = this.watching.get(callId) === session;
+      if (alreadyWatching) return void this.whoIsOnIt(client, roomId, session);
+      this.stopWatching.get(callId)?.();
+      const changed = (): void => this.whoIsOnIt(client, roomId, session);
       session.on(MatrixRTCSessionEvent.MembershipsChanged, changed);
-      const going: Announced = {
-        session,
-        ownUserId: client.getSafeUserId(),
-        conversationId: roomId,
-        startedAt: Math.min(...session.memberships.map(member => member.createdTs())),
-        stopListening: () => session.off(MatrixRTCSessionEvent.MembershipsChanged, changed)
-      };
-      this.announced.set(callId, going);
-      this.announce?.(this.describeAnnounced(callId, going));
+      this.watching.set(callId, session);
+      this.stopWatching.set(callId, () => {
+        session.off(MatrixRTCSessionEvent.MembershipsChanged, changed);
+        this.watching.delete(callId);
+        this.stopWatching.delete(callId);
+      });
+      this.whoIsOnIt(client, roomId, session);
     };
+    const started = (roomId: string, session: MatrixRTCSession): void => watch(roomId, session);
     const ended = (roomId: string): void => {
       const callId = callIdFor(roomId);
+      this.stopWatching.get(callId)?.();
       const going = this.announced.get(callId);
-      if (!going) return;
+      if (!going) return void this.letGoOf(callId);
       this.announced.delete(callId);
       going.stopListening();
       this.report?.({
@@ -122,6 +127,23 @@ export class MatrixConference {
     const already = this.joined.get(callId);
     if (already) return this.describe(callId, already);
 
+    // Marked before anything is awaited. Getting in takes network work, and while it happens the others
+    // arrive: without this, somebody placing a call is told there is a call to answer — their own.
+    this.onTheWayIn.add(callId);
+    try {
+      return await this.getIn(client, conversationId, callId, options, { ring });
+    } finally {
+      this.onTheWayIn.delete(callId);
+    }
+  }
+
+  private async getIn(
+    client: MatrixClient,
+    conversationId: ConversationId,
+    callId: string,
+    options: PlaceCallOptions,
+    { ring }: { ring: boolean }
+  ): Promise<Call> {
     const transport = this.rtc.findTransport(client);
     // Before anything else: a room from before calls lets only admins on one, and this is the one moment
     // somebody who can change that is standing in it with a reason to.
@@ -246,6 +268,59 @@ export class MatrixConference {
     // account of it down is network work, and a screen must not stay on a call waiting for a write to land.
     this.report?.({ ...this.describe(callId, going), state: "ended", endedAt: Date.now() });
     await walkOutOf(going);
+  }
+
+  /**
+   * Whether there is a call in this room worth telling anybody about, decided from who is on it now.
+   *
+   * Somebody else on it and nothing held here is a call that should ring. Nobody else on it and something
+   * held here is one that is over. Everything else is already right, and saying so again would be noise.
+   */
+  private whoIsOnIt(client: MatrixClient, roomId: string, session: MatrixRTCSession): void {
+    const callId = callIdFor(roomId);
+    const somebodyElse = session.memberships.some(member => !isThisDevice(client, member));
+    const hereAlready = this.joined.has(callId) || this.onTheWayIn.has(callId);
+    const ringing = this.announced.get(callId);
+
+    // Only ever starts one. A conference's membership list empties for a moment while the session churns —
+    // seen here, twice a call — and ending a ring on that makes it appear and vanish before anybody could
+    // have answered. What is over is still decided by the room saying so, which is a thing that happens once.
+    if (!somebodyElse || hereAlready) return;
+    if (ringing) return void this.report?.(this.describeAnnounced(callId, ringing));
+
+    const changed = (): void => {
+      const going = this.announced.get(callId);
+      if (going) this.report?.(this.describeAnnounced(callId, going));
+    };
+    session.on(MatrixRTCSessionEvent.MembershipsChanged, changed);
+    const going: Announced = {
+      session,
+      ownUserId: client.getSafeUserId(),
+      conversationId: roomId,
+      startedAt: Math.min(...session.memberships.map(member => member.createdTs())),
+      stopListening: () => session.off(MatrixRTCSessionEvent.MembershipsChanged, changed)
+    };
+    this.announced.set(callId, going);
+    this.announce?.(this.describeAnnounced(callId, going));
+  }
+
+  /**
+   * Lets go of whatever is held under a name, quietly.
+   *
+   * For when a call is over and this side did not end it: nothing to report, because whoever is looking has
+   * already been told by the report that came with it. What matters is that nothing is left behind, since a
+   * name comes round again the next time somebody calls in the same conversation.
+   */
+  private letGoOf(callId: string): void {
+    const ringing = this.announced.get(callId);
+    if (ringing) {
+      this.announced.delete(callId);
+      ringing.stopListening();
+    }
+    const going = this.joined.get(callId);
+    if (!going) return;
+    this.joined.delete(callId);
+    void walkOutOf(going).catch(() => undefined);
   }
 
   /** Silencing is not leaving: this stops publishing, and the rest carry on hearing each other. */

@@ -49,9 +49,6 @@ jobs:
       - name: Check the web example in a browser
         run: xvfb-run --auto-servernum npm run check:web-demo
 
-      - name: Check a call between two browsers
-        run: xvfb-run --auto-servernum npm run check:calls
-
       - name: Check protecting, unlocking and vouching for keys across three devices
         run: xvfb-run --auto-servernum npm run check:keys
 

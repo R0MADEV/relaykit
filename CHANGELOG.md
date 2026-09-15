@@ -7,6 +7,16 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
+  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
+  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
+  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
+  petición de sync en vuelo.
+- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
+  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
+  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
+  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
+
 - **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
   el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
   se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
@@ -121,6 +131,16 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
+  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
+  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
+  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
+  petición de sync en vuelo.
+- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
+  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
+  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
+  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
 
 - **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
   el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
@@ -238,6 +258,16 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
+  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
+  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
+  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
+  petición de sync en vuelo.
+- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
+  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
+  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
+  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
 
 - **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
   el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
@@ -777,6 +807,16 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
+  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
+  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
+  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
+  petición de sync en vuelo.
+- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
+  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
+  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
+  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
 
 - **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
   el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien

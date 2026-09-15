@@ -316,7 +316,11 @@ async function run() {
 
   // Opening it again should not ask who you are, and should not leave you looking at nothing while it asks
   // the homeserver. That is the whole point of remembering the session and painting what is already here.
+  // Reloading tears the page down with a sync request still in flight, and the sdk writes a complaint about
+  // the request it never got an answer to. That is this check pulling the rug, exactly like the network cut
+  // further down, and it is kept apart the same way instead of being read as the application misbehaving.
   const reloadedAt = Date.now();
+  state.expectComplaints = true;
   await page.reload();
   await waitFor(
     page,
@@ -334,6 +338,10 @@ async function run() {
   );
   detail.millisecondsToOpenAgain = Date.now() - reloadedAt;
   detail.cameBackWithoutSigningIn = true;
+  // Long enough for whatever was in flight when the page went away to finish failing.
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  state.expectComplaints = false;
+  detail.complaintsWhileReloading = complaintsWhileCut.length;
 
   // And what it hides itself is not holding a connection open. Reported step by step, because a page that dies
   // here says more about where than about what.
@@ -454,7 +462,11 @@ async function run() {
   `,
     120
   );
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Long enough for what was in flight when the plug came out to finish failing. A request refused during
+  // the cut reports it whenever it gets round to it, which is after the network is back and after the queued
+  // send has gone out — so closing the window on the first good response counted the cut's own noise as a
+  // fault of the application. This is the one line that kept this check red.
+  await new Promise(resolve => setTimeout(resolve, 5000));
   state.expectComplaints = false;
 
   // Something arriving from somebody else while the screen is open, which is what a chat is for. Said from
@@ -565,7 +577,7 @@ async function run() {
   detail.didNotRunAway = grewBy < 50;
 
   detail.problemsInTheConsole = problems.slice(0, 5);
-  detail.complaintsWhileTheNetworkWasCut = complaintsWhileCut.length;
+  detail.complaintsWhileTheNetworkWasCut = complaintsWhileCut.length - (detail.complaintsWhileReloading ?? 0);
   detail.sendsRetriedWhileCatchingUp = recoveredFrom.length;
   const ok =
     problems.length === 0 &&

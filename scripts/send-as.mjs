@@ -1,6 +1,9 @@
 import { MessagingClient } from "@relaykit/core";
 import { InMemoryStorage } from "@relaykit/in-memory";
 import { MatrixJsAdapter } from "@relaykit/matrix-js";
+import { barelyAnyHistory, surviveWhatTheSdkThrows } from "./surviving-the-sdk.mjs";
+
+surviveWhatTheSdkThrows();
 
 // Says something in a conversation as somebody else, so a check can watch it arrive on a screen.
 const [username, conversationId, body] = process.argv.slice(2);
@@ -11,7 +14,11 @@ if (!username || !conversationId || !body) {
   process.exit(1);
 }
 
-const client = new MessagingClient({ adapter: new MatrixJsAdapter(), storage: new InMemoryStorage() });
+// One sentence in one conversation: everything else this account is in is somebody else's problem.
+const client = new MessagingClient({
+  adapter: new MatrixJsAdapter(barelyAnyHistory),
+  storage: new InMemoryStorage()
+});
 try {
   await client.login({
     homeserver,
