@@ -7,6 +7,24 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
+  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
+  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
+  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
+- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
+  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
+  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
+- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
+  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
+  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
+- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
+  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
+  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
+- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
+- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
+  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
+  por pasar la cadena al parámetro equivocado.
+
 - **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
   copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
   refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
@@ -74,6 +92,10 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Añadido
 
+- **Cómo está cerrada una copia se guarda junto a ella**, sin cifrar: `{ kdf, version, iterations, salt }`.
+  Sin eso, subir el coste de PBKDF2 dentro de dos años dejaría fuera a quien hiciera su copia hoy, y no habría
+  manera de saber que eso es lo que pasó. `storage.howItIsLocked()` lo devuelve.
+
 - `STORAGE_ERROR`, para lo único que lo necesitaba: no haber podido quitar las conversaciones de un
   dispositivo del que alguien acaba de salir.
 
@@ -99,6 +121,24 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
+  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
+  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
+  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
+- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
+  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
+  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
+- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
+  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
+  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
+- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
+  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
+  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
+- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
+- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
+  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
+  por pasar la cadena al parámetro equivocado.
 
 - **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
   copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
@@ -198,6 +238,24 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
+  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
+  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
+  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
+- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
+  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
+  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
+- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
+  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
+  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
+- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
+  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
+  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
+- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
+- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
+  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
+  por pasar la cadena al parámetro equivocado.
 
 - **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
   copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
@@ -719,6 +777,24 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
+  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
+  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
+  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
+- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
+  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
+  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
+- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
+  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
+  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
+- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
+  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
+  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
+- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
+- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
+  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
+  por pasar la cadena al parámetro equivocado.
 
 - **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
   copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un

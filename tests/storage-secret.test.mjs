@@ -9,7 +9,7 @@ const message = {
   conversationId: "!room:localhost",
   senderId: "@alice:localhost",
   body: "lo que dije ayer",
-  sentAt: 1,
+  createdAt: 1,
   status: "sent"
 };
 

@@ -51,8 +51,10 @@ test("messages round trip and are encrypted at rest", async () => {
 
   assert.deepEqual(await storage.getMessage("message-1"), message());
   const [stored] = await readRaw(name, "messages");
-  assert.notEqual(stored.body, message().body);
-  assert.match(stored.body, /^[^.]+\.[^.]+$/);
+  // Only what the store finds it by is out here; everything else is inside, behind this library's own mark.
+  assert.equal(stored.body, undefined);
+  assert.ok(stored.sealed.startsWith("rk1:"));
+  assert.equal(stored.id, "message-1");
 });
 
 test("messages are listed by conversation and by pending status", async () => {
@@ -230,13 +232,17 @@ test("after changing the secret the content is unreadable with the old one", asy
   assert.deepEqual(await withOldSecret.getMessages("conversation-1"), []);
 });
 
-test("a record nobody can read any more is dropped instead of stopping the change of secret", async () => {
+test("a record nobody can read any more is dropped only when that was asked for", async () => {
   const { storage, name } = createStorage();
   await storage.saveMessage(message());
   const withAnotherSecret = new IndexedDbStorage(name, { encryptionSecret: "somebody-elses-secret" });
   await withAnotherSecret.saveMessage(message({ id: "message-2", body: "written with another key" }));
 
-  await storage.rekey("another-device-secret");
+  // Not by default: something unreadable is almost always the wrong key rather than broken data, and
+  // rewriting the database with only what opened throws away what was still perfectly there.
+  await assert.rejects(storage.rekey("another-device-secret"), /could not be read/i);
+
+  await storage.rekey("another-device-secret", { dropUnreadable: true });
 
   const readable = await storage.getMessages("conversation-1");
   assert.deepEqual(

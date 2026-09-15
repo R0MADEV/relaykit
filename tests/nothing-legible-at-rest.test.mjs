@@ -137,3 +137,125 @@ test("a rekey that cannot finish leaves what was there, not half of it", async (
     "the profiles were thrown away by a successful rekey"
   );
 });
+
+test("a field nobody thought about is private, not legible", async () => {
+  const { storage, name } = aStore();
+  // Standing in for the next private thing somebody adds to the model without touching this file. Blacklists
+  // are wrong by default; the question a store should ask is what may be left out, not what must go in.
+  await storage.saveMessage({ ...aPrivateMessage(), caption: "el pie de foto tambien es privado" });
+
+  assert.ok(!(await everythingWrittenDown(name)).includes("el pie de foto"));
+});
+
+test("what the database has to index with stays legible, and nothing else does", async () => {
+  const { storage, name } = aStore();
+  await storage.saveMessage(aPrivateMessage({ status: "sent" }));
+
+  const onDisk = await everythingWrittenDown(name);
+
+  // Without these the store cannot find anything: it looks messages up by id, by conversation and by status.
+  assert.ok(onDisk.includes("message-1"));
+  assert.ok(onDisk.includes("conversation-1"));
+  assert.ok(onDisk.includes('"status":"sent"'));
+});
+
+test("a message that reads like this library's own record is still just what somebody typed", async () => {
+  const { storage } = aStore();
+  // Somebody pasting JSON into a chat should get their JSON back, not have it read as bookkeeping.
+  const typedByHand = '{"body":"esto lo escribio una persona"}';
+  await storage.saveMessage(
+    aPrivateMessage({ body: typedByHand, formattedBody: undefined, location: undefined })
+  );
+
+  const [read] = await storage.getMessages("conversation-1");
+
+  assert.equal(read.body, typedByHand);
+});
+
+test("what is waiting to go out comes back with its formatting", async () => {
+  const { storage } = aStore();
+  await storage.saveOutboxOperation({
+    id: "operation-1",
+    transactionId: "txn-1",
+    conversationId: "conversation-1",
+    body: "hola",
+    formattedBody: "<b>hola</b>",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1
+  });
+
+  const read = await storage.getOutboxOperation("operation-1");
+
+  assert.equal(read.body, "hola");
+  assert.equal(read.formattedBody, "<b>hola</b>", "the formatting was sealed away and never let back out");
+});
+
+test("a message with a full stop in it is not mistaken for something encrypted", async () => {
+  const { storage, name } = aStore({});
+  await storage.saveMessage(
+    aPrivateMessage({ body: "Hola. Que tal?", formattedBody: undefined, location: undefined })
+  );
+  const openStore = new IndexedDbStorage(name, { encryptionSecret: "una-clave-que-llega-despues" });
+
+  // Written with no key, read with one. Guessing by looking for a dot means anything anybody said with a
+  // full stop in it looks like ciphertext and is thrown away.
+  const [read] = await openStore.getMessages("conversation-1");
+
+  assert.equal(read?.body, "Hola. Que tal?");
+});
+
+test("a rekey that cannot read what is there changes nothing", async () => {
+  const { storage, name } = aStore({ encryptionSecret: "la-clave-de-verdad" });
+  await storage.saveOutboxOperation({
+    id: "operation-1",
+    transactionId: "txn-1",
+    conversationId: "conversation-1",
+    body: "esto no se ha enviado",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 1
+  });
+
+  const withTheWrongKey = new IndexedDbStorage(name, { encryptionSecret: "la-que-no-es" });
+  await assert.rejects(withTheWrongKey.rekey("una-tercera"), /could not be read/i);
+
+  // Until that moment nothing was lost: it was the wrong key, not broken data. Rewriting the database with
+  // what could be read would have thrown away the only copy of something never sent.
+  const withTheRightOne = new IndexedDbStorage(name, { encryptionSecret: "la-clave-de-verdad" });
+  assert.equal((await withTheRightOne.getReadyOutbox(Date.now()))[0]?.body, "esto no se ha enviado");
+});
+
+test("a rekey that fails leaves the instance able to read what is still there", async () => {
+  const { storage } = aStore({ encryptionSecret: "la-primera" });
+  await storage.saveMessage(aPrivateMessage());
+  await storage.rekey("la-segunda").catch(() => undefined);
+
+  // Whatever happened, the key this instance holds and the key the database is under are the same one.
+  assert.equal((await storage.getMessages("conversation-1"))[0]?.body, secretThings.body);
+});
+
+test("how the key was made is written down beside the data", async () => {
+  const { storage } = aStore({ passphrase: { typed: "una frase", salt: "sal" } });
+  await storage.saveMessage(aPrivateMessage());
+
+  const howItWasMade = await storage.howItIsLocked();
+
+  // So that raising the work factor in two years can still open what is already there instead of locking
+  // somebody out of their own conversations.
+  assert.equal(howItWasMade.kdf, "pbkdf2-sha256");
+  assert.equal(howItWasMade.iterations, 600_000);
+  assert.equal(howItWasMade.salt, "sal");
+});
+
+test("a rekey can move a copy from one typed passphrase to another", async () => {
+  const { storage, name } = aStore({ passphrase: { typed: "la primera frase", salt: "sal-uno" } });
+  await storage.saveMessage(aPrivateMessage());
+
+  await storage.rekey({ passphrase: { typed: "la segunda frase", salt: "sal-dos" } });
+
+  const reopened = new IndexedDbStorage(name, { passphrase: { typed: "la segunda frase", salt: "sal-dos" } });
+  assert.equal((await reopened.getMessages("conversation-1"))[0]?.body, secretThings.body);
+});

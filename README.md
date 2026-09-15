@@ -911,9 +911,7 @@ listar, crear, entrar, salir e invitar en conversaciones; listar mensajes, traer
 alguien. Eso es lo que la mensajeria *es*.
 
 Todo lo demas son **22 capacidades opcionales** que se declaran por separado y se pueden dejar fuera
-enteras: `moderation`, `conversationSettings`, `threads`, `pins`, `receipts`, `search`, `presence`,
-`editing`, `ignoring`, `calling`, `polls`, `location`, `spaces`, `media`, `push`, `devices`, `reactions`,
-`crypto`.
+enteras: `account`, `calling`, `conversationSettings`, `crypto`, `devices`, `editing`, `guests`, `history`, `ignoring`, `location`, `media`, `moderation`, `pins`, `polls`, `presence`, `push`, `reactions`, `receipts`, `search`, `spaces`, `sso`, `threads`.
 
 Un adaptador que no las trae no falla al arrancar: la biblioteca responde `NOT_SUPPORTED` a quien lo pida, en
 un solo sitio. Decirlo **no estando** es mejor que una docena de metodos que existen para negarse.
@@ -934,7 +932,7 @@ RelayKit se encarga de la experiencia de mensajería del cliente:
 - integración con E2EE de Matrix, y en qué estado están las claves de este dispositivo
 
 En el navegador, `@relaykit/web` configura IndexedDB automáticamente cuando existe una sesión identificada. Los cuerpos
-de mensajes del store propio se cifran con AES-GCM usando la sesión como secreto. Los stores de RelayKit y Matrix
+de mensajes del store propio se cifran con AES-GCM con la clave descrita en «Cache local». Los stores de RelayKit y Matrix
 utilizan bases de datos separadas; el store criptográfico de Matrix queda aislado por usuario y dispositivo. La
 aplicación puede proporcionar un
 adaptador de almacenamiento propio si necesita otra estrategia de persistencia o si autentica después de crear el

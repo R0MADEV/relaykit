@@ -20,6 +20,14 @@ export interface HowItWasDerived {
 const straightFromRandomBytes: HowItWasDerived = { kdf: "sha256", version: 1, iterations: 1 };
 
 /**
+ * What this library writes in front of anything it sealed.
+ *
+ * A mark and a version, so that reading is a question with an answer instead of a guess, and so that the
+ * next way of sealing something can live beside this one rather than replacing it everywhere at once.
+ */
+const sealedBy = "rk1:";
+
+/**
  * Turning what is kept locally into bytes nobody else on this machine can read, and back.
  *
  * Apart from the store because it is a different subject: one is where records live and how they are found,
@@ -135,7 +143,7 @@ export class LockedAway {
       await this.key,
       new TextEncoder().encode(value)
     );
-    return `${encode(iv)}.${encode(new Uint8Array(encrypted))}`;
+    return `${sealedBy}${encode(iv)}.${encode(new Uint8Array(encrypted))}`;
   }
   /** Encrypts raw bytes as `iv (12 bytes) + ciphertext`; file contents queued in the outbox go through here. */
   async encryptBytes(value: Uint8Array): Promise<Uint8Array> {
@@ -164,12 +172,20 @@ export class LockedAway {
       return undefined;
     }
   }
-  /** Returns undefined when the stored value was written with a different key. */
+  /**
+   * Opens what this locked away, and hands back anything it did not.
+   *
+   * Told apart by a mark this library puts there, not by guessing at the shape. Guessing meant anything
+   * somebody said with a full stop in it — "Hola. Que tal?" — looked like ciphertext to a store that had a
+   * key, and was thrown away as unreadable. Nothing a person can type begins with this mark.
+   *
+   * Returns undefined only when this really was sealed and this key will not open it.
+   */
   async decrypt(value: string): Promise<string | undefined> {
-    if (!this.key || !value.includes(".")) {
+    if (!this.key || !value.startsWith(sealedBy)) {
       return value;
     }
-    const [ivValue, encryptedValue] = value.split(".");
+    const [ivValue, encryptedValue] = value.slice(sealedBy.length).split(".");
     if (!ivValue || !encryptedValue) {
       return value;
     }

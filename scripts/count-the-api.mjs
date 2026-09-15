@@ -37,10 +37,18 @@ const counted = {
 
 console.log(`RELAYKIT_API ${JSON.stringify(counted)}`);
 
+const wrong = [];
 // What the architecture notes claim, read back out of them. A number nobody checks is a number that lies —
 // and a claim with no marker beside it is not checked, so those are hunted too.
 const notes = readFileSync("ARCHITECTURE.md", "utf8");
-const wrong = [];
+
+// The README says the same number in prose. It said eighteen while listing eighteen, long after there were
+// twenty-two, because nothing compared it with anything.
+const readme = readFileSync("README.md", "utf8");
+const saidInTheReadme = /\*\*(\d+) capacidades opcionales\*\*/.exec(readme);
+if (saidInTheReadme && Number(saidInTheReadme[1]) !== counted.capabilities) {
+  wrong.push(`capabilities: README.md says ${saidInTheReadme[1]}, it is ${counted.capabilities}`);
+}
 for (const [what, is] of Object.entries(counted)) {
   const claimed = new RegExp(`<!-- ${what}: (\\d+) -->`).exec(notes);
   if (!claimed) continue;
