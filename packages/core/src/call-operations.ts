@@ -1,10 +1,12 @@
 import { RelayKitError } from "./errors.js";
+import { codeOf, type Diagnostics } from "./diagnostics.js";
 import type { CallingAdapter, MessagingAdapter } from "./adapter.js";
 import type { Call, CallQuality, ConversationId, PastCall, PlaceCallOptions } from "./models.js";
 
 export interface CallOperationsContext {
   readonly adapter: MessagingAdapter;
   readonly assertStarted: () => void;
+  readonly diagnostics: Diagnostics;
 }
 
 export class CallOperations {
@@ -25,7 +27,16 @@ export class CallOperations {
    */
   async join(conversationId: ConversationId, options: PlaceCallOptions = {}): Promise<Call> {
     this.context.assertStarted();
-    return this.calling.joinCall(this.requireConversation(conversationId), options);
+    try {
+      return await this.calling.joinCall(this.requireConversation(conversationId), options);
+    } catch (error) {
+      // The one call failure nobody can see for themselves: the screen just stays where it was.
+      this.context.diagnostics.say("call.join.failed", {
+        what: conversationId,
+        ...codeOf(error)
+      });
+      throw error;
+    }
   }
 
   /**

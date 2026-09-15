@@ -11,6 +11,7 @@ import { VerificationOperations } from "./verification-operations.js";
 import { MediaOperations } from "./media-operations.js";
 import { UserOperations } from "./user-operations.js";
 import { AccountOperations } from "./account-operations.js";
+import { codeOf, Diagnostics } from "./diagnostics.js";
 import { SpaceOperations } from "./space-operations.js";
 import { ReactionOperations } from "./reaction-operations.js";
 import { UnavailableAdapter } from "./unavailable-adapter.js";
@@ -407,27 +408,43 @@ export class MessagingClient {
   private readonly accountOperations: AccountOperations;
   private readonly lifecycle: ClientLifecycle;
   private session: Session | undefined;
+  /** Where what the library is doing goes, when anybody asked for it. */
+  private readonly diagnostics: Diagnostics;
 
   constructor(config: MessagingClientConfig) {
     const adapter = config.adapter ?? new UnavailableAdapter();
     // The local copy is a convenience, not the truth. A store that cannot write must cost somebody that
     // convenience and nothing else, so its failures are reported rather than thrown at whoever was reading.
+    this.diagnostics = new Diagnostics(config.diagnostics);
     const storage = config.storage
-      ? forgivingStorage(config.storage, error => this.emitError(error))
+      ? forgivingStorage(config.storage, error => {
+          // Almost always a browser refusing to write rather than anything remote, and almost always
+          // invisible: what was lost was a cache. Worth knowing when somebody asks why it is slow.
+          this.diagnostics.say("storage.failed", codeOf(error));
+          this.emitError(error);
+        })
       : undefined;
     const getSession = (): Session | undefined => this.session;
     const now = config.now ?? ((): number => Date.now());
     const base = {
       adapter,
       assertStarted: () => this.lifecycle.assertStarted(),
-      emitError: (error: unknown) => this.emitError(error)
+      emitError: (error: unknown) => this.emitError(error),
+      diagnostics: this.diagnostics
     };
     const storageContext = storage ? { storage } : {};
     const messageContext: MessageOperationsContext = {
       ...base,
       getSession,
       emitMessageUpdated: message => this.events.emit("message.updated", message),
-      emitMessageReceived: message => this.events.emit("message.received", message),
+      emitMessageReceived: message => {
+        // Something arrived that this device has no key for. Nothing here is broken and nothing will fix
+        // itself, so it only ever shows up as a hole in a conversation somebody else can read.
+        if (message.undecryptable) {
+          this.diagnostics.say("crypto.undecryptable", { what: message.conversationId });
+        }
+        this.events.emit("message.received", message);
+      },
       // Built after this one, so it is reached when it is needed rather than when this is put together.
       wasRead: conversationId => this.conversationOperations.settings.clearUnreadMark(conversationId),
       whatTheHomeserverTakes: () => this.mediaOperations.limits(),
@@ -547,7 +564,8 @@ export class MessagingClient {
       handlers: this.handlersFor(storage),
       emitConnection: status => this.events.emit("connection.changed", status),
       emitSync: status => this.events.emit("sync.changed", status),
-      emitError: error => this.emitError(error)
+      emitError: error => this.emitError(error),
+      diagnostics: this.diagnostics
     });
   }
 

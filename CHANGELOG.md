@@ -5,6 +5,15 @@ menores; los cambios incompatibles se listan aqui.
 
 ## Sin publicar
 
+### Añadido
+
+- **Diagnóstico.** `new MessagingClient({ diagnostics: { onEvent } })` cuenta qué está haciendo la librería y
+  por qué falló algo: el primer sync y cuánto tardó, la conexión yéndose y volviendo, cada mensaje encolado,
+  enviado, reintentado o fallido, lo que llegó sin clave, el almacenamiento negándose, y una llamada a la que
+  no se pudo entrar. Aparte de `client.on(...)` a propósito: aquello pinta interfaz y no se puede mover, esto
+  es para un log y tiene que poder. No lleva nada privado —hay una prueba que lo comprueba—, se traga lo que
+  se lance dentro, y sin `diagnostics` no se construye nada.
+
 ### Incompatible
 
 - **`SdkError` pasa a llamarse `RelayKitError`**, y `SdkErrorCode` a `RelayKitErrorCode`. "SDK" no significa

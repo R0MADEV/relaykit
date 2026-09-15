@@ -3,6 +3,7 @@ import { MessageSending } from "./message-sending.js";
 import { RelayKitError } from "./errors.js";
 import { byRecentActivity } from "./conversation-operations.js";
 import { RecentIds } from "./recent-ids.js";
+import type { Diagnostics } from "./diagnostics.js";
 
 /** Enough for a search box, and few enough that a full account still answers at once. */
 const defaultSearchResults = 50;
@@ -48,6 +49,7 @@ export interface MessageOperationsContext {
   readonly getSession: () => Session | undefined;
   readonly assertStarted: () => void;
   readonly emitMessageUpdated: (message: Message) => void;
+  readonly diagnostics: Diagnostics;
   /** A message arriving is not the same as one already known changing, and applications listen to each. */
   readonly emitMessageReceived: (message: Message) => void;
   /** How many delivered messages to keep cached per conversation. */
@@ -77,7 +79,8 @@ export class MessageOperations {
       getSession: context.getSession,
       assertStarted: context.assertStarted,
       emitUpdated: context.emitMessageUpdated,
-      emitError: context.emitError
+      emitError: context.emitError,
+      diagnostics: context.diagnostics
     };
     const outboxContext = context.storage ? { ...baseContext, storage: context.storage } : baseContext;
     this.outbox = new OutboxOperations(outboxContext, this.receivedMessageIds);

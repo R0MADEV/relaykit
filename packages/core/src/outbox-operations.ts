@@ -1,4 +1,5 @@
 import { RelayKitError } from "./errors.js";
+import { codeOf, type Diagnostics } from "./diagnostics.js";
 import type { RecentIds } from "./recent-ids.js";
 import type { MessagingAdapter, MediaAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
@@ -22,6 +23,7 @@ export interface OutboxOperationsContext {
   readonly assertStarted: () => void;
   readonly emitUpdated: (message: Message) => void;
   readonly emitError: (error: unknown) => void;
+  readonly diagnostics: Diagnostics;
 }
 
 const maxBackoffMs = 60000;
@@ -244,6 +246,8 @@ export class OutboxOperations {
     // In flight is announced but not written down: it is true for as long as the request lasts and no longer.
     // Writing it would also leave a message stuck in flight after a crash, when what it really is, is waiting.
     this.context.emitUpdated({ ...message, status: "sending" });
+    const leftAt = Date.now();
+    this.context.diagnostics.say("message.queued", { what: message.conversationId });
     try {
       const sentMessage = await this.sendContent(
         message,
@@ -253,6 +257,11 @@ export class OutboxOperations {
       await this.context.storage?.deleteOutboxOperation(message.id);
       this.receivedMessageIds.add(sentMessage.id);
       await this.saveAndEmit(sentMessage);
+      // How long from being asked for to being accepted, which is the number somebody complains about.
+      this.context.diagnostics.say("message.sent", {
+        tookMs: Date.now() - leftAt,
+        what: message.conversationId
+      });
       return sentMessage;
     } catch (error) {
       await this.fail(message, error);
@@ -390,6 +399,11 @@ export class OutboxOperations {
       });
       const canRetry = attempts < maxAutomaticAttempts && retryAfterMs !== undefined;
       if (canRetry) this.scheduleRetry(message.id, retryAfterMs);
+      this.context.diagnostics.say(canRetry ? "message.retry" : "message.failed", {
+        attempt: attempts,
+        what: message.conversationId,
+        ...codeOf(error)
+      });
     }
     this.context.emitError(error);
   }

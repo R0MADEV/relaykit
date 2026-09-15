@@ -1,4 +1,5 @@
 import { RelayKitError } from "./errors.js";
+import { codeOf, type Diagnostics } from "./diagnostics.js";
 import type { MessagingAdapter, CryptoAdapter } from "./adapter.js";
 import type {
   CryptoStatus,
@@ -12,6 +13,7 @@ import type {
 export interface CryptoOperationsContext {
   readonly adapter: MessagingAdapter;
   readonly assertStarted: () => void;
+  readonly diagnostics: Diagnostics;
 }
 
 export class CryptoOperations {
@@ -59,6 +61,7 @@ export class CryptoOperations {
     try {
       return await this.crypto.recover(recoveryKey.trim());
     } catch (error) {
+      this.context.diagnostics.say("crypto.recovery.failed", codeOf(error));
       throw adapterError("The recovery key could not restore the backup", error);
     }
   }

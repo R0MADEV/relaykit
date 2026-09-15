@@ -59,6 +59,7 @@ grep -r "matrix-js-sdk\|livekit\|IndexedDB\|window\.\|document\." packages/core/
 | `live.ts` | Listas que se mantienen solas: `createConversationList`, `createMessageTimeline` |
 | `events.ts` | El bus tipado |
 | `errors.ts` | `RelayKitError` y sus códigos. **La lista es la promesa pública** |
+| `diagnostics.ts` | El canal de log. **No** es API de interfaz: se puede mover |
 | `unavailable-adapter.ts` | Lo que responde cuando no hay backend configurado |
 
 Cuando una clase de operaciones junta dos asuntos, se parte por el asunto — no por longitud:
@@ -246,3 +247,18 @@ Dónde se traduce: `packages/matrix-js/src/matrix-errors.ts`, un solo sitio. Tod
 pasa por `withTranslatedErrors`, así que nada crudo del SDK escapa. Lo prueban
 `tests/one-kind-of-error.test.mjs` (con los fallos reales que devolvió Synapse) y el test de contrato
 «refuses in this library's words», que provoca refusals de verdad contra el homeserver de desarrollo.
+
+## Añadir un evento de diagnóstico
+
+Al revés que los códigos de error, éstos **sí** se pueden quitar: son para leer en un log, no para pintar.
+Por eso están en `diagnostics.ts` y no en `events.ts`, y por eso no salen por `client.on(...)`.
+
+Dos reglas y ninguna más:
+
+1. **Nada privado.** Ni cuerpos, ni títulos, ni nombres, ni direcciones, ni identificadores de persona. Un
+   identificador de sala sí, porque no dice nada de lo que hay dentro. Lo comprueba un test.
+2. **El código de error, nunca el mensaje.** `codeOf(error)` existe para eso. Un mensaje puede llevar
+   cualquier cosa; un código es de una lista cerrada.
+
+Se emite con `this.context.diagnostics.say(nombre, { ... })`, y el contexto se pasa como cualquier otra
+dependencia. Si nadie está escuchando no se construye nada, así que no hace falta comprobarlo antes.

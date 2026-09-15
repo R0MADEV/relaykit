@@ -1,3 +1,4 @@
+export type { DiagnosticEvent, DiagnosticEventName, DiagnosticsOptions } from "./diagnostics.js";
 export type {
   AdapterHandlers,
   HistoryAdapter,

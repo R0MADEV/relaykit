@@ -1,6 +1,7 @@
 import type { MessagingAdapter } from "./adapter.js";
 import type { MessagingStorage } from "./storage.js";
 import type { Session } from "./models.js";
+import type { DiagnosticsOptions } from "./diagnostics.js";
 
 export interface CacheOptions {
   /**
@@ -35,6 +36,13 @@ export interface MessagingClientConfig {
   readonly session?: Session;
   readonly storage?: MessagingStorage;
   readonly cache?: CacheOptions;
+  /**
+   * Somewhere to send what the library is doing and why something failed.
+   *
+   * Left out, nothing is built and nothing is said. Kept apart from `client.on(...)` on purpose: those are
+   * what an interface is drawn from and cannot move, and these are for a log and have to be able to.
+   */
+  readonly diagnostics?: DiagnosticsOptions;
   /** Only for tests: lets them move time without waiting for it. */
   readonly now?: () => number;
 }

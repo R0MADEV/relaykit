@@ -373,6 +373,44 @@ if (avatar) image.src = URL.createObjectURL(new Blob([avatar.data], { type: avat
 `avatarId` es opaco y cambia cuando cambia la imagen, asi que sirve como clave de cache. Un usuario sin perfil
 devuelve solo su `id`, sin error.
 
+## Diagnóstico
+
+Qué está haciendo la librería y por qué falló algo, para quien tenga que responder eso a las tres de la
+mañana. **Aparte de `client.on(...)` a propósito**: aquello es lo que pinta una interfaz y no se puede mover;
+esto es para un log y tiene que poder moverse.
+
+```ts
+const client = new MessagingClient({
+  session,
+  diagnostics: {
+    onEvent(event) {
+      registrar(event.name, { at: event.at, tookMs: event.tookMs, code: event.code });
+    }
+  }
+});
+```
+
+| Evento | Cuándo |
+| --- | --- |
+| `sync.started` / `completed` / `failed` | el primer sync de una sesión: cuánto tarda en poder enseñarse algo |
+| `connection.lost` / `restored` | la conexión, que no es lo mismo que la sesión |
+| `message.queued` / `sent` / `retry` / `failed` | un mensaje saliendo; `sent` dice cuánto tardó |
+| `crypto.undecryptable` | llegó algo para lo que este dispositivo no tiene clave |
+| `crypto.recovery.failed` | una recuperación que no funcionó |
+| `storage.failed` | escribir en local falló, casi siempre el navegador negándose |
+| `call.join.failed` | el único fallo de llamada que nadie ve por sí mismo |
+
+Cada evento lleva `at`, y según cuál: `tookMs`, `code` (el de `RelayKitError`, nunca el mensaje), `attempt` y
+`what` (un identificador de conversación).
+
+**No pasa nada privado por aquí.** Ni cuerpos de mensaje, ni títulos de conversación, ni nombres, ni
+direcciones: esto acaba en el servicio de logs de otro, y lo que lleva tiene que ser seguro ahí sin que nadie
+configure un filtro. Hay una prueba que lo comprueba.
+
+Se llama mucho —una sesión activa dice algo por mensaje—, así que lo que haya detrás debe ser barato o
+muestrear. Lo que se lance ahí dentro se traga: contar lo que pasó nunca puede ser el motivo de que algo deje
+de pasar. Y si no se pasa `diagnostics`, no se construye nada.
+
 ## Errores
 
 Esta librería lanza **un solo tipo de error**: `RelayKitError`. Nunca un error de matrix-js-sdk, nunca un

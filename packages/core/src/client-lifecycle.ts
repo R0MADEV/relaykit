@@ -1,4 +1,5 @@
 import { RelayKitError } from "./errors.js";
+import { codeOf, type Diagnostics } from "./diagnostics.js";
 import {
   validateLoginCredentials,
   validateRegisterCredentials,
@@ -26,6 +27,7 @@ export interface ClientLifecycleContext {
   readonly emitConnection: (status: ConnectionStatus) => void;
   readonly emitSync: (status: SyncStatus) => void;
   readonly emitError: (error: unknown) => void;
+  readonly diagnostics: Diagnostics;
 }
 
 export interface StartOptions {
@@ -146,6 +148,8 @@ export class ClientLifecycle {
     this.caughtUp = false;
     this.stoppedBecause = undefined;
     this.setConnection("connecting");
+    const startedAt = Date.now();
+    this.context.diagnostics.say("sync.started");
     try {
       const running = this.context.adapter.start(session, {
         ...this.context.handlers,
@@ -159,12 +163,17 @@ export class ClientLifecycle {
         void running
           .then(async () => {
             if (!this.started) return;
+            this.context.diagnostics.say("sync.completed", { tookMs: Date.now() - startedAt });
             this.finishCatchingUp();
             await this.context.flushPending();
           })
           .catch(async error => {
             // Catching up failed, so there is no working client here: it is put back to a stopped state
             // instead of sitting there looking as if it were running.
+            this.context.diagnostics.say("sync.failed", {
+              tookMs: Date.now() - startedAt,
+              ...codeOf(error)
+            });
             this.context.emitError(error);
             if (this.started) await this.stopAfterFailure(error);
           });
@@ -172,9 +181,11 @@ export class ClientLifecycle {
         return;
       }
       await running;
+      this.context.diagnostics.say("sync.completed", { tookMs: Date.now() - startedAt });
       this.finishCatchingUp();
       await this.context.flushPending();
     } catch (error) {
+      this.context.diagnostics.say("sync.failed", { tookMs: Date.now() - startedAt, ...codeOf(error) });
       await this.stopAfterFailure(error);
       const reason = error instanceof Error ? error.message : String(error);
       throw new RelayKitError("ADAPTER_ERROR", `The messaging adapter could not start: ${reason}`);
@@ -245,6 +256,13 @@ export class ClientLifecycle {
   }
 
   private handleConnection(status: ConnectionStatus): void {
+    // Only the two turning points are worth writing down: "connecting" says the same thing as "lost" a
+    // moment later, and a log full of it is a log nobody reads.
+    const was = this.connection;
+    if (status === "disconnected" && was !== "disconnected") this.context.diagnostics.say("connection.lost");
+    if (status === "connected" && was === "disconnected") {
+      this.context.diagnostics.say("connection.restored");
+    }
     this.setConnection(status);
     if (status === "connected")
       void this.context.flushPending().catch(error => this.context.emitError(error));
