@@ -147,6 +147,8 @@ async function theOtherWalksIn(page, name) {
   const row = `[...document.querySelectorAll("#explore-found li")].find(each => each.textContent.includes(${JSON.stringify(name)}))`;
   await waitFor(page, `#${name} to be findable`, `Boolean(${row})`, 90);
   await run(page, `${row}.querySelector("[data-joins]").click();`);
+  // Pressed the way a person presses it, and the banner has to go: joining changes that one conversation
+  // and nothing else, so a screen that only repaints the list beside it leaves the invitation showing.
   await waitFor(
     page,
     "the other side to be in",

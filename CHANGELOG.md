@@ -7,6 +7,20 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Salir de una conversación no se lo decía a nadie.** Entrar en una sí lo anunciaba y salir no, así que
+  cualquier lista viva se enteraba de las llegadas y nunca de las salidas: pulsabas «Salir y olvidarla» y la
+  conversación seguía ahí. Ahora sale `conversation.left` —evento propio, porque una conversación que dejaste
+  no es una conversación que tengas, y el modelo lo dice— y las listas vivas la sueltan.
+- **Aceptar una invitación no hacía nada visible.** La pantalla solo repintaba la lista lateral, no la
+  conversación abierta, así que el cartel de «Te han invitado» seguía puesto después de entrar.
+
+### Añadido
+
+- `npm run sweep:accounts` y `npm run sweep:devices`, para lo que las comprobaciones dejaban atrás. No es
+  orden: el directorio de personas del homeserver es el mismo que busca el ejemplo, así que setecientas
+  cuentas de usar y tirar es lo que ve quien escribe un nombre en «Invitar»; y un dispositivo es *para quien*
+  se cifra un mensaje, así que trescientas sesiones muertas significan cifrarlo trescientas veces.
+
 - **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
   te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
   en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha

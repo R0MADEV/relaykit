@@ -1,4 +1,5 @@
 import type {
+  ConversationId,
   Session,
   Call,
   CallSpeaking,
@@ -18,6 +19,14 @@ export interface ClientEventMap {
   "connection.changed": ConnectionStatus;
   "sync.changed": SyncStatus;
   "conversation.updated": Conversation;
+  /**
+   * A conversation that is not this account's any more: left, refused, or thrown out of.
+   *
+   * Its own event rather than an updated conversation, because there is no conversation left to hand over —
+   * one this account has is one it is in or invited to, and the model says so. Anything painting a list has
+   * to be told, or leaving looks exactly like nothing happening.
+   */
+  "conversation.left": ConversationId;
   "message.received": Message;
   "message.updated": Message;
   "reaction.added": Reaction;
@@ -96,6 +105,7 @@ export class EventBus {
     "connection.changed": new EventChannel<ConnectionStatus>(),
     "sync.changed": new EventChannel<SyncStatus>(),
     "conversation.updated": new EventChannel<Conversation>(),
+    "conversation.left": new EventChannel<ConversationId>(),
     "message.received": new EventChannel<Message>(),
     "message.updated": new EventChannel<Message>(),
     "reaction.added": new EventChannel<Reaction>(),

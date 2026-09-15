@@ -20,6 +20,8 @@ export interface ConversationOperationsContext {
   readonly assertStarted: () => void;
   readonly getSession: () => Session | undefined;
   readonly emitUpdated: (conversation: Conversation) => void;
+  /** Told when a conversation stops being this account's, which is not the same as one that changed. */
+  readonly emitLeft: (conversationId: ConversationId) => void;
   /** How many conversations to keep locally. Undefined keeps all of them. */
   readonly cachedConversations?: number;
   readonly now: () => number;
@@ -163,6 +165,11 @@ export class ConversationOperations {
     await this.context.adapter.leaveConversation(conversationId);
     // What was cached for a conversation the user left is no longer theirs to keep.
     await this.context.storage?.deleteConversation(conversationId);
+    this.markedUnread.delete(conversationId);
+    // Said out loud, the way joining one is. Without this, anything following the list is told when somebody
+    // arrives and never when they leave — so a screen painted from it keeps the conversation for ever, and
+    // pressing leave looks like pressing nothing.
+    this.context.emitLeft(conversationId);
   }
 
   async invite(conversationId: string, userId: UserId): Promise<Conversation> {

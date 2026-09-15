@@ -130,6 +130,31 @@ async function openAResultWhereItWasSaid(page) {
 }
 
 /** Asking the conversation something, voting on it, and closing it — which is the whole of a poll. */
+/**
+ * Leaving and forgetting a conversation takes it off the screen.
+ *
+ * Which sounds like nothing to check until it does not happen: leaving used to be the one thing the library
+ * never announced, so the list went on painting a conversation this account had walked out of.
+ */
+async function leavingItTakesItAway(page) {
+  const before = await read(page, `document.querySelectorAll("#lists li").length`);
+  await run(
+    page,
+    `
+    window.confirm = () => true;
+    document.getElementById("more-button").click();
+    document.getElementById("forget-here").click();
+  `
+  );
+  await waitFor(
+    page,
+    "the conversation to come off the list",
+    `document.querySelectorAll("#lists li").length < ${before}`,
+    60
+  );
+  detail.leftAndGone = true;
+}
+
 async function askTheConversationSomething(page) {
   await run(
     page,
@@ -307,6 +332,8 @@ async function main() {
   await fileItAway(page);
   await askTheConversationSomething(page);
   await openAResultWhereItWasSaid(page);
+  // Last of the things done to a conversation, because it is the one that takes the conversation away.
+  await leavingItTakesItAway(page);
   // A second session, open elsewhere, so the claim that they get closed is checked rather than believed.
   const elsewhere = await fetch(`${homeserver}/_matrix/client/v3/login`, {
     method: "POST",

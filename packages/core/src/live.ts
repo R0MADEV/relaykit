@@ -131,6 +131,14 @@ export function createConversationList(client: MessagingClient): LiveCollection<
       collection.replace(byRecentActivity(replaced));
     })
   );
+  // Left, refused, or thrown out of: not one of this account's any more, so it goes. Without this a list
+  // only ever grows, and leaving a conversation looks to whoever is watching like nothing happening.
+  collection.follow(
+    client.on("conversation.left", conversationId => {
+      if (collection.isStopped()) return;
+      collection.replace(collection.get().filter(item => item.id !== conversationId));
+    })
+  );
   return collection;
 }
 

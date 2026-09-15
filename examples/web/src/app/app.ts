@@ -185,6 +185,13 @@ class Deitu {
   /** The first conversation opens on its own, as soon as there is one. Nobody wants to arrive at nothing. */
   private somethingToRead(): void {
     this.sidebar?.paint();
+    // And the conversation being read, not only the list beside it. Accepting an invitation changes that
+    // conversation and nothing else: without this the banner saying you were invited stays up afterwards,
+    // and pressing Entrar looks exactly like pressing nothing.
+    const open = this.reading?.openId();
+    const stillThere = (this.conversations?.get() ?? []).some(each => each.id === open);
+    if (open && !stillThere) this.reading?.close();
+    else this.reading?.repaint();
     const waiting = (this.conversations?.get() ?? []).reduce(
       (total, conversation) => total + (conversation.unreadCount ?? 0),
       0

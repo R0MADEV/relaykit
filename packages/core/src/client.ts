@@ -466,6 +466,7 @@ export class MessagingClient {
       getSession,
       now,
       emitUpdated: conversation => this.announce("conversation.updated", conversation),
+      emitLeft: conversationId => this.announce("conversation.left", conversationId),
       isCaughtUp: () => this.lifecycle.isCaughtUp(),
       ...(config.cache?.conversations !== undefined
         ? { cachedConversations: config.cache.conversations }

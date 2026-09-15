@@ -13,8 +13,9 @@ import { MatrixJsAdapter } from "@relaykit/matrix-js";
  * A fresh account registers in about a second. What it buys is that a failing check means something is
  * broken, rather than meaning somebody has to go and find out what the account has been through.
  *
- * The environment fills up with throwaway accounts, which does not matter: `npm run matrix:up` builds the
- * whole thing again from nothing in fourteen seconds.
+ * They close themselves when the run is over — `closeThem(...)` at the end of a check. It turned out to
+ * matter: the homeserver's people directory is the same directory the example searches, so seven hundred
+ * accounts nobody uses is what somebody typing a name into the invite box actually sees.
  */
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
@@ -63,4 +64,21 @@ export async function signInAgain(account, deviceName, options = {}) {
     username: account.username,
     password: account.password
   };
+}
+
+/**
+ * Ends the accounts a run made.
+ *
+ * Deactivating rather than signing out: a signed-out account is still in the homeserver's directory, and the
+ * directory is what the example searches when somebody types a name into the invite box. Called at the end
+ * of a check, and a failure to end one is not worth failing a check that otherwise passed — it is said and
+ * stepped over, because `sweep:accounts` will find it later.
+ */
+export async function closeThem(...accounts) {
+  for (const account of accounts.flat()) {
+    if (!account?.client) continue;
+    await account.client.account
+      .close(account.password)
+      .catch(error => console.error(`could not close ${account.username}: ${error.message ?? error}`));
+  }
 }

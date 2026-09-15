@@ -215,7 +215,7 @@ SDK (`new MatrixEvent({...})`), no imitaciones.
 |---|---|
 | `in-memory-adapter.ts` (974) | Implementa el puerto entero. Partirlo son doce callbacks y peor lectura |
 | `matrix-js-adapter.ts` (698) | Lo mismo: delega los 58 métodos que sí tiene |
-| `client.ts` (<!-- lines: 703 -->703) | Es la superficie: <!-- operations: 156 -->156 operaciones a una línea. Una fachada grande no es una clase con muchas responsabilidades si no tiene lógica |
+| `client.ts` (<!-- lines: 704 -->704) | Es la superficie: <!-- operations: 156 -->156 operaciones a una línea. Una fachada grande no es una clase con muchas responsabilidades si no tiene lógica |
 | `capabilities.ts` (453) | 22 interfaces de tipos. Una lista, no lógica |
 | `outbox-operations.ts` (444) | Once referencias a estado compartido. Partirlo lo empeora |
 
