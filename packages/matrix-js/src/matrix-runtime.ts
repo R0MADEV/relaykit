@@ -185,6 +185,7 @@ export class MatrixRuntime {
     // the client for the real reason — that it is stopped — rather than left hanging for ever.
     this.cryptoIsUp();
     if (!this.client) return;
+    this.client.removeListener(HttpApiEvent.SessionLoggedOut, this.handleSessionEnded);
     this.client.removeListener(ClientEvent.Sync, this.handleSync);
     this.client.removeListener(RoomEvent.Timeline, this.handleTimeline);
     this.client.removeListener(RoomEvent.Redaction, this.handleRedaction);

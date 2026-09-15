@@ -287,7 +287,9 @@ test("without an encryption secret the content is stored as given", async () => 
   });
 
   const [stored] = await readRaw(name, "messages");
-  assert.equal(stored.body, message().body);
+  // Without a secret nothing is locked away: what a person said is there to read, inside the envelope
+  // everything private travels in whether or not there is a key for it.
+  assert.ok(JSON.stringify(stored).includes(message().body));
   assert.deepEqual((await storage.getOutboxOperation("local-1")).attachment.data, data);
 });
 

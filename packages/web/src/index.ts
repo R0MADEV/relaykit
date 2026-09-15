@@ -23,11 +23,19 @@ export interface WebMessagingClientConfig extends Omit<MessagingClientConfig, "a
    * passphrase the person types if the copy has to be protected from somebody holding the device.
    */
   readonly storageSecret?: string;
+  /**
+   * A passphrase the person typed, for a local copy that has to survive somebody holding the device.
+   *
+   * Given instead of `storageSecret`, and treated differently on purpose: what somebody types is guessable,
+   * so it goes through a slow derivation with a salt kept beside the data, rather than the single digest a
+   * random secret needs. `IndexedDbStorage.rekey` moves what is already there onto a new one.
+   */
+  readonly storagePassphrase?: string;
 }
 
 export class MessagingClient extends CoreMessagingClient {
   constructor(config: WebMessagingClientConfig) {
-    const { adapter, matrix, storageSecret, ...clientConfig } = config;
+    const { adapter, matrix, storageSecret, storagePassphrase, ...clientConfig } = config;
     // Named after whoever is signed in, so it can only be opened once somebody is. Which may be now, or may
     // be after a sign in, a registration, a guest door or a trip through somebody else's identity provider.
     const store =
@@ -41,7 +49,8 @@ export class MessagingClient extends CoreMessagingClient {
               // The device secret first, so signing in again does not leave yesterday's copy unreadable.
               // Where there is nowhere to keep one, the access token still serves: a local copy lost on the
               // next sign in beats no local copy at all.
-              storageSecret ?? rememberedDeviceSecret() ?? session?.accessToken
+              storageSecret ?? rememberedDeviceSecret() ?? session?.accessToken,
+              storagePassphrase
             )
           ));
     super({
@@ -216,13 +225,39 @@ export function secretForThisDevice(): string {
 function createBrowserStorage(
   matrix: MatrixJsAdapterOptions | undefined,
   userId: string | undefined,
-  encryptionSecret: string | undefined
+  encryptionSecret: string | undefined,
+  typedPassphrase: string | undefined
 ): IndexedDbStorage | undefined {
-  if (typeof indexedDB === "undefined" || !userId || !encryptionSecret) {
-    return undefined;
+  if (typeof indexedDB === "undefined" || !userId) return undefined;
+  const name = createBrowserStoreName(matrix?.storeName, userId);
+  if (typedPassphrase) {
+    return new IndexedDbStorage(name, { passphrase: { typed: typedPassphrase, salt: saltFor(name) } });
   }
+  if (!encryptionSecret) return undefined;
+  return new IndexedDbStorage(name, { encryptionSecret });
+}
 
-  return new IndexedDbStorage(createBrowserStoreName(matrix?.storeName, userId), { encryptionSecret });
+/**
+ * The salt for one person's copy on this browser, made once and kept.
+ *
+ * Not a secret, and kept beside what it protects. What it stops is the same passphrase producing the same
+ * key everywhere, so that breaking one copy does not break every other copy of every other account.
+ */
+function saltFor(databaseName: string): string {
+  const where = `relaykit-salt-${databaseName}`;
+  try {
+    const kept = localStorage.getItem(where);
+    if (kept) return kept;
+    const made = [...crypto.getRandomValues(new Uint8Array(16))]
+      .map(byte => byte.toString(16).padStart(2, "0"))
+      .join("");
+    localStorage.setItem(where, made);
+    return made;
+  } catch {
+    // Nowhere to keep one. The database name is no salt at all against somebody who knows it, but it is
+    // still different per account, which is better than every copy everywhere sharing one key.
+    return databaseName;
+  }
 }
 
 // Everything from core except MessagingClient, which the local class above replaces.

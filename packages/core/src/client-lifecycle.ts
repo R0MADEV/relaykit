@@ -207,14 +207,22 @@ export class ClientLifecycle {
     this.setSync("synced");
   }
 
+  /**
+   * Stopping, which always ends stopped.
+   *
+   * What is underneath can fail on the way down — a store that will not close, a conference that will not let
+   * go — and whoever asked is told. But a client that still believes it is running while half of what was
+   * under it has come apart is worse than one that stopped badly: nothing it says afterwards is true.
+   */
   async stop(): Promise<void> {
     if (!this.started) return;
-    await this.context.adapter.stop();
+    const wentWrong = await whatWentWrong(() => this.context.adapter.stop());
     this.started = false;
     this.caughtUp = false;
     this.context.forgetRunningState();
     this.setSync("idle");
     this.setConnection("disconnected");
+    if (wentWrong) throw wentWrong;
   }
 
   /**
@@ -264,13 +272,20 @@ export class ClientLifecycle {
     this.setSync("idle");
     this.setConnection("disconnected");
     await this.context.adapter.stop().catch(error => this.context.emitError(error));
-    await this.context.purgeStorage();
+    // The same shape as signing out, and for the same reason: the account does not exist any more, so
+    // holding its session because a browser would not empty a cache is holding something that means nothing.
+    const couldNotEmptyTheCopy = await whatWentWrong(() => this.context.purgeStorage());
     this.context.setSession(undefined);
+    if (couldNotEmptyTheCopy) throw couldNotEmptyTheCopy;
   }
 
   async sessionEnded(): Promise<void> {
-    if (!this.started) return;
-    await this.stopAfterFailure(new Error("the session is no longer accepted, sign in again"));
+    // The signal is not "somebody asked to stop". It is "this session no longer exists", and it can arrive
+    // after something else already brought the client down — a failed start, a stop. Letting go of the
+    // credential is the part that has to happen either way.
+    if (this.started) {
+      await this.stopAfterFailure(new Error("the session is no longer accepted, sign in again"));
+    }
     // Let go of here as well. Holding a token the homeserver refuses is holding nothing, and it would be
     // read back on the next start as if it were worth trying. The local copy stays: this is not signing out,
     // and somebody who signs in again as the same person should find their conversations where they were.

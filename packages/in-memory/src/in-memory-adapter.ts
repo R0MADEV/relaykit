@@ -138,7 +138,7 @@ export class InMemoryAdapter implements MessagingAdapter {
 
   private readonly conversations: Conversation[];
   private readonly messages: Message[];
-  private handlers: AdapterHandlers = {};
+  protected handlers: AdapterHandlers = {};
   private currentUserId: UserId | undefined;
   private currentDeviceId: string | undefined;
   private nextMessageId = 1;

@@ -473,14 +473,27 @@ const client = new MessagingClient({ cache: { messagesPerConversation: 2000 } })
 
 La fuente de verdad es el homeserver; esto es una copia local.
 
-**Qué se cifra, exactamente.** No es «IndexedDB cifrado». Se cifra **el contenido**: el cuerpo de los mensajes,
-los borradores, el cuerpo y los adjuntos de lo que está esperando salir. **No** se cifra la metadata que hace
-falta para indexar y para pintar una lista sin descifrar nada: identificadores, quién envió qué, marcas de
-tiempo, títulos de conversación, perfiles. Quien tenga acceso al navegador puede leer con quién hablas y
-cuándo, y no lo que dijisteis. Dicho así para que se pueda hacer un análisis de riesgos de verdad.
+**Qué se cifra, exactamente.** No es «IndexedDB cifrado». Se cifra **todo lo que dijo una persona**, junto, en
+un solo sobre: el texto, el mismo texto en HTML (`formattedBody`), el sitio desde donde se mandó
+(`location`), los borradores, y el cuerpo y los adjuntos de lo que está esperando salir. Junto y no campo a
+campo a propósito: cerrar el texto y dejar el HTML que dice lo mismo en negrita es no cerrar nada, y así el
+siguiente campo privado que se añada al modelo entra dentro por defecto en vez de quedarse fuera en silencio.
 
-**Con qué clave.** De `storageSecret` si se pasa uno; si no, de un secreto estable guardado una vez en este
-navegador; y solo si tampoco hay sitio para eso, del access token. El orden importa: con el access token, cada
+**No** se cifra la metadata que hace falta para indexar y para pintar una lista sin descifrar nada:
+identificadores, quién envió qué, marcas de tiempo, títulos de conversación, perfiles. Quien tenga acceso al
+navegador puede leer con quién hablas y cuándo, y no lo que dijisteis. Dicho así para que se pueda hacer un
+análisis de riesgos de verdad.
+
+**Con qué clave.** Hay dos casos y se tratan distinto, porque son problemas distintos:
+
+- `storageSecret` o el secreto del dispositivo: ya son aleatorios, no hay nada que adivinar, y un digest basta.
+- `storagePassphrase`: lo escribe una persona. Tiene poca entropía, así que un digest rápido se adivina fuera
+  de línea a la velocidad que dé el hardware del atacante. Va por **PBKDF2-HMAC-SHA256 con 600.000 vueltas y
+  una sal por cuenta y dispositivo**, guardada junto a los datos —no es secreta—, para que la misma frase no
+  produzca la misma clave en dos sitios y romper una copia no rompa las demás.
+
+Por orden: `storagePassphrase` si se pasa; si no `storageSecret`; si no, el secreto estable de este navegador;
+y solo si tampoco hay sitio para eso, el access token. El orden importa: con el access token, cada
 rotación de token deja ilegible lo escrito antes. Lo ilegible se descarta al leerlo, sin romper nada, y la
 copia se rellena desde el servidor.
 

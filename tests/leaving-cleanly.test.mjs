@@ -100,3 +100,60 @@ test("a session the homeserver stopped accepting is let go of here too", async (
   assert.ok(said.includes("ended"));
   assert.equal(client.currentSession(), undefined);
 });
+
+test("stopping always ends stopped, even when the machinery below will not shut down", async () => {
+  const breaksOnTheWayOut = new (class extends InMemoryAdapter {
+    async stop() {
+      throw new RelayKitError("ADAPTER_ERROR", "The homeserver refused the request");
+    }
+  })();
+  const client = await signedIn(breaksOnTheWayOut);
+
+  await assert.rejects(client.stop(), RelayKitError);
+
+  // Whoever asked has been told. What must not happen is a client that still believes it is running while
+  // half of what was under it has come apart.
+  assert.equal(client.getSyncStatus(), "idle");
+  assert.equal(client.getConnectionStatus(), "disconnected");
+  await client.start();
+  assert.notEqual(client.getSyncStatus(), "idle", "it could not be started again");
+  await client.stop().catch(() => undefined);
+});
+
+test("closing an account lets go of the session even when the copy will not empty", async () => {
+  const refuses = new (class extends InMemoryStorage {
+    async clear() {
+      throw new Error("el navegador no deja borrar");
+    }
+  })();
+  const client = new MessagingClient({ adapter: new InMemoryAdapter(), storage: refuses, session });
+  await client.start();
+
+  await assert.rejects(client.account.close("token"), RelayKitError);
+
+  // The account does not exist at the homeserver any more. Holding its session because a browser would not
+  // empty a cache is holding something that cannot mean anything.
+  assert.equal(client.currentSession(), undefined);
+});
+
+test("a homeserver refusing a session is heard even when the client already stopped", async () => {
+  // An adapter that can still speak after it was stopped, which is what a real one is: matrix-js-sdk keeps
+  // its own listeners and a refusal already in flight lands whenever the network gets round to it.
+  const stillSpeaks = new (class extends InMemoryAdapter {
+    async stop() {
+      const keep = this.handlers;
+      await super.stop();
+      this.handlers = { onSessionEnded: keep.onSessionEnded };
+    }
+  })();
+  const client = await signedIn(stillSpeaks);
+  const adapter = stillSpeaks;
+  await client.stop();
+
+  // The signal is not "somebody asked to stop". It is "this session no longer exists", and it can arrive
+  // late — after something else already brought the client down.
+  adapter.endTheSession();
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  assert.equal(client.currentSession(), undefined);
+});

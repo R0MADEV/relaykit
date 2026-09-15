@@ -215,7 +215,7 @@ SDK (`new MatrixEvent({...})`), no imitaciones.
 |---|---|
 | `in-memory-adapter.ts` (974) | Implementa el puerto entero. Partirlo son doce callbacks y peor lectura |
 | `matrix-js-adapter.ts` (698) | Lo mismo: delega los 58 métodos que sí tiene |
-| `client.ts` (<!-- lines: 704 -->704) | Es la superficie: 155 operaciones a una línea. Una fachada grande no es una clase con muchas responsabilidades si no tiene lógica |
+| `client.ts` (<!-- lines: 703 -->703) | Es la superficie: <!-- operations: 156 -->156 operaciones a una línea. Una fachada grande no es una clase con muchas responsabilidades si no tiene lógica |
 | `capabilities.ts` (453) | 22 interfaces de tipos. Una lista, no lógica |
 | `outbox-operations.ts` (444) | Once referencias a estado compartido. Partirlo lo empeora |
 
@@ -267,6 +267,6 @@ dependencia. Si nadie está escuchando no se construye nada, así que no hace fa
 
 `npm run count:api` los cuenta del código y falla si este documento dice otra cosa. Está en CI.
 
-Llegó a decir «126 operaciones» y «533 líneas» cuando ya eran otras, porque estaban escritos a mano: nadie se
+Llegó a decir «ciento veintiséis operaciones» y «quinientas treinta y tres líneas» cuando ya eran otras, porque estaban escritos a mano: nadie se
 da cuenta de que un número se ha quedado viejo. Ahora mismo: <!-- requiredOfAnAdapter: 17 -->17 métodos obligatorios en el
-puerto, 22 capabilities, 156 operaciones públicas y <!-- errorCodes: 16 -->16 códigos de error.
+puerto, 22 capabilities, <!-- operations: 156 -->156 operaciones públicas y <!-- errorCodes: 16 -->16 códigos de error.

@@ -25,7 +25,8 @@ const grouped = Object.values(groups).reduce((all, one) => all + one, 0);
 const counted = {
   operations: grouped + onTheClient.length,
   groups: Object.keys(groups).length,
-  lines: source.split("\n").length,
+  // Without the empty string a trailing newline leaves behind, which is not a line.
+  lines: source.replace(/\n$/, "").split("\n").length,
   requiredOfAnAdapter: (readFileSync("packages/core/src/adapter.ts", "utf8").match(/^ {2}[a-z]\w*\(/gm) ?? [])
     .length,
   capabilities: (
@@ -36,7 +37,8 @@ const counted = {
 
 console.log(`RELAYKIT_API ${JSON.stringify(counted)}`);
 
-// What the architecture notes claim, read back out of them. A number nobody checks is a number that lies.
+// What the architecture notes claim, read back out of them. A number nobody checks is a number that lies —
+// and a claim with no marker beside it is not checked, so those are hunted too.
 const notes = readFileSync("ARCHITECTURE.md", "utf8");
 const wrong = [];
 for (const [what, is] of Object.entries(counted)) {
@@ -44,6 +46,14 @@ for (const [what, is] of Object.entries(counted)) {
   if (!claimed) continue;
   if (Number(claimed[1]) !== is) wrong.push(`${what}: ARCHITECTURE.md says ${claimed[1]}, it is ${is}`);
 }
+// Any number of operations written in prose without a marker beside it. One of these said 155 for a day
+// while two others said 156, and nothing noticed, because only the marked ones were ever compared.
+for (const [, said] of notes.matchAll(/(?<!--> )(?<!-->)\b(\d+) operaciones/g)) {
+  if (Number(said) !== counted.operations) {
+    wrong.push(`operations: ARCHITECTURE.md says ${said} somewhere with no marker beside it`);
+  }
+}
+
 if (wrong.length > 0) {
   console.error(`The architecture notes are out of date:\n  ${wrong.join("\n  ")}`);
   process.exit(1);

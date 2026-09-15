@@ -1,6 +1,25 @@
 import { RelayKitError } from "@relaykit/core";
 
 /**
+ * How many times a typed passphrase is put through the mill before it becomes a key.
+ *
+ * What OWASP recommends for PBKDF2-HMAC-SHA256 today. It is a number that only goes up, which is why how it
+ * was derived is written down rather than assumed.
+ */
+const howHardToGuess = 600_000;
+
+/** What was done to a secret to turn it into a key, kept so that changing it later can still open the old. */
+export interface HowItWasDerived {
+  readonly kdf: "sha256" | "pbkdf2-sha256";
+  readonly version: number;
+  readonly iterations: number;
+  readonly salt?: string;
+}
+
+/** A secret that was already random needs nothing done to it but a digest. */
+const straightFromRandomBytes: HowItWasDerived = { kdf: "sha256", version: 1, iterations: 1 };
+
+/**
  * Turning what is kept locally into bytes nobody else on this machine can read, and back.
  *
  * Apart from the store because it is a different subject: one is where records live and how they are found,
@@ -9,13 +28,48 @@ import { RelayKitError } from "@relaykit/core";
  */
 export class LockedAway {
   private key: Promise<CryptoKey> | undefined;
+  private derivation: HowItWasDerived = straightFromRandomBytes;
 
-  /** Without a secret nothing is locked: the records go in as they are, which is what an open store is. */
+  /**
+   * Locked with a secret that is already random: the device secret, or an access token.
+   *
+   * One digest is enough for those — there is nothing to guess. It is the wrong answer for anything a person
+   * typed, which is what `lockWithPassphrase` is for.
+   *
+   * Without a secret nothing is locked: the records go in as they are, which is what an open store is.
+   */
   lockWith(secret: string | undefined): void {
+    this.derivation = straightFromRandomBytes;
     this.key = secret === undefined ? undefined : this.createKey(secret);
     // Held onto until somebody asks for a record, so a failure is reported then and not as a rejection
     // nobody was listening for.
     this.key?.catch(() => undefined);
+  }
+
+  /**
+   * Locked with something a person typed, which is a different problem.
+   *
+   * A passphrase has little entropy, so a single fast digest of it can be guessed offline at whatever rate
+   * the attacker's hardware allows — and SHA-256 is fast on purpose. PBKDF2 makes each guess cost, and the
+   * salt means the cost has to be paid again for every device instead of once for all of them.
+   *
+   * The salt is not a secret and is kept beside the data. What it prevents is one precomputation working
+   * everywhere, and two copies under the same passphrase being the same bytes.
+   */
+  lockWithPassphrase(passphrase: string, salt: string): void {
+    this.derivation = { kdf: "pbkdf2-sha256", version: 1, iterations: howHardToGuess, salt };
+    this.key = this.createKeyFromPassphrase(passphrase, salt);
+    this.key.catch(() => undefined);
+  }
+
+  /**
+   * How the key in force was made.
+   *
+   * Written down beside the data so that raising the work factor later, or moving to another algorithm, can
+   * still open what is already there instead of locking somebody out of their own copy.
+   */
+  howItWasDerived(): HowItWasDerived {
+    return this.derivation;
   }
 
   isLocked(): boolean {
@@ -42,6 +96,34 @@ export class LockedAway {
     }
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
     return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
+
+  private async createKeyFromPassphrase(passphrase: string, salt: string): Promise<CryptoKey> {
+    if (!globalThis.crypto?.subtle) {
+      throw new RelayKitError(
+        "NOT_CONFIGURED",
+        "Encrypted storage needs a secure origin: serve the page over https, or reach it on localhost"
+      );
+    }
+    const typed = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(passphrase),
+      "PBKDF2",
+      false,
+      ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: new TextEncoder().encode(salt),
+        iterations: howHardToGuess,
+        hash: "SHA-256"
+      },
+      typed,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
   }
   async encrypt(value: string): Promise<string> {
     if (!this.key) {
