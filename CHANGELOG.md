@@ -14,6 +14,10 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Cambiado
 
+- **Encuestas en el ejemplo nuevo**: preguntar, votar, ver el reparto y cerrar. Se pintan encima del timeline
+  y no dentro, porque el timeline se repinta entero cada vez que alguien dice algo y una pregunta que la gente
+  está contestando no puede desaparecer porque otro haya escrito «vale». `check:account` las recorre.
+
 - **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
   (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
   las dos comprobaciones que todavía la conducen, y luego se va.

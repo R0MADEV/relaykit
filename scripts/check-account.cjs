@@ -129,6 +129,34 @@ async function openAResultWhereItWasSaid(page) {
   if (detail.around < 3) throw new Error("it opened on the message with nothing around it");
 }
 
+/** Asking the conversation something, voting on it, and closing it — which is the whole of a poll. */
+async function askTheConversationSomething(page) {
+  await run(
+    page,
+    `
+    document.getElementById("more-button").click();
+    document.getElementById("ask-something").click();
+    document.getElementById("ask-question").value = "¿Dónde comemos?";
+    document.getElementById("ask-answers").value = "En el bar, en la oficina";
+    document.getElementById("ask-form").requestSubmit();
+  `
+  );
+  await waitFor(page, "the question to be up", `document.querySelector("[data-votes]")`, 60);
+  detail.asked = await read(page, `document.querySelector(".poll-question strong").textContent`);
+
+  await run(page, `document.querySelector("[data-votes]").click();`);
+  await waitFor(
+    page,
+    "the vote to be counted",
+    `document.querySelector("[data-votes]").textContent.includes("1")`,
+    60
+  );
+  detail.voted = await read(page, `document.querySelector("[data-votes]").textContent.trim()`);
+
+  await run(page, `document.querySelector("[data-closes]").click();`);
+  await waitFor(page, "the question to be closed", `!document.querySelector("[data-closes]")`, 60);
+}
+
 async function fileItAway(page) {
   await run(
     page,
@@ -277,6 +305,7 @@ async function main() {
   await signIn(page);
   await makeAConversation(page);
   await fileItAway(page);
+  await askTheConversationSomething(page);
   await openAResultWhereItWasSaid(page);
   // A second session, open elsewhere, so the claim that they get closed is checked rather than believed.
   const elsewhere = await fetch(`${homeserver}/_matrix/client/v3/login`, {
@@ -294,7 +323,7 @@ async function main() {
   server.close();
   report(
     true,
-    `filed under ${detail.filedUnder}, opened a result on «${detail.landedOn}» with ` +
+    `asked «${detail.asked}» and counted a vote, filed under ${detail.filedUnder}, opened a result on «${detail.landedOn}» with ` +
       `${detail.around} messages around it, changed the password, closed the account, ` +
       `and came back in as ${detail.guest}`
   );

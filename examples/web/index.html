@@ -112,6 +112,7 @@
                   </button>
                   <button id="people-here"><span aria-hidden="true">◍</span> Personas</button>
                   <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
+                  <button id="ask-something"><span aria-hidden="true">☰</span> Preguntar algo</button>
                   <button id="tag-here"><span aria-hidden="true">⌗</span> Archivar en…</button>
                   <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
                   <button id="forget-here"><span aria-hidden="true">⌫</span> Salir y olvidarla</button>
@@ -150,6 +151,10 @@
             <button class="button accent small" id="room-banner-join">Unirse</button>
           </div>
 
+          <!-- Lo que se está preguntando, encima del timeline y no dentro: el timeline se repinta entero
+               cada vez que alguien dice algo, y una pregunta que la gente está contestando no puede
+               desaparecer porque otro haya escrito "vale". -->
+          <div class="polls" id="polls"></div>
           <div class="timeline" id="timeline"></div>
 
           <!-- What a search turned up, in place of the conversation while there is something to show. -->
@@ -449,6 +454,32 @@
           <button class="button danger" id="sign-out" type="button">Cerrar sesión</button>
           <div class="spacer"></div>
           <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="ask">
+      <form method="dialog" id="ask-form">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">☰</span>
+          <div>
+            <h2>Preguntar algo</h2>
+            <p class="faint">Una pregunta y sus respuestas, para que conteste la conversación</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar" type="button">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">La pregunta</span>
+          <input id="ask-question" placeholder="¿Dónde comemos?" required />
+        </label>
+        <label class="field">
+          <span class="label">Las respuestas, separadas por comas</span>
+          <input id="ask-answers" placeholder="En el bar, en la oficina, cada uno por su lado" required />
+        </label>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel" type="button">Cancelar</button>
+          <button class="button accent" value="ask">Preguntar</button>
         </footer>
       </form>
     </dialog>

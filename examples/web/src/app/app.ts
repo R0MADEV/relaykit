@@ -19,6 +19,7 @@ import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
 import { Reading } from "./reading.js";
 import { Searching } from "./searching.js";
+import { Asking } from "./asking.js";
 import { Filing } from "./filing.js";
 import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
@@ -29,10 +30,7 @@ import { forgetAndStartOver, SigningIn } from "./signing-in.js";
 import { show } from "./views.js";
 
 class Deitu {
-  private readonly signingIn = new SigningIn(
-    session => this.enter(session),
-    error => this.wentWrong(error)
-  );
+  private readonly signingIn = new SigningIn(session => this.enter(session), sayWhatWentWrong);
   private readonly client = this.signingIn.client;
   private me = "";
   private people = new People(this.client, () => this.reading?.repaint());
@@ -61,7 +59,7 @@ class Deitu {
     this.calls.wire();
     this.typing = new Typing(this.client, this.people, this.me, () => this.reading?.openId());
     this.typing.wire();
-    this.keys = new ProtectingKeys(this.client, this.me, error => this.wentWrong(error));
+    this.keys = new ProtectingKeys(this.client, this.me, sayWhatWentWrong);
     this.keys.wire();
     this.composing = new Composing(this.client, {
       openId: () => this.reading?.openId(),
@@ -69,7 +67,7 @@ class Deitu {
       answering: () => this.doing?.answeringWhat(),
       stopAnswering: () => this.doing?.stopAnswering(),
       said: () => this.typing?.stop(),
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     this.composing.wire();
     this.searching = new Searching(this.client, this.people, {
@@ -101,12 +99,12 @@ class Deitu {
       openId: () => this.reading?.openId(),
       said: messageId => this.reading?.messageCalled(messageId)?.body,
       hangFrom: messageId => this.thread?.open(messageId),
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     this.doing.wire();
     this.exploring = new Exploring(this.client, {
       joined: conversationId => void this.openConversation(conversationId),
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     this.exploring.wire();
     new Moderating(this.client, this.people, {
@@ -119,14 +117,20 @@ class Deitu {
     }).wire();
     const filing = new Filing(this.client, {
       leftItAll: () => {
+        void asking.paintOn(undefined);
         this.reading?.close();
         this.sidebar?.paint();
       },
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     filing.wire();
+    const asking = new Asking(this.client, { wentWrong: sayWhatWentWrong });
+    asking.wire();
     this.reading = new Reading(this.client, this.people, this.me, {
-      filed: conversationId => void filing.paintOn(conversationId),
+      filed: conversationId => {
+        void filing.paintOn(conversationId);
+        void asking.paintOn(conversationId);
+      },
       conversations: () => this.conversations?.get() ?? [],
       goingIn: conversationId => this.calls?.goingIn(conversationId),
       onACallIn: conversationId => Boolean(this.calls?.onACallIn(conversationId)),
@@ -137,7 +141,7 @@ class Deitu {
       },
       repaintTheThread: () => void this.thread?.repaint(),
       closeTheThread: () => this.thread?.close(),
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     this.reading.wire();
     // Saying you are about, and saying you are not when this window goes away. A dot that never changes is
@@ -150,7 +154,7 @@ class Deitu {
     this.making = new MakingThings(this.client, this.people, {
       openId: () => this.reading?.openId(),
       opened: conversationId => void this.openConversation(conversationId),
-      wentWrong: error => this.wentWrong(error)
+      wentWrong: sayWhatWentWrong
     });
     this.wire();
     // Not waiting: what was here yesterday goes on screen at once, and the rest arrives as the server answers.
@@ -210,7 +214,7 @@ class Deitu {
     this.client.on("reaction.added", () => void this.reading?.reload());
     this.client.on("reaction.removed", () => void this.reading?.reload());
     this.client.on("notification", arrived => this.tell(arrived));
-    this.client.on("error", error => this.wentWrong(error));
+    this.client.on("error", sayWhatWentWrong);
     void this.calls?.heard();
   }
 
@@ -257,7 +261,7 @@ class Deitu {
   private async openRoom(): Promise<void> {
     const conversationId = this.reading?.openId();
     if (!conversationId) return;
-    await this.calls?.open(conversationId).catch(error => this.wentWrong(error));
+    await this.calls?.open(conversationId).catch(sayWhatWentWrong);
     this.calls?.bringBack();
     await this.showTheLink(conversationId);
   }
@@ -270,7 +274,7 @@ class Deitu {
 
   private async enterRoomOf(conversationId: ConversationId): Promise<void> {
     const known = this.conversations?.get().some(each => each.id === conversationId);
-    if (!known) await this.client.conversations.join(conversationId).catch(error => this.wentWrong(error));
+    if (!known) await this.client.conversations.join(conversationId).catch(sayWhatWentWrong);
     await this.openConversation(conversationId);
     await this.openRoom();
   }
@@ -287,10 +291,6 @@ class Deitu {
     element("shell").removeAttribute("data-list-open");
     await this.composing?.moveTo(conversationId);
     await (at ? this.reading?.openAt(conversationId, at) : this.reading?.open(conversationId));
-  }
-
-  private wentWrong(error: unknown): undefined {
-    return sayWhatWentWrong(error);
   }
 }
 

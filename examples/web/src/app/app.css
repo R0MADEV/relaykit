@@ -1436,3 +1436,58 @@ a.file {
   background: var(--accent-wash);
   box-shadow: 0 0 0 2px var(--accent);
 }
+
+/* Lo que se está preguntando, encima de lo que se dice. */
+.polls {
+  display: grid;
+  gap: 10px;
+  padding: 12px 20px 0;
+}
+.poll-question {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.poll-question .button,
+.poll-question .tag {
+  margin-left: auto;
+}
+.answers {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.answer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.answer-what {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 7px 11px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.answer span.answer-what {
+  cursor: default;
+}
+.share {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--accent-wash);
+}
