@@ -18,6 +18,8 @@ const styles: Readonly<Record<string, Style>> = {
  */
 export class Composing {
   private keeping: number | undefined;
+  /** The link a preview was last asked about, so typing past it does not paint a stale one. */
+  private lookingAt: string | undefined;
   /** Where the box was when it was last written in, which is where what is in it belongs. */
   private wasIn: ConversationId | undefined;
 
@@ -38,7 +40,10 @@ export class Composing {
     element("tools").addEventListener("click", event => this.styled(event));
     // Kept as it is typed rather than only on the way out: a tab closed mid-sentence is the common way to
     // lose one, and by then there is nobody left to ask.
-    input("write").addEventListener("input", () => this.keepShortly());
+    input("write").addEventListener("input", () => {
+      this.keepShortly();
+      this.lookAtTheLink();
+    });
     onClick("attach", () => input("attachment").click());
     input("attachment").addEventListener("change", () => void this.attach());
     onSubmit("composer", () => void this.send(input("write"), undefined));
@@ -56,6 +61,38 @@ export class Composing {
     // Compared against where this box is headed, not against what is open: what is open catches up after
     // this runs, so asking it would say no every time and throw away every draft it just read.
     if (this.wasIn === conversationId && kept) box.value = kept;
+  }
+
+  /**
+   * What is behind the link somebody is typing.
+   *
+   * The homeserver looks, not this browser: that way whoever publishes the link learns nothing about who is
+   * about to send it. A link it cannot look at is not an error to show — there is simply no preview.
+   */
+  private lookAtTheLink(): void {
+    const found = /(https?:\/\/\S+)/.exec(input("write").value);
+    const preview = element("link-preview");
+    if (!found?.[1]) {
+      preview.hidden = true;
+      this.lookingAt = undefined;
+      return;
+    }
+    const url = found[1];
+    if (url === this.lookingAt) return;
+    this.lookingAt = url;
+    void this.client.media.preview(url).then(
+      seen => {
+        // Somebody may have typed past it while the homeserver was looking.
+        if (this.lookingAt !== url) return;
+        preview.textContent = seen.title
+          ? `🔗 ${seen.title}${seen.description ? ` — ${seen.description}` : ""}`
+          : "";
+        preview.hidden = !seen.title;
+      },
+      () => {
+        preview.hidden = true;
+      }
+    );
   }
 
   private keepShortly(): void {

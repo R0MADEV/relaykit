@@ -20,6 +20,9 @@ export class DoingToMessages {
       readonly openId: () => ConversationId | undefined;
       readonly said: (messageId: MessageId) => string | undefined;
       readonly hangFrom: (messageId: MessageId) => void;
+      readonly pin: (messageId: MessageId) => void;
+      /** Every conversation this account is in, for choosing where something is sent on to. */
+      readonly conversations: () => readonly { readonly id: ConversationId; readonly title?: string }[];
       readonly wentWrong: (error: unknown) => void;
     }
   ) {}
@@ -39,6 +42,38 @@ export class DoingToMessages {
     element("answering").hidden = true;
   }
 
+  /**
+   * Sending something on to another conversation.
+   *
+   * Asked for by name rather than picked from a list: this is an example, and a conversation picker is a
+   * screen of its own that would say nothing new about the library.
+   */
+  private async forward(from: ConversationId, messageId: MessageId): Promise<void> {
+    const elsewhere = this.where.conversations().filter(each => each.id !== from);
+    const asked = window.prompt(
+      `¿A cuál lo reenvío?\n\n${elsewhere.map(each => each.title ?? each.id).join("\n")}`
+    );
+    if (!asked?.trim()) return;
+    const wanted = elsewhere.find(each => (each.title ?? each.id) === asked.trim());
+    if (!wanted) return;
+    try {
+      await this.client.messages.forward(messageId, wanted.id);
+    } catch (error) {
+      this.where.wentWrong(error);
+    }
+  }
+
+  /** Telling the homeserver's administrators about one message. A reason is required, and is the point. */
+  private async report(messageId: MessageId): Promise<void> {
+    const why = window.prompt("¿Por qué lo denuncias?");
+    if (!why?.trim()) return;
+    try {
+      await this.client.messages.report(messageId, why.trim());
+    } catch (error) {
+      this.where.wentWrong(error);
+    }
+  }
+
   private async pressed(event: Event): Promise<void> {
     const conversationId = this.where.openId();
     if (!conversationId) return;
@@ -53,6 +88,12 @@ export class DoingToMessages {
     if (edits) return this.edit(conversationId, edits);
     const deletes = pressedIn(event, "deletes");
     if (deletes) return this.delete(conversationId, deletes);
+    const pins = pressedIn(event, "pins");
+    if (pins) return void this.where.pin(pins);
+    const forwards = pressedIn(event, "forwards");
+    if (forwards) return this.forward(conversationId, forwards);
+    const reports = pressedIn(event, "reports");
+    if (reports) return this.report(reports);
     // The pill under a message and the button in its row mean the same thing: open the thread hanging here.
     const retries = pressedIn(event, "retries");
     if (retries) return this.sendAgain(retries);

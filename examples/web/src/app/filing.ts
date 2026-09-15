@@ -29,9 +29,10 @@ export class Filing {
   }
 
   /** Painted on its own and not with the rest of the head: the homeserver has to be asked for them. */
-  async paintOn(conversationId: ConversationId): Promise<void> {
+  async paintOn(conversationId: ConversationId | undefined): Promise<void> {
     this.conversationId = conversationId;
     element("open-tags").innerHTML = "";
+    if (!conversationId) return;
     const tags = await this.client.conversations.tags(conversationId).catch(() => []);
     // Somebody may have opened another conversation while the homeserver was answering about this one.
     if (this.conversationId !== conversationId) return;

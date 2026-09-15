@@ -22,6 +22,7 @@
         ><input id="password" type="password" autocomplete="current-password"
       /></label>
       <button class="button accent" type="submit">Entrar</button>
+      <button class="button" id="make-an-account" type="button">Crear una cuenta</button>
       <p class="wrong" id="sign-in-wrong" role="alert" hidden></p>
 
       <!-- Lo que este servidor acepte aparte de la contraseña. Vacío si no acepta nada. -->
@@ -113,6 +114,12 @@
                   <button id="people-here"><span aria-hidden="true">◍</span> Personas</button>
                   <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
                   <button id="ask-something"><span aria-hidden="true">☰</span> Preguntar algo</button>
+                  <button id="send-a-sticker"><span aria-hidden="true">🙂</span> Mandar una pegatina</button>
+                  <button id="send-a-place"><span aria-hidden="true">⌖</span> Mandar un sitio</button>
+                  <button id="share-where-i-am">
+                    <span aria-hidden="true">⦿</span> Compartir dónde estoy
+                  </button>
+                  <button id="pin-what-was-said"><span aria-hidden="true">📌</span> Fijar lo último</button>
                   <button id="tag-here"><span aria-hidden="true">⌗</span> Archivar en…</button>
                   <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
                   <button id="forget-here"><span aria-hidden="true">⌫</span> Salir y olvidarla</button>
@@ -154,6 +161,9 @@
           <!-- Lo que se está preguntando, encima del timeline y no dentro: el timeline se repinta entero
                cada vez que alguien dice algo, y una pregunta que la gente está contestando no puede
                desaparecer porque otro haya escrito "vale". -->
+          <!-- Lo que la conversación tiene a mano, y lo que se está preguntando: encima de lo que se dice y
+               no dentro, porque el timeline se repinta entero en cuanto alguien habla. -->
+          <div class="kept" id="pinned"></div>
           <div class="polls" id="polls"></div>
           <div class="timeline" id="timeline"></div>
 
@@ -182,8 +192,10 @@
               <button type="button" data-styles="code" aria-label="Código">&lt;/&gt;</button>
               <button type="button" data-styles="link" aria-label="Enlace">🔗</button>
               <button type="button" id="attach" aria-label="Adjuntar un archivo">📎</button>
+              <button type="button" id="record" aria-label="Nota de voz">🎤</button>
               <input type="file" id="attachment" hidden />
             </div>
+            <p class="link" id="link-preview" hidden></p>
             <div class="write">
               <input id="write" autocomplete="off" />
               <button class="icon-button accent" type="submit" aria-label="Enviar">→</button>
@@ -412,6 +424,27 @@
           <div class="spacer"></div>
           <button class="button" value="cancel">Cancelar</button>
           <button class="button accent" id="settings-save" type="button">Guardar</button>
+
+          <p class="label">Qué es para ti</p>
+          <label class="kept"><input type="checkbox" id="settings-favourite" /> Favorita</label>
+          <label class="field">
+            <span class="label">Cuánto interrumpe</span>
+            <select id="settings-loudness">
+              <option value="all">Todo</option>
+              <option value="mentions">Solo cuando me nombran</option>
+              <option value="none">Nada</option>
+            </select>
+          </label>
+
+          <p class="label">Quién puede entrar</p>
+          <label class="field">
+            <span class="label">La puerta</span>
+            <select id="settings-door">
+              <option value="invite">Solo por invitación</option>
+              <option value="public">Cualquiera</option>
+              <option value="knock">Cualquiera que llame primero</option>
+            </select>
+          </label>
         </footer>
       </form>
     </dialog>
@@ -454,6 +487,32 @@
           <button class="button danger" id="sign-out" type="button">Cerrar sesión</button>
           <div class="spacer"></div>
           <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="place">
+      <form method="dialog" id="place-form">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">⌖</span>
+          <div>
+            <h2>Mandar un sitio</h2>
+            <p class="faint">Un punto en el mapa, que llega como un sitio y no como una línea de texto</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar" type="button">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Latitud y longitud</span>
+          <input id="place-where" placeholder="43.263, -2.935" required />
+        </label>
+        <label class="field">
+          <span class="label">Cómo se llama</span>
+          <input id="place-what" placeholder="La plaza" />
+        </label>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel" type="button">Cancelar</button>
+          <button class="button accent" value="send">Mandar</button>
         </footer>
       </form>
     </dialog>

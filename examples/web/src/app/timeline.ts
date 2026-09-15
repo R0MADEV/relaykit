@@ -143,6 +143,9 @@ function whatCanBeDone(message: Message, reading: Reading): string {
   return `<div class="doings">
     <button data-answers="${safe(message.id)}" aria-label="Responder">↩</button>
     <button data-hangs-from="${safe(message.id)}" aria-label="Responder en hilo">💬</button>
+    <button data-pins="${safe(message.id)}" aria-label="Fijar">📌</button>
+    <button data-forwards="${safe(message.id)}" aria-label="Reenviar">⇢</button>
+    <button data-reports="${safe(message.id)}" aria-label="Denunciar">⚑</button>
     ${change}
   </div>`;
 }

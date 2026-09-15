@@ -1,4 +1,4 @@
-import type { ConversationId, Message, MessageId, MessagingClient } from "@relaykit/web";
+import type { Conversation, ConversationId, Message, MessageId, MessagingClient } from "@relaykit/web";
 import { element, input, onClick, pressedIn, safe } from "./dom.js";
 import { face, type People } from "./people.js";
 import { dayOf, timeOf } from "./when.js";
@@ -35,10 +35,12 @@ export class Searching {
     onClick("results-close", () => this.close());
     element("results-list").addEventListener("click", event => {
       const conversationId = pressedIn(event, "found-in");
-      const messageId = pressedIn(event, "found-said");
-      if (!conversationId || !messageId) return;
+      if (!conversationId) return;
       this.close();
-      this.where.openAt(conversationId, messageId);
+      const messageId = pressedIn(event, "found-said");
+      // A conversation found by its name has nothing inside it to land on; one found by something said does.
+      if (messageId) this.where.openAt(conversationId, messageId);
+      else this.where.open(conversationId);
     });
   }
 
@@ -72,15 +74,19 @@ export class Searching {
       return;
     }
     const inside = this.inside;
-    const found = await this.client.messages
-      .search(query, inside ? { conversationId: inside } : {})
-      .catch(() => []);
+    // Two questions at once, because somebody typing into one box means either: a conversation by its name,
+    // or something that was said in one. Looking for a conversation while reading one is not what the
+    // magnifying glass in its header meant, so that one is only asked across everything.
+    const [found, conversations] = await Promise.all([
+      this.client.messages.search(query, inside ? { conversationId: inside } : {}).catch(() => []),
+      inside ? Promise.resolve([]) : this.client.conversations.search(query).catch(() => [])
+    ]);
     // Somebody who kept typing while this was coming back is looking for something else by now.
     if (input("search").value.trim() !== query) return;
-    this.paint(query, found);
+    this.paint(query, found, conversations);
   }
 
-  private paint(query: string, found: readonly Message[]): void {
+  private paint(query: string, found: readonly Message[], conversations: readonly Conversation[] = []): void {
     element("timeline").hidden = true;
     element("results").hidden = false;
     const whereAbouts = this.inside ? ` en #${this.where.nameOf(this.inside) ?? ""}` : "";
@@ -88,7 +94,19 @@ export class Searching {
       found.length === 0
         ? `Nada que diga «${query}»${whereAbouts}`
         : `${found.length} ${found.length === 1 ? "resultado" : "resultados"} para «${query}»${whereAbouts}`;
-    element("results-list").innerHTML = found.map(message => this.row(message)).join("");
+    element("results-list").innerHTML =
+      conversations.map(conversation => this.conversationRow(conversation)).join("") +
+      found.map(message => this.row(message)).join("");
+  }
+
+  /** A conversation whose name matches. Pressed, it opens; there is nothing inside it to land on. */
+  private conversationRow(conversation: Conversation): string {
+    const name = conversation.title ?? conversation.id;
+    return `<button class="found" data-found-in="${safe(conversation.id)}">
+      <span class="hash" aria-hidden="true">#</span>
+      <span class="found-what"><strong>${safe(name)}</strong>
+        <span class="faint">${safe(conversation.topic ?? "una conversación")}</span></span>
+    </button>`;
   }
 
   private row(message: Message): string {

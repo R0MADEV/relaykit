@@ -44,15 +44,31 @@ async function sweep(username) {
   await client.start(session);
 
   const mine = await client.conversations.list();
-  const rubbish = mine.filter(each => madeByAcheck.some(looksLike => looksLike.test(each.title ?? "")));
+  // `RELAYKIT_SWEEP_EVERYTHING=1` leaves nothing at all, for starting a development environment over. Only
+  // ever meant for the three accounts the checks use, which is why it has to be asked for out loud.
+  const rubbish = process.env.RELAYKIT_SWEEP_EVERYTHING
+    ? mine
+    : mine.filter(each => madeByAcheck.some(looksLike => looksLike.test(each.title ?? "")));
   let swept = 0;
   for (const conversation of rubbish) {
     await client.conversations.leave(conversation.id).catch(() => undefined);
     await client.conversations.forget(conversation.id).catch(() => undefined);
     swept += 1;
   }
+  // Spaces are rooms too, and `conversations.list` leaves them out on purpose — a space groups
+  // conversations, so it is not one of them. Which meant a sweep left every space it had ever made.
+  const spaces = await client.spaces.list().catch(() => []);
+  for (const space of spaces) {
+    const itsOwn = process.env.RELAYKIT_SWEEP_EVERYTHING || madeByAcheck.some(l => l.test(space.title ?? ""));
+    if (!itsOwn) continue;
+    await client.conversations.leave(space.id).catch(() => undefined);
+    await client.conversations.forget(space.id).catch(() => undefined);
+    swept += 1;
+  }
   await client.stop();
-  return { username, had: mine.length, swept, left: mine.length - swept };
+  // Counted after the fact rather than worked out: spaces are swept too and are not in `mine`.
+  const after = await client.conversations.list().catch(() => []);
+  return { username, had: mine.length, swept, left: after.length };
 }
 
 for (const username of accounts) {

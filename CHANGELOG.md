@@ -7,12 +7,23 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
+  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
+  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
+  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
+
 - **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
   guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
   abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
   el token deja de servir.
 
 ### Cambiado
+
+- **El resto del traslado al ejemplo que se queda**: ubicación (un sitio, y dónde estoy durante un rato),
+  mensajes fijados, favorita, cuánto interrumpe, quién puede entrar, reenviar, denunciar, pegatinas, notas de
+  voz, vista previa de enlaces, crear cuenta, y buscar conversaciones además de mensajes.
+- `sweep:rooms` acepta `RELAYKIT_SWEEP_EVERYTHING=1` para dejar una cuenta de desarrollo a cero, y ahora
+  barre también los espacios — `conversations.list` los deja fuera a propósito, así que quedaban todos.
 
 - **Encuestas en el ejemplo nuevo**: preguntar, votar, ver el reparto y cerrar. Se pintan encima del timeline
   y no dentro, porque el timeline se repinta entero cada vez que alguien dice algo y una pregunta que la gente
@@ -146,6 +157,11 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
+  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
+  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
+  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
 
 - **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
   guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
@@ -284,6 +300,11 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
+  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
+  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
+  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
 
 - **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
   guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
@@ -844,6 +865,11 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
+  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
+  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
+  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
 
 - **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
   guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien

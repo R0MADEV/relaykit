@@ -61,6 +61,7 @@ export class ConversationOperations {
       const shown = this.context.isCaughtUp() ? conversations : union(storedConversations, conversations);
       this.remember(conversations);
       await this.persistChanged(conversations, storedConversations);
+      await this.forgetWhatIsGone(conversations, storedConversations);
       await this.trimCache(shown);
       return firstFew(byRecentActivity(shown), limit);
     } catch (error) {
@@ -181,6 +182,36 @@ export class ConversationOperations {
    * the most recent activity are kept, and one with something still waiting to be sent is never dropped:
    * that would throw away the message along with it.
    */
+  /**
+   * Drops from the local copy whatever this account is not in any more.
+   *
+   * Left from another device, thrown out, or taken away by whoever runs the homeserver — this browser was
+   * never told, and finds out by asking. Without this the copy only ever grows: a conversation somebody left
+   * a year ago is still painted on every start, before the first sync finishes, as one that is there.
+   *
+   * Only once caught up. Before that the adapter knows only what has arrived so far, and everything not yet
+   * synced would look like something that is gone.
+   */
+  private async forgetWhatIsGone(
+    stillIn: readonly Conversation[],
+    stored: readonly Conversation[]
+  ): Promise<void> {
+    const { storage } = this.context;
+    if (!storage || !this.context.isCaughtUp()) return;
+    const known = new Set(stillIn.map(conversation => conversation.id));
+    const gone = stored.filter(conversation => !known.has(conversation.id));
+    if (gone.length === 0) return;
+    // Except where something is still waiting to go out. Whoever wrote it has not been told it cannot be
+    // sent, and throwing it away without saying so is losing what they wrote.
+    const pending = await storage.getPendingMessages();
+    const waiting = new Set(pending.map(message => message.conversationId));
+    await Promise.all(
+      gone
+        .filter(conversation => !waiting.has(conversation.id))
+        .map(conversation => storage.deleteConversation(conversation.id))
+    );
+  }
+
   private async trimCache(conversations: readonly Conversation[]): Promise<void> {
     const { storage, cachedConversations: limit } = this.context;
     if (!storage || limit === undefined || conversations.length <= limit) return;

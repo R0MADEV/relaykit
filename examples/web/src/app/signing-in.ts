@@ -28,6 +28,7 @@ export class SigningIn {
     // Which ways in there are depends on which homeserver was typed, so they are asked for again when it is.
     input("homeserver").addEventListener("change", () => void drawWaysIn(this.client, this.wentWrong));
     onClick("as-guest", () => void this.signInAsGuest());
+    onClick("make-an-account", () => void this.register());
   }
 
   /** Opening it again with a session already here: straight in, without asking anything. */
@@ -70,6 +71,26 @@ export class SigningIn {
   private async signInAsGuest(): Promise<void> {
     try {
       const session = await this.client.signInAsGuest(input("homeserver").value.trim());
+      keep(session);
+      await this.entered(session);
+    } catch (error) {
+      this.wentWrong(error);
+    }
+  }
+
+  /**
+   * Making an account here, for a homeserver that allows it.
+   *
+   * Straight in afterwards: somebody who just chose a name and a password has said everything a sign in
+   * would ask them again, and asking twice is only a form.
+   */
+  private async register(): Promise<void> {
+    try {
+      const session = await this.client.register({
+        homeserver: input("homeserver").value.trim(),
+        username: input("username").value.trim(),
+        password: input("password").value
+      });
       keep(session);
       await this.entered(session);
     } catch (error) {

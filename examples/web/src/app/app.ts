@@ -19,8 +19,7 @@ import { People } from "./people.js";
 import { ProtectingKeys } from "./protecting-keys.js";
 import { Reading } from "./reading.js";
 import { Searching } from "./searching.js";
-import { Asking } from "./asking.js";
-import { Filing } from "./filing.js";
+import { Extras } from "./extras.js";
 import { Settings } from "./settings.js";
 import { Sidebar } from "./sidebar.js";
 import { tellAbout, titleWith, worthInterrupting } from "./telling.js";
@@ -99,6 +98,8 @@ class Deitu {
       openId: () => this.reading?.openId(),
       said: messageId => this.reading?.messageCalled(messageId)?.body,
       hangFrom: messageId => this.thread?.open(messageId),
+      pin: messageId => extras.pin(messageId),
+      conversations: () => this.conversations?.get() ?? [],
       wentWrong: sayWhatWentWrong
     });
     this.doing.wire();
@@ -115,22 +116,18 @@ class Deitu {
       openId: () => this.reading?.openId(),
       conversations: () => this.conversations?.get() ?? []
     }).wire();
-    const filing = new Filing(this.client, {
+    const extras = new Extras(this.client, this.people, {
+      openId: () => this.reading?.openId(),
       leftItAll: () => {
-        void asking.paintOn(undefined);
+        extras.nowIn(undefined);
         this.reading?.close();
         this.sidebar?.paint();
       },
       wentWrong: sayWhatWentWrong
     });
-    filing.wire();
-    const asking = new Asking(this.client, { wentWrong: sayWhatWentWrong });
-    asking.wire();
+    extras.wire();
     this.reading = new Reading(this.client, this.people, this.me, {
-      filed: conversationId => {
-        void filing.paintOn(conversationId);
-        void asking.paintOn(conversationId);
-      },
+      filed: conversationId => extras.nowIn(conversationId),
       conversations: () => this.conversations?.get() ?? [],
       goingIn: conversationId => this.calls?.goingIn(conversationId),
       onACallIn: conversationId => Boolean(this.calls?.onACallIn(conversationId)),
