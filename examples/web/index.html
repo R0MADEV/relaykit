@@ -1,1040 +1,560 @@
 <!doctype html>
 <html lang="es">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RelayKit</title>
-    <style>
-      /*
-       * The shape people already know from a chat with voice in it: conversations down the left, the
-       * conversation in the middle, the call above it when there is one, and yourself bottom-left. Dark, one
-       * accent, and nothing drawn that is not being used. Every id and class is what `main.ts` and the browser
-       * checks reach for; this file decides how they look and nothing else.
-       */
-      :root {
-        color-scheme: dark;
-        --bg-deep: #1e1f22;
-        --bg-side: #2b2d31;
-        --bg-main: #313338;
-        --bg-raised: #383a40;
-        --bg-hover: #35373c;
-        --bg-active: #404249;
-        --text: #dbdee1;
-        --text-strong: #f2f3f5;
-        --muted: #949ba4;
-        --line: #3f4147;
-        --accent: #5865f2;
-        --accent-hover: #4752c4;
-        --green: #23a559;
-        --green-hover: #1a8a48;
-        --red: #da373c;
-        --red-hover: #a12828;
-        --own: #5865f2;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      [hidden] {
-        display: none !important;
-      }
-      html,
-      body {
-        height: 100%;
-      }
-      body {
-        margin: 0;
-        font:
-          15px/1.45 "gg sans",
-          "Noto Sans",
-          "Segoe UI",
-          system-ui,
-          -apple-system,
-          sans-serif;
-        color: var(--text);
-        background: var(--bg-main);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: var(--bg-deep);
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      /* ---- controls ---- */
-      input,
-      button,
-      select,
-      progress {
-        font: inherit;
-      }
-      input,
-      select {
-        padding: 8px 10px;
-        border-radius: 4px;
-        border: 0;
-        background: var(--bg-deep);
-        color: var(--text);
-        min-width: 0;
-      }
-      input::placeholder {
-        color: var(--muted);
-      }
-      input:focus,
-      select:focus,
-      button:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
-      }
-      button {
-        cursor: pointer;
-        border: 0;
-        border-radius: 4px;
-        padding: 7px 12px;
-        font-weight: 500;
-        background: #4e5058;
-        color: var(--text-strong);
-        transition: background 0.12s;
-        white-space: nowrap;
-      }
-      button:hover {
-        background: #6d6f78;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-      label {
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      /* ---- signing in ---- */
-      #welcome {
-        flex: 1;
-        display: grid;
-        place-items: center;
-        background: radial-gradient(ellipse at top, #3b3f6b 0%, var(--bg-main) 55%);
-      }
-      body[data-signed-in] #welcome {
-        display: none;
-      }
-      #login-form {
-        width: 380px;
-        max-width: calc(100vw - 32px);
-        background: var(--bg-side);
-        border-radius: 10px;
-        padding: 28px 28px 22px;
-        display: grid;
-        gap: 14px;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-      }
-      #login-form h2 {
-        margin: 0 0 4px;
-        font-size: 22px;
-        text-align: center;
-        color: var(--text-strong);
-      }
-      #login-form button[type="submit"] {
-        background: var(--accent);
-        padding: 11px;
-        font-size: 15px;
-        margin-top: 4px;
-      }
-      #login-form button[type="submit"]:hover {
-        background: var(--accent-hover);
-      }
-      button.quiet {
-        background: transparent;
-        color: var(--muted);
-      }
-      button.quiet:hover {
-        background: var(--bg-hover);
-        color: var(--text-strong);
-      }
-
-      /* ---- avatars: initials on a disc, until there is a face ---- */
-      .avatar {
-        display: inline-grid;
-        place-items: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: var(--tone, linear-gradient(135deg, #5865f2, #3ba55d));
-        color: #fff;
-        font-weight: 700;
-        font-size: 14px;
-        flex-shrink: 0;
-        text-transform: uppercase;
-      }
-
-      /* ---- menus: one word, and what it hides underneath ---- */
-      details.more,
-      #attach,
-      #settings {
-        position: relative;
-      }
-      details > summary {
-        list-style: none;
-        cursor: pointer;
-        user-select: none;
-      }
-      details > summary::-webkit-details-marker {
-        display: none;
-      }
-      .menu {
-        position: absolute;
-        z-index: 5;
-        min-width: 220px;
-        background: #111214;
-        border-radius: 8px;
-        padding: 6px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        display: grid;
-        gap: 2px;
-      }
-      .menu button {
-        text-align: left;
-        background: transparent;
-        color: var(--text);
-        width: 100%;
-      }
-      .menu button:hover {
-        background: var(--accent);
-        color: #fff;
-      }
-
-      /* ---- top bar: the brand, and how the connection is ---- */
-      header {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        padding: 8px 14px;
-        background: var(--bg-deep);
-        border-bottom: 1px solid #111214;
-        flex-shrink: 0;
-      }
-      header h1 {
-        font-size: 15px;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        margin: 0 8px 0 0;
-        color: var(--text-strong);
-      }
-      header h1::before {
-        content: "";
-        display: inline-block;
-        width: 22px;
-        height: 22px;
-        border-radius: 7px;
-        background: var(--accent);
-        vertical-align: -6px;
-        margin-right: 8px;
-      }
-      #login-form {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      #login-form input,
-      #login-form select {
-        padding: 6px 8px;
-        font-size: 13px;
-      }
-      #homeserver {
-        width: 170px;
-      }
-      #password {
-        width: 130px;
-      }
-      #login-form button[type="submit"] {
-        background: var(--accent);
-      }
-      #login-form button[type="submit"]:hover {
-        background: var(--accent-hover);
-      }
-      header button {
-        padding: 6px 10px;
-        font-size: 13px;
-      }
-      #who-am-i {
-        margin-left: auto;
-        font-size: 13px;
-        color: var(--text-strong);
-        background: var(--bg-side);
-        border-radius: 999px;
-        padding: 4px 12px;
-      }
-      #who-am-i:empty {
-        display: none;
-      }
-      #status {
-        margin: 0;
-        color: var(--muted);
-        font-size: 12px;
-      }
-      #status::before {
-        content: "";
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--muted);
-        margin-right: 6px;
-        vertical-align: 1px;
-      }
-
-      #status {
-        margin-left: auto;
-      }
-
-      /* ---- the two columns ---- */
-      #app {
-        flex: 1;
-        display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        min-height: 0;
-      }
-      aside {
-        background: var(--bg-side);
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-      }
-      aside form {
-        display: flex;
-        gap: 6px;
-        padding: 10px 10px 0;
-      }
-      aside form input,
-      aside form select {
-        flex: 1;
-        font-size: 13px;
-      }
-      aside form button {
-        font-size: 13px;
-        padding: 6px 10px;
-      }
-      #search-form {
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--bg-deep);
-      }
-      #conversations {
-        flex: 1;
-        overflow-y: auto;
-        list-style: none;
-        margin: 0;
-        padding: 8px;
-      }
-      #conversations li {
-        display: grid;
-        grid-template-columns: 36px 1fr auto;
-        grid-template-rows: auto auto;
-        column-gap: 10px;
-        align-items: center;
-        padding: 6px 8px;
-        border-radius: 6px;
-        cursor: pointer;
-        color: var(--muted);
-      }
-      #conversations li:hover {
-        background: var(--bg-hover);
-        color: var(--text);
-      }
-      #conversations li[aria-current="true"] {
-        background: var(--bg-active);
-        color: var(--text-strong);
-      }
-      /* Somebody's face, for as long as there is not one: a coloured disc in the place it will take. */
-      #conversations li .avatar {
-        grid-row: 1 / span 2;
-        width: 34px;
-        height: 34px;
-        font-size: 13px;
-      }
-      #conversations .name {
-        font-weight: 600;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: inherit;
-      }
-      #conversations .preview {
-        grid-column: 2;
-        font-size: 12.5px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        opacity: 0.85;
-      }
-      .badge {
-        grid-column: 3;
-        grid-row: 1 / span 2;
-        background: var(--red);
-        color: #fff;
-        border-radius: 999px;
-        padding: 1px 7px;
-        font-size: 12px;
-        font-weight: 700;
-        min-width: 20px;
-        text-align: center;
-      }
-      /* Yourself, bottom-left. */
-      #me {
-        background: #232428;
-        padding: 8px 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        border-top: 1px solid var(--bg-deep);
-      }
-      #who-am-i {
-        flex: 1;
-        min-width: 0;
-        font-size: 13.5px;
-        color: var(--text-strong);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      #me button,
-      #me summary {
-        width: 32px;
-        height: 32px;
-        padding: 0;
-        display: grid;
-        place-items: center;
-        border-radius: 6px;
-        background: transparent;
-        color: var(--muted);
-        font-size: 16px;
-      }
-      #me button:hover,
-      #me summary:hover {
-        background: var(--bg-hover);
-        color: var(--text-strong);
-      }
-      #settings .menu {
-        bottom: 40px;
-        right: 0;
-        min-width: 260px;
-        gap: 10px;
-        padding: 12px;
-      }
-      #devices select {
-        font-size: 12.5px;
-        padding: 6px 8px;
-        width: 100%;
-      }
-
-      /* ---- the conversation ---- */
-      main {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        min-width: 0;
-        background: var(--bg-main);
-      }
-      #topic-text {
-        margin: 0;
-        padding: 10px 16px 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      #conversation-actions {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 16px;
-        border-bottom: 1px solid var(--bg-deep);
-        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
-      }
-      #conversation-actions button {
-        font-size: 13px;
-        padding: 5px 10px;
-        background: transparent;
-        color: var(--muted);
-      }
-      #conversation-actions button:hover {
-        background: var(--bg-hover);
-        color: var(--text-strong);
-      }
-      #call,
-      #video-call,
-      #join-call {
-        background: var(--green) !important;
-        color: #fff !important;
-      }
-      #call:hover,
-      #video-call:hover,
-      #join-call:hover {
-        background: var(--green-hover) !important;
-      }
-      details.more {
-        margin-left: auto;
-      }
-      details.more > summary {
-        color: var(--muted);
-        font-size: 13px;
-        padding: 5px 10px;
-        border-radius: 4px;
-      }
-      details.more > summary:hover,
-      details.more[open] > summary {
-        background: var(--bg-hover);
-        color: var(--text-strong);
-      }
-      details.more .menu {
-        right: 0;
-        top: 34px;
-      }
-      #leave {
-        color: var(--red) !important;
-      }
-      #leave:hover {
-        background: var(--red) !important;
-        color: #fff !important;
-      }
-      #empty {
-        margin: auto;
-        color: var(--muted);
-        text-align: center;
-      }
-
-      /* ---- the call, above the conversation while it goes on ---- */
-      #call-panel {
-        background: var(--bg-deep);
-        padding: 14px 16px 12px;
-        border-bottom: 1px solid #111214;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        max-height: 62vh;
-        overflow-y: auto;
-      }
-      #call-state {
-        margin: 0;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--muted);
-        text-align: center;
-        letter-spacing: 0.02em;
-      }
-      #participants {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 380px));
-        justify-content: center;
-        gap: 10px;
-      }
-      #participants:empty {
-        display: none;
-      }
-      #participants figure {
-        margin: 0;
-        position: relative;
-        border-radius: 10px;
-        overflow: hidden;
-        background: #111214;
-        aspect-ratio: 16 / 9;
-        outline: 3px solid transparent;
-        outline-offset: -3px;
-        transition: outline-color 0.15s;
-      }
-      #participants figure.speaking {
-        outline-color: var(--green);
-      }
-      #participants video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        background: #000;
-      }
-      /* No picture is still a person: the name stays over a quiet disc where the face would be. */
-      #participants figure:has(video[hidden])::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        margin: auto;
-        width: 72px;
-        height: 72px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #5865f2, #3ba55d);
-      }
-      #participants figcaption {
-        position: absolute;
-        left: 8px;
-        bottom: 8px;
-        font-size: 12.5px;
-        font-weight: 600;
-        color: #fff;
-        background: rgba(0, 0, 0, 0.55);
-        border-radius: 4px;
-        padding: 2px 8px;
-      }
-      #call-screen-media {
-        width: 100%;
-        max-height: 40vh;
-        background: #000;
-        border-radius: 10px;
-      }
-      /* The controls, in a row, the way every call has them: leave in red, pick up in green. */
-      .call-controls {
-        display: flex;
-        justify-content: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .call-controls button {
-        border-radius: 999px;
-        padding: 9px 16px;
-      }
-      #answer {
-        background: var(--green);
-        color: #fff;
-      }
-      #answer:hover {
-        background: var(--green-hover);
-      }
-      #reject,
-      #hang-up {
-        background: var(--red);
-        color: #fff;
-      }
-      #reject:hover,
-      #hang-up:hover {
-        background: var(--red-hover);
-      }
-
-      /* ---- messages, as rows and not as bubbles ---- */
-      #timeline {
-        flex: 1;
-        overflow-y: auto;
-        padding: 12px 0 8px;
-        display: flex;
-        flex-direction: column;
-      }
-      #load-more {
-        align-self: center;
-        background: transparent;
-        color: var(--muted);
-        font-size: 13px;
-        margin-bottom: 6px;
-      }
-      #load-more:hover {
-        color: var(--text-strong);
-        background: var(--bg-hover);
-      }
-      .message {
-        position: relative;
-        padding: 2px 16px 2px 68px;
-        margin-top: 12px;
-      }
-      .message.continued {
-        margin-top: 0;
-      }
-      .message:hover {
-        background: var(--bg-hover);
-      }
-      .message .avatar {
-        position: absolute;
-        left: 16px;
-        top: 2px;
-        width: 40px;
-        height: 40px;
-        font-size: 15px;
-      }
-      .message.continued .avatar,
-      .message.continued .author {
-        display: none;
-      }
-      .author {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        line-height: 1.3;
-      }
-      .author .who {
-        font-weight: 600;
-        color: var(--text-strong);
-      }
-      .author time {
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .message .meta {
-        font-size: 12px;
-        color: var(--muted);
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-top: 4px;
-      }
-      /* What can be done to a message shows up when the pointer is on it, the way it does everywhere. */
-      .message .meta button {
-        font-size: 12px;
-        padding: 2px 8px;
-        background: transparent;
-        color: var(--muted);
-        opacity: 0;
-        transition: opacity 0.12s;
-      }
-      .message:hover .meta button,
-      .message:focus-within .meta button {
-        opacity: 1;
-      }
-      .message .meta button:hover {
-        background: var(--bg-raised);
-        color: var(--text-strong);
-      }
-      .message.deleted {
-        font-style: italic;
-        color: var(--muted);
-      }
-      .message.action {
-        font-style: italic;
-      }
-      .message.notice {
-        color: var(--muted);
-      }
-      .message.sticker img {
-        max-width: 128px;
-        display: block;
-      }
-      .blurred {
-        display: block;
-        filter: blur(8px);
-        image-rendering: pixelated;
-        border-radius: 6px;
-      }
-      .waveform {
-        display: block;
-        height: 32px;
-      }
-      .quote {
-        border-left: 3px solid var(--line);
-        padding-left: 8px;
-        margin-bottom: 4px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .unread-line {
-        margin: 8px 16px;
-        border-top: 1px solid var(--red);
-        color: var(--red);
-        font-size: 11px;
-        font-weight: 700;
-        text-align: right;
-        letter-spacing: 0.04em;
-      }
-      #polls {
-        padding: 0 16px;
-      }
-      .poll {
-        border-left: 4px solid var(--accent);
-        background: var(--bg-side);
-        border-radius: 6px;
-        padding: 10px 12px;
-        margin: 6px 0;
-      }
-      .poll .answer {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.3rem 0;
-      }
-      .poll .bar {
-        height: 6px;
-        background: var(--accent);
-        border-radius: 3px;
-      }
-      .poll.closed {
-        opacity: 0.6;
-      }
-      #link-preview {
-        margin: 0;
-        border-left: 3px solid var(--accent);
-        background: var(--bg-side);
-        border-radius: 6px;
-        padding: 8px 10px;
-        font-size: 13px;
-      }
-
-      /* ---- writing ---- */
-      footer {
-        padding: 0 16px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        flex-shrink: 0;
-      }
-      footer p {
-        margin: 0;
-      }
-      #typing,
-      #replying {
-        color: var(--muted);
-        font-size: 13px;
-        min-height: 1.2em;
-      }
-      #composer {
-        display: flex;
-        align-items: center;
-        background: var(--bg-raised);
-        border-radius: 8px;
-        padding: 6px 6px 6px 8px;
-      }
-      #attach > summary {
-        width: 32px;
-        height: 32px;
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        background: var(--muted);
-        color: var(--bg-raised);
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1;
-      }
-      #attach > summary:hover {
-        background: var(--text-strong);
-      }
-      #attach .menu {
-        bottom: 44px;
-        left: 0;
-        min-width: 320px;
-        padding: 12px;
-        gap: 10px;
-      }
-      #message-form {
-        flex: 1;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        padding-left: 8px;
-      }
-      #message {
-        flex: 1;
-        background: transparent;
-        padding: 8px 0;
-        font-size: 15px;
-      }
-      #message-form button {
-        background: var(--accent);
-      }
-      #message-form button:hover {
-        background: var(--accent-hover);
-      }
-      #poll-form,
-      #file-form {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      #poll-form input {
-        flex: 1;
-      }
-      #file {
-        color: var(--muted);
-        font-size: 13px;
-        background: transparent;
-        padding: 0;
-      }
-      #upload-progress {
-        accent-color: var(--accent);
-      }
-      #extras {
-        display: flex;
-        gap: 6px;
-      }
-      #extras button,
-      #file-form button {
-        font-size: 13px;
-        padding: 5px 10px;
-        background: transparent;
-        color: var(--muted);
-      }
-      #extras button:hover,
-      #file-form button:hover {
-        background: var(--bg-hover);
-        color: var(--text-strong);
-      }
-      .recording {
-        color: var(--red) !important;
-        font-weight: 700;
-      }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deitu</title>
+    <link rel="stylesheet" href="/src/app/app.css" />
   </head>
   <body>
-    <header>
-      <h1>RelayKit</h1>
-      <p id="status">Desconectado</p>
-    </header>
-    <!-- Signing in, on its own in the middle of the page: it is the only thing there is to do until it is done. -->
-    <section id="welcome">
-      <form id="login-form">
-        <h2>Entrar</h2>
-        <label
-          >Homeserver <input id="homeserver" value="http://localhost:8008" aria-label="Homeserver"
-        /></label>
-        <label
-          >Usuario
-          <select id="username" aria-label="Usuario">
-            <option value="alice">alice</option>
-            <option value="bob">bob</option>
-            <!-- A third person, because a call with three in it takes three. -->
-            <option value="carol">carol</option>
-          </select></label
-        >
-        <label
-          >Contraseña
-          <input id="password" type="password" value="alice-password" aria-label="Contraseña" required
-        /></label>
-        <button type="submit">Conectar</button>
-        <button id="register" type="button" class="quiet">Crear cuenta</button>
-      </form>
-    </section>
-    <div id="app" hidden>
-      <aside>
-        <form id="open-form">
-          <select id="participant" aria-label="Con quién">
-            <option value="@alice:localhost">@alice:localhost</option>
-            <option value="@bob:localhost">@bob:localhost</option>
-            <option value="@carol:localhost">@carol:localhost</option>
-          </select>
-          <button type="submit">Abrir</button>
-        </form>
-        <form id="search-form">
-          <input id="search" placeholder="Buscar conversación" />
-          <button type="submit">Buscar</button>
-        </form>
-        <ol id="conversations"></ol>
-        <!-- Yourself. Two windows of the same demo on one machine look identical, and whoever is testing
-             cannot tell which is which, so who you are is always on screen. -->
-        <div id="me">
-          <span id="me-avatar" class="avatar"></span>
-          <strong id="who-am-i"></strong>
-          <button id="rename-me" type="button" title="Cambiar mi nombre">✎</button>
-          <details id="settings">
-            <summary title="Micrófono y cámara">⚙</summary>
-            <!-- Which microphone and camera to use. It belongs to the account, not to one call: it can be
-                 chosen before there is anybody to call. -->
-            <div id="devices" class="menu">
-              <label
-                >Micrófono
-                <select id="microphone"></select
-              ></label>
-              <label
-                >Cámara
-                <select id="camera"></select
-              ></label>
+    <!-- Who you are. Answered once; opening it again with a session already here skips straight past. -->
+    <form class="sign-in" id="sign-in" hidden>
+      <h1>Deitu</h1>
+      <p class="faint">Entra con tu cuenta de Matrix</p>
+      <label class="field"
+        ><span class="label">Servidor</span><input id="homeserver" value="http://localhost:8008"
+      /></label>
+      <label class="field"
+        ><span class="label">Usuario</span><input id="username" autocomplete="username"
+      /></label>
+      <label class="field"
+        ><span class="label">Contraseña</span
+        ><input id="password" type="password" autocomplete="current-password"
+      /></label>
+      <button class="button accent" type="submit">Entrar</button>
+      <p class="wrong" id="sign-in-wrong" role="alert" hidden></p>
+
+      <!-- Lo que este servidor acepte aparte de la contraseña. Vacío si no acepta nada. -->
+      <div class="ways-in" id="ways-in" hidden>
+        <p class="or"><span>o</span></p>
+        <div id="ways-in-list"></div>
+      </div>
+
+      <!-- Sin cuenta. Solo para mirar: un invitado no tiene claves, así que no lee nada cifrado. -->
+      <p class="or"><span>o</span></p>
+      <button class="button" id="as-guest" type="button">Entrar como invitado</button>
+    </form>
+
+    <!--
+      The shell: a list of what can be talked in, whatever is open, and a thread beside it when one is.
+    -->
+    <div class="shell" id="shell" hidden>
+      <!-- What is going on above everything, when a call is. -->
+      <div class="call-bar" id="call-bar" hidden>
+        <span class="live-dot"></span>
+        <strong id="call-bar-title">Sala · Post-mortem incidencia voz</strong>
+        <span class="mono" id="call-bar-time">00:26</span>
+        <span class="mono faint">LIVEKIT</span>
+        <span class="mono faint" id="call-bar-quality"></span>
+        <div class="spacer"></div>
+        <button class="button accent" id="call-bar-back">Volver a la sala</button>
+        <button class="icon-button danger" id="call-bar-leave" aria-label="Salir de la sala">✕</button>
+      </div>
+
+      <div class="body">
+        <button class="drawer" id="drawer" aria-label="Ver la lista de conversaciones">☰</button>
+        <aside class="sidebar">
+          <div class="sidebar-top">
+            <label class="search">
+              <input id="search" type="search" placeholder="Buscar en mensajes" autocomplete="off" />
+              <span class="search-icon" aria-hidden="true">⌕</span>
+            </label>
+            <div class="new">
+              <button class="icon-button accent" id="new-button" aria-label="Nuevo">+</button>
+              <div class="menu" id="new-menu" hidden>
+                <button data-opens="create-channel"><span aria-hidden="true">▭</span> Crear canal</button>
+                <button data-opens="new-message">
+                  <span aria-hidden="true">◍</span> Iniciar mensaje nuevo
+                </button>
+                <button data-opens="explore"><span aria-hidden="true">⌕</span> Explorar canales</button>
+              </div>
             </div>
-          </details>
-          <button id="sign-out" type="button" title="Cerrar sesión">⏻</button>
-        </div>
-      </aside>
-      <main>
-        <p id="topic-text" hidden></p>
-        <div id="conversation-actions" hidden>
-          <button id="call" type="button">📞 Llamar</button>
-          <button id="video-call" type="button">🎥 Videollamada</button>
-          <button id="join-call" type="button">Entrar</button>
-          <details class="more">
-            <summary>Más ▾</summary>
-            <div class="menu">
-              <button id="invite" type="button">Invitar</button>
-              <button id="rename" type="button">Renombrar</button>
-              <button id="favourite" type="button">Favorita</button>
-              <button id="topic" type="button">Descripción</button>
-              <button id="mute" type="button">Silenciar</button>
-              <button id="pinned" type="button">Fijados</button>
-              <button id="place" type="button">Sitio</button>
-              <button id="poll" type="button">Encuesta</button>
-              <button id="live-location" type="button">Compartir ubicación</button>
-              <button id="door" type="button">Puerta</button>
-              <button id="discover" type="button">Buscar publicas</button>
-              <button id="kick" type="button">Expulsar</button>
-              <button id="leave" type="button">Salir de la conversación</button>
-            </div>
-          </details>
-        </div>
-        <div id="call-panel" hidden>
-          <p id="call-state"></p>
-          <!-- One box per person on the call, this side included: a call between two is a grid of two. -->
-          <div id="participants"></div>
-          <!-- A shared screen travels alongside the camera rather than instead of it, so it is drawn apart:
-               the face small, the screen large, as any client does. -->
-          <video id="call-screen-media" class="shared-screen" autoplay playsinline hidden></video>
-          <div class="call-controls">
-            <button id="answer" type="button" hidden>Descolgar</button>
-            <button id="reject" type="button" hidden>Rechazar</button>
-            <button id="call-mute" type="button">Silenciar micro</button>
-            <button id="call-camera" type="button" hidden>Apagar cámara</button>
-            <button id="call-screen" type="button">Compartir pantalla</button>
-            <button id="hang-up" type="button">Colgar</button>
           </div>
-        </div>
-        <p id="empty">Abre una conversación para empezar.</p>
-        <div id="timeline" hidden>
-          <button id="load-more" type="button" hidden>Cargar mensajes anteriores</button>
-        </div>
-        <!-- Polls have a place of their own. Inside the timeline they were wiped every time a message arrived,
-             because that is rebuilt whole, and nothing put them back. -->
-        <div id="polls"></div>
-        <footer hidden>
-          <p id="replying" hidden></p>
-          <p id="typing"></p>
-          <div id="composer">
-            <details id="attach">
-              <summary title="Adjuntar">+</summary>
-              <div class="menu">
-                <form id="file-form">
-                  <input id="file" type="file" required aria-label="Archivo adjunto" />
-                  <button type="submit">Enviar archivo</button>
-                  <progress id="upload-progress" value="0" max="1" hidden>0%</progress>
-                </form>
-                <div id="extras">
-                  <button id="record" type="button">🎤 Grabar nota de voz</button>
-                  <button id="sticker" type="button">😀 Pegatina</button>
+
+          <nav class="lists" id="lists">
+            <p class="list-label">
+              Canales
+              <button class="add" data-opens="create-channel" aria-label="Crear canal">+</button>
+            </p>
+            <ul id="channels"></ul>
+            <p class="list-label">
+              Mensajes directos
+              <button class="add" data-opens="new-message" aria-label="Iniciar mensaje nuevo">+</button>
+            </p>
+            <ul id="directs"></ul>
+          </nav>
+          <!-- Who you are here, and the sessions that are you somewhere else. -->
+          <button class="me" id="me"></button>
+        </aside>
+
+        <!-- What is open: a channel, a direct message, or the rooms. -->
+        <main class="main" id="chat-view">
+          <header class="head">
+            <div>
+              <h1 id="open-title"></h1>
+              <p class="head-under">
+                <span id="open-topic"></span>
+                <span class="mono faint" id="open-address"></span>
+                <span id="open-tags"></span>
+              </p>
+            </div>
+            <div class="head-actions">
+              <span class="pill" id="open-people" hidden></span>
+              <button class="button accent" id="open-room">
+                <span aria-hidden="true">▭</span> Abrir sala
+              </button>
+              <button class="icon-button" id="search-here" aria-label="Buscar en esta conversación">⌕</button>
+              <div class="new">
+                <button class="icon-button" id="more-button" aria-label="Más">⋯</button>
+                <div class="menu right" id="more-menu" hidden>
+                  <button data-opens="invite" id="invite-here">
+                    <span aria-hidden="true">◍</span> Invitar usuarios
+                  </button>
+                  <button id="people-here"><span aria-hidden="true">◍</span> Personas</button>
+                  <button id="settings-here"><span aria-hidden="true">⚙</span> Ajustes del canal</button>
+                  <button id="tag-here"><span aria-hidden="true">⌗</span> Archivar en…</button>
+                  <button id="leave-here"><span aria-hidden="true">⇥</span> Salir de la conversación</button>
+                  <button id="forget-here"><span aria-hidden="true">⌫</span> Salir y olvidarla</button>
                 </div>
               </div>
-            </details>
-            <form id="message-form">
-              <input id="message" placeholder="Mensaje" autocomplete="off" required />
-              <button type="submit">Enviar</button>
-            </form>
+            </div>
+          </header>
+
+          <!-- What this device can do with what was said before it existed. -->
+          <div class="banner keys" id="keys" role="status" hidden>
+            <span class="keys-icon" aria-hidden="true">🔒</span>
+            <div>
+              <strong id="keys-title"></strong>
+              <p class="faint" id="keys-under"></p>
+            </div>
+            <div class="spacer"></div>
+            <button class="button" id="keys-verify" hidden>Verificar desde otra sesión</button>
+            <button class="button accent small" id="keys-act"></button>
           </div>
-          <p id="link-preview" hidden></p>
-          <form id="poll-form" hidden>
-            <input id="poll-question" placeholder="¿Qué quieres preguntar?" required />
-            <input
-              id="poll-answers"
-              placeholder="Respuestas, separadas por comas"
-              value="A las 14, A las 15"
-              required
-            />
-            <button type="submit">Preguntar</button>
+
+          <!-- A conversation somebody asked you into, which you are not in until you say so. -->
+          <div class="banner invited" id="invited" role="status" hidden>
+            <span aria-hidden="true">✉</span>
+            <strong>Te han invitado a esta conversación</strong>
+            <span class="mono faint">no verás nada hasta que entres</span>
+            <div class="spacer"></div>
+            <button class="button" id="refuse-invitation">Rechazar</button>
+            <button class="button accent small" id="accept-invitation">Entrar</button>
+          </div>
+
+          <div class="banner" id="room-banner" role="status" hidden>
+            <span class="live-dot"></span>
+            <strong>Sala activa en este canal</strong>
+            <span class="mono faint" id="room-banner-who"></span>
+            <div class="spacer"></div>
+            <button class="button accent small" id="room-banner-join">Unirse</button>
+          </div>
+
+          <div class="timeline" id="timeline"></div>
+
+          <!-- What a search turned up, in place of the conversation while there is something to show. -->
+          <div class="timeline results" id="results" hidden>
+            <p class="results-head">
+              <span id="results-said"></span>
+              <button class="button" id="results-close">Volver a la conversación</button>
+            </p>
+            <div id="results-list"></div>
+          </div>
+
+          <button class="answering-bar" id="answering" hidden>
+            <span aria-hidden="true">↩</span> Respondiendo a
+            <span id="answering-what"></span>
+            <span class="spacer"></span>
+            <span aria-hidden="true">✕</span>
+          </button>
+
+          <p class="typing" id="typing" role="status" aria-live="polite"></p>
+
+          <form class="composer" id="composer">
+            <div class="tools" id="tools">
+              <button type="button" data-styles="bold" aria-label="Negrita"><b>B</b></button>
+              <button type="button" data-styles="italic" aria-label="Cursiva"><i>I</i></button>
+              <button type="button" data-styles="code" aria-label="Código">&lt;/&gt;</button>
+              <button type="button" data-styles="link" aria-label="Enlace">🔗</button>
+              <button type="button" id="attach" aria-label="Adjuntar un archivo">📎</button>
+              <input type="file" id="attachment" hidden />
+            </div>
+            <div class="write">
+              <input id="write" autocomplete="off" />
+              <button class="icon-button accent" type="submit" aria-label="Enviar">→</button>
+            </div>
           </form>
-        </footer>
-      </main>
+
+          <p class="foot mono" id="foot"></p>
+        </main>
+
+        <!-- A thread, when one is open. -->
+        <section class="thread" id="thread" hidden>
+          <header class="thread-head">
+            <div>
+              <h2>Hilo</h2>
+              <p class="mono faint" id="thread-where"></p>
+            </div>
+            <button class="icon-button" id="thread-close" aria-label="Cerrar hilo">✕</button>
+          </header>
+          <div class="thread-body" id="thread-body"></div>
+          <form class="thread-write" id="thread-write">
+            <input id="thread-write-body" placeholder="Responder en el hilo…" autocomplete="off" />
+            <button class="icon-button accent" type="submit" aria-label="Responder">→</button>
+          </form>
+        </section>
+
+        <!-- The rooms: what is going on now, and what is over. -->
+        <main class="main rooms" id="rooms-view" hidden>
+          <header class="head">
+            <div>
+              <h1 id="room-title"></h1>
+              <p class="head-under"><span class="mono faint">MATRIX + LIVEKIT</span></p>
+            </div>
+            <div class="head-actions">
+              <button class="button" data-opens="invite"><span aria-hidden="true">◍</span> Invitar</button>
+              <button class="button" id="minimise">Minimizar</button>
+            </div>
+          </header>
+          <div class="grid" id="grid" role="list" aria-label="Participantes de la sala"></div>
+          <div class="call-controls">
+            <button class="round" id="mute-microphone">
+              <span aria-hidden="true">🎙</span><small>Silenciar</small>
+            </button>
+            <button class="round" id="mute-camera">
+              <span aria-hidden="true">📷</span><small>Cámara</small>
+            </button>
+            <button class="round" id="share-screen">
+              <span aria-hidden="true">▣</span><small>Compartir</small>
+            </button>
+            <button class="round" id="back-to-chat">
+              <span aria-hidden="true">▭</span><small>Chat</small>
+            </button>
+            <button class="round leave" id="hang-up">
+              <span aria-hidden="true">✆</span><small>Salir</small>
+            </button>
+          </div>
+        </main>
+
+        <!-- A room made and waiting for somebody. -->
+        <main class="main lobby" id="lobby-view" hidden>
+          <section class="card lobby-card">
+            <p class="label">Sala creada por ti</p>
+            <div class="lobby-head">
+              <h2 id="lobby-title"></h2>
+              <button class="button accent" id="lobby-enter">Entrar</button>
+            </div>
+            <p class="status"><span class="live-dot"></span> Sala activa · esperando invitados</p>
+            <p class="tags" id="lobby-tags"></p>
+            <p class="list-label">En la sala</p>
+            <ul class="in-room" id="lobby-in-room"></ul>
+            <div class="lobby-actions">
+              <button class="button" data-opens="invite">
+                <span aria-hidden="true">◍</span> Invitar usuarios
+              </button>
+              <button class="button" id="copy-link">
+                <span aria-hidden="true">⧉</span> Copiar enlace de invitación
+              </button>
+            </div>
+            <input class="link mono" id="invite-link" readonly />
+            <p class="mono faint" id="lobby-foot"></p>
+          </section>
+        </main>
+      </div>
+
+      <!-- A call left running while something else is looked at. -->
+      <div class="mini" id="mini" hidden>
+        <p class="mini-icon" aria-hidden="true">▭</p>
+        <p class="mini-title" id="mini-title"></p>
+        <p class="mono faint" id="mini-under"></p>
+        <div class="mini-actions">
+          <button class="button accent small" id="mini-open">Ampliar</button>
+          <button class="icon-button" id="mini-mute" aria-label="Silenciar">🎙</button>
+          <button class="icon-button danger" id="mini-leave" aria-label="Salir">✕</button>
+        </div>
+      </div>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <!-- Making a recovery key, or using one. Two faces of the same dialog: it is the same key either way. -->
+    <dialog class="modal" id="recovery">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">🔑</span>
+          <div>
+            <h2 id="recovery-title"></h2>
+            <p class="faint" id="recovery-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+
+        <div id="recovery-made" hidden>
+          <p class="label">Tu clave de recuperación</p>
+          <input class="link mono" id="recovery-key" readonly />
+          <p class="wrong" id="recovery-warning">
+            Guárdala ahora. No se puede volver a ver, y sin ella no podrás leer tus mensajes desde un
+            dispositivo nuevo.
+          </p>
+          <label class="kept">
+            <input type="checkbox" id="recovery-kept" />
+            <span>La he guardado en un sitio seguro</span>
+          </label>
+        </div>
+
+        <label class="field" id="recovery-asking" hidden>
+          <span class="label">Clave de recuperación</span>
+          <input id="recovery-given" autocomplete="off" placeholder="EsTx ABCD 1234 …" />
+        </label>
+
+        <p class="wrong" id="recovery-wrong" hidden></p>
+
+        <footer class="modal-foot">
+          <span class="mono faint" id="recovery-said"></span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" id="recovery-go" type="button"></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Proving another session is yours, by comparing what both screens show. -->
+    <dialog class="modal" id="verifying">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">🛡</span>
+          <div>
+            <h2 id="verifying-title"></h2>
+            <p class="faint" id="verifying-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <ul class="emoji" id="verifying-emoji" hidden></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" id="verifying-no" type="button" hidden></button>
+          <button class="button accent" id="verifying-yes" type="button" hidden></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Your account: the sessions that can read what is said to you, and the way out. -->
+    <!-- The channels of this homeserver anybody may walk into. -->
+    <dialog class="modal" id="explore">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">⌕</span>
+          <div>
+            <h2>Explorar canales</h2>
+            <p class="faint">Los canales públicos de este servidor</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="search wide">
+          <input id="explore-search" type="search" placeholder="Buscar canales" />
+          <span class="search-icon" aria-hidden="true">⌕</span>
+        </label>
+        <ul class="people" id="explore-found"></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- What a conversation is called, what it is about, and the picture beside its name. -->
+    <!-- Who is in the conversation, and what can be done with each of them. -->
+    <dialog class="modal" id="who">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Personas</h2>
+            <p class="faint" id="who-under"></p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <ul class="sessions" id="who-list"></ul>
+        <p class="wrong" id="who-wrong" hidden></p>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="settings">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">⚙</span>
+          <div>
+            <h2>Ajustes del canal</h2>
+            <p class="faint">Lo que ve todo el mundo en la conversación</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Nombre</span>
+          <input id="settings-name" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">Tema</span>
+          <input id="settings-topic" autocomplete="off" />
+        </label>
+        <p class="label">Imagen</p>
+        <button class="button" id="settings-picture" type="button">Cambiar imagen</button>
+        <input type="file" id="settings-file" accept="image/*" hidden />
+        <p class="wrong" id="settings-wrong" hidden></p>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" id="settings-save" type="button">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="account">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2 id="account-who"></h2>
+            <p class="faint">Las sesiones que pueden leer lo que te escriben</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Tu nombre</span>
+          <input id="my-name" autocomplete="off" />
+        </label>
+        <button class="button" id="my-picture" type="button">Cambiar mi imagen</button>
+        <input type="file" id="my-file" accept="image/*" hidden />
+        <button class="button accent" id="my-save" type="button">Guardar</button>
+
+        <p class="label">Tu contraseña</p>
+        <label class="field">
+          <span class="label">La de ahora</span>
+          <input id="my-password-now" type="password" autocomplete="current-password" />
+        </label>
+        <label class="field">
+          <span class="label">La nueva</span>
+          <input id="my-password-new" type="password" autocomplete="new-password" />
+        </label>
+        <button class="button" id="my-password-save" type="button">Cambiar contraseña</button>
+
+        <p class="label">Tus sesiones</p>
+        <ul class="sessions" id="sessions"></ul>
+        <p class="wrong" id="account-wrong" hidden></p>
+        <p class="kept" id="account-said" hidden></p>
+        <footer class="modal-foot">
+          <button class="button danger" id="close-account" type="button">Darme de baja</button>
+          <button class="button danger" id="sign-out" type="button">Cerrar sesión</button>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="create-channel">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">▭</span>
+          <div>
+            <h2>Crear canal</h2>
+            <p class="faint">Un canal para un tema del equipo</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <label class="field">
+          <span class="label">Nombre del canal</span>
+          <span class="prefixed"
+            ><span class="prefix">#</span><input id="channel-name" placeholder="guardias-verano"
+          /></span>
+        </label>
+        <p class="label">Visibilidad</p>
+        <div class="choices">
+          <label class="choice chosen">
+            <input type="radio" name="visibility" value="public" checked />
+            <strong><span aria-hidden="true">⊕</span> Público</strong>
+            <small>Cualquiera de la organización puede entrar</small>
+          </label>
+          <label class="choice">
+            <input type="radio" name="visibility" value="private" />
+            <strong><span aria-hidden="true">🔒</span> Privado</strong>
+            <small>Solo por invitación</small>
+          </label>
+        </div>
+        <p class="label">Añadir usuarios</p>
+        <label class="search wide"
+          ><input id="create-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
+        <ul class="people" id="create-people"></ul>
+        <footer class="modal-foot">
+          <span class="mono faint">Puedes invitar después</span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="create">Crear canal</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="invite">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Invitar usuarios</h2>
+            <p class="faint">Se les avisa por chat con el enlace de la sala</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <p class="label">Usuarios</p>
+        <label class="search wide"
+          ><input id="invite-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
+        <ul class="people" id="invite-people"></ul>
+        <footer class="modal-foot">
+          <span class="mono faint" id="invite-count">0 invitaciones</span>
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="invite">Enviar invitación</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="new-message">
+      <form method="dialog">
+        <header class="modal-head">
+          <span class="modal-icon" aria-hidden="true">◍</span>
+          <div>
+            <h2>Iniciar mensaje nuevo</h2>
+            <p class="faint">Con una persona o con varias</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Cerrar">✕</button>
+        </header>
+        <p class="label">Usuarios</p>
+        <label class="search wide"
+          ><input id="new-message-search" type="search" placeholder="Buscar personas por nombre" /><span
+            class="search-icon"
+            aria-hidden="true"
+            >⌕</span
+          ></label
+        >
+        <ul class="people" id="new-message-people"></ul>
+        <footer class="modal-foot">
+          <div class="spacer"></div>
+          <button class="button" value="cancel">Cancelar</button>
+          <button class="button accent" value="start">Empezar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/app/app.ts"></script>
   </body>
 </html>

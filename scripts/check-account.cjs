@@ -59,6 +59,24 @@ async function signIn(page) {
 }
 
 /** A conversation of its own to file away, because an account this new is in none. */
+/**
+ * Signing out, and what the token can do afterwards.
+ *
+ * On a session nothing else has touched, because that is the question: closing the window is not signing
+ * out, and a token still good on the homeserver is somebody else's session left open on a shared computer
+ * with nothing on screen to say so.
+ */
+async function signingOutReallyEndsIt(page) {
+  const before = await read(page, `JSON.parse(localStorage.getItem("deitu-session")).accessToken`);
+  await run(page, `document.getElementById("me").click(); document.getElementById("sign-out").click();`);
+  await waitFor(page, "the sign in form after signing out", `!document.getElementById("sign-in").hidden`, 60);
+  const stillGood = await fetch(`${homeserver}/_matrix/client/v3/account/whoami`, {
+    headers: { Authorization: `Bearer ${before}` }
+  });
+  if (stillGood.ok) throw new Error("signing out left the token working on the homeserver");
+  detail.signingOutEndedIt = true;
+}
+
 async function makeAConversation(page) {
   await run(
     page,
@@ -254,6 +272,8 @@ async function main() {
 
   await makeAnAccount();
   await page.loadURL(`https://127.0.0.1:${server.address().port}/app.html`);
+  await signIn(page);
+  await signingOutReallyEndsIt(page);
   await signIn(page);
   await makeAConversation(page);
   await fileItAway(page);

@@ -7,6 +7,17 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
+  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
+  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
+  el token deja de servir.
+
+### Cambiado
+
+- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
+  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
+  las dos comprobaciones que todavía la conducen, y luego se va.
+
 - **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
   nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
   cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
@@ -131,6 +142,17 @@ menores; los cambios incompatibles se listan aqui.
 
 
 ### Corregido
+
+- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
+  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
+  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
+  el token deja de servir.
+
+### Cambiado
+
+- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
+  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
+  las dos comprobaciones que todavía la conducen, y luego se va.
 
 - **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
   nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
@@ -258,6 +280,17 @@ menores; los cambios incompatibles se listan aqui.
   y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Corregido
+
+- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
+  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
+  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
+  el token deja de servir.
+
+### Cambiado
+
+- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
+  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
+  las dos comprobaciones que todavía la conducen, y luego se va.
 
 - **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
   nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
@@ -807,6 +840,17 @@ Primera version publica. Paquetes: `@relaykit/core`, `@relaykit/web`, `@relaykit
 - Comparar snapshots empieza por la identidad de cada objeto, que casi siempre es la misma y no cuesta nada.
 
 ### Corregido
+
+- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
+  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
+  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
+  el token deja de servir.
+
+### Cambiado
+
+- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
+  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
+  las dos comprobaciones que todavía la conducen, y luego se va.
 
 - **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
   nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala

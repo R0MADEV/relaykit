@@ -4,11 +4,13 @@ import { resolve } from "node:path";
 export default defineConfig({
   build: {
     rollupOptions: {
-      // Two pages on purpose: index.html is the demo the browser checks drive, and app.html is the design.
-      // Growing one into the other would take the checks with it.
+      // The example is one page, served at the root. `app.html` is the same file under its old name, kept
+      // until the two browser checks that still reach for the old demo's ids have been moved across; that
+      // one is `legacy-demo.html` and is on its way out.
       input: {
-        demo: resolve(import.meta.dirname, "index.html"),
-        app: resolve(import.meta.dirname, "app.html")
+        index: resolve(import.meta.dirname, "index.html"),
+        app: resolve(import.meta.dirname, "app.html"),
+        legacy: resolve(import.meta.dirname, "legacy-demo.html")
       }
     }
   },

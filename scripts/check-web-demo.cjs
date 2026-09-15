@@ -126,7 +126,7 @@ async function run() {
   page.webContents.session.setCertificateVerifyProc((request, callback) => {
     callback(request.hostname === "127.0.0.1" ? 0 : -3);
   });
-  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/legacy-demo.html`);
 
   await waitFor(page, "the sign in form", `document.getElementById("login-form") !== null`);
   detail.signInFormIsThere = true;

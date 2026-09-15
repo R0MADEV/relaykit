@@ -162,8 +162,20 @@ export class Account {
     }
   }
 
+  /**
+   * The way out, which is not the same as closing the window.
+   *
+   * The homeserver has to be told, or the token this device was signed in with goes on working for ever —
+   * on a shared computer that is somebody else's session left open with no way to see it. The library empties
+   * the local copy and lets go of the credential whatever the homeserver says, so a failure here is worth
+   * showing and is not worth staying signed in over.
+   */
   private async signOut(): Promise<void> {
-    await this.client.stop().catch(() => undefined);
+    try {
+      await this.client.logout();
+    } catch (error) {
+      this.show(error);
+    }
     this.signedOut();
   }
 

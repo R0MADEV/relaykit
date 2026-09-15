@@ -948,7 +948,7 @@ async function run() {
   const server = await serve(root);
   // Told where conferences are carried, because a development homeserver has no `.well-known` to say so.
   const carriedAt = process.env.RELAYKIT_CONFERENCE_SERVICE ?? "http://localhost:8091";
-  const address = `https://127.0.0.1:${server.address().port}/?conference=${encodeURIComponent(carriedAt)}`;
+  const address = `https://127.0.0.1:${server.address().port}/legacy-demo.html?conference=${encodeURIComponent(carriedAt)}`;
   const alice = await open("alice", address);
   const bob = await open("bob", address);
   detail.bothSignedIn = true;
