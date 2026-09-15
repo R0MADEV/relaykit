@@ -44,6 +44,14 @@ export interface ClientEventMap {
    * one is one that signs its user out the next time it opens, for no reason anybody can see.
    */
   "session.refreshed": Session;
+  /**
+   * Who is signed in, whenever that changes: signing in, registering, coming in as a guest, coming back from
+   * somebody else's sign-in, a token renewed on its own, and signing out — which says `undefined`.
+   *
+   * One event for all of them on purpose. Anything that has to follow who is signed in — writing the session
+   * down, opening the right local copy — has exactly one thing to follow, instead of six places to remember.
+   */
+  "session.changed": Session | undefined;
   "verification.requested": VerificationSession;
   "verification.changed": VerificationSession;
   error: Error;
@@ -88,6 +96,7 @@ export class EventBus {
     "call.speaking": new EventChannel<CallSpeaking>(),
     "session.ended": new EventChannel<undefined>(),
     "session.refreshed": new EventChannel<Session>(),
+    "session.changed": new EventChannel<Session | undefined>(),
     "verification.requested": new EventChannel<VerificationSession>(),
     "verification.changed": new EventChannel<VerificationSession>(),
     error: new EventChannel<Error>()

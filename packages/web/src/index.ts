@@ -2,7 +2,6 @@ import {
   MessagingClient as CoreMessagingClient,
   type Conversation,
   type ConversationId,
-  type LoginCredentials,
   type Message,
   type MessageId,
   type MessagingAdapter,
@@ -27,50 +26,65 @@ export interface WebMessagingClientConfig extends Omit<MessagingClientConfig, "a
 }
 
 export class MessagingClient extends CoreMessagingClient {
-  private readonly sessionHolder: { session?: Session };
-
   constructor(config: WebMessagingClientConfig) {
     const { adapter, matrix, storageSecret, ...clientConfig } = config;
-    // The store is named after the user, so it can only be opened once there is a session. Waiting for one
-    // keeps local persistence working when the application logs in instead of restoring a stored session.
-    const holder: { session?: Session } = config.session ? { session: config.session } : {};
-    const storage =
+    // Named after whoever is signed in, so it can only be opened once somebody is. Which may be now, or may
+    // be after a sign in, a registration, a guest door or a trip through somebody else's identity provider.
+    const store =
       config.storage ??
       (typeof indexedDB === "undefined"
         ? undefined
-        : new DeferredBrowserStorage(() =>
+        : new StoreForWhoeverIsSignedIn(session =>
             createBrowserStorage(
               matrix,
-              holder.session?.userId,
-              // The device secret first, so signing in again does not leave yesterday's copy unreadable. Where
-              // there is nowhere to keep one, the access token still serves: a local copy that is lost on the next
-              // sign in beats no local copy at all.
-              storageSecret ?? rememberedDeviceSecret() ?? holder.session?.accessToken
+              session?.userId,
+              // The device secret first, so signing in again does not leave yesterday's copy unreadable.
+              // Where there is nowhere to keep one, the access token still serves: a local copy lost on the
+              // next sign in beats no local copy at all.
+              storageSecret ?? rememberedDeviceSecret() ?? session?.accessToken
             )
           ));
     super({
       ...clientConfig,
       adapter: adapter ?? new MatrixJsAdapter(matrix),
-      ...(storage ? { storage } : {})
+      ...(store ? { storage: store } : {})
     });
-    this.sessionHolder = holder;
-  }
-
-  override async login(credentials: LoginCredentials): Promise<Session> {
-    const session = await super.login(credentials);
-    this.sessionHolder.session = session;
-    return session;
+    // One thing to follow instead of six places to remember. Every way of getting a session — signing in,
+    // registering, a guest, coming back from an identity provider, a token renewed on its own, signing out —
+    // arrives here, so the local copy can never belong to somebody who is not signed in any more.
+    if (store instanceof StoreForWhoeverIsSignedIn) {
+      store.nowSignedInAs(config.session);
+      this.on("session.changed", session => store.nowSignedInAs(session));
+    }
   }
 }
 
-/** Opens the store on first use, because the session that names it may arrive after the client is built. */
-class DeferredBrowserStorage implements MessagingStorage {
+/**
+ * The local copy of whoever is signed in, and nobody else.
+ *
+ * Opened when there is somebody to name it after, which may be after the client was built. Closed and opened
+ * again the moment that is somebody else: holding one person's copy open while another is signed in is how a
+ * browser ends up showing one account's conversations to the next person who uses it.
+ */
+export class StoreForWhoeverIsSignedIn implements MessagingStorage {
   private storage: IndexedDbStorage | undefined;
+  private openFor: string | undefined;
 
-  constructor(private readonly open: () => IndexedDbStorage | undefined) {}
+  constructor(private readonly open: (session: Session | undefined) => IndexedDbStorage | undefined) {}
+
+  /** Told every time the session changes, and does nothing at all unless it is a different person. */
+  nowSignedInAs(session: Session | undefined): void {
+    const whoNow = session?.userId;
+    if (this.storage !== undefined && whoNow === this.openFor) return;
+    this.storage = undefined;
+    this.openFor = whoNow;
+    this.session = session;
+  }
+
+  private session: Session | undefined;
 
   private get target(): IndexedDbStorage | undefined {
-    this.storage ??= this.open();
+    this.storage ??= this.open(this.session);
     return this.storage;
   }
 

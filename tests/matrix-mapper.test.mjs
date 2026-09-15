@@ -347,7 +347,8 @@ test("mapMessage reads what a message replies to", () => {
 test("what the homeserver wrote goes to the log, and never into the message", () => {
   const itsOwnWords = "Can't join remote room because no servers that are in the room have been provided.";
   const translated = translateMatrixError(
-    matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: itsOwnWords } })
+    matrixError({ httpStatus: 404, errcode: "M_NOT_FOUND", data: { error: itsOwnWords } }),
+    "conversation"
   );
 
   assert.equal(translated.name, "RelayKitError");

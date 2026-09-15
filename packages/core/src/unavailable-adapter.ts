@@ -20,12 +20,22 @@ export class UnavailableAdapter implements MessagingAdapter {
     throw new RelayKitError("NOT_CONFIGURED", "A messaging adapter is required");
   }
 
-  async start(): Promise<void> {}
+  /**
+   * Refuses, rather than starting nothing.
+   *
+   * Succeeding here is worse than failing: everything afterwards answers emptily, and an account with no
+   * conversations looks exactly like a client with no backend. Somebody would ship that.
+   */
+  async start(): Promise<void> {
+    throw nothingUnderneath();
+  }
+
+  /** Stopping something that never started is not a failure, and neither is signing out of nothing. */
   async stop(): Promise<void> {}
   async logout(): Promise<void> {}
 
   async listConversations(): Promise<readonly Conversation[]> {
-    return [];
+    throw nothingUnderneath();
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
@@ -74,4 +84,9 @@ export class UnavailableAdapter implements MessagingAdapter {
   async getAvatar(): Promise<AvatarImage | undefined> {
     throw new RelayKitError("NOT_CONFIGURED", "Cannot read an avatar");
   }
+}
+
+/** The one thing this adapter has to say, said the same way everywhere. */
+function nothingUnderneath(): RelayKitError {
+  return new RelayKitError("NOT_CONFIGURED", "A messaging adapter is required");
 }

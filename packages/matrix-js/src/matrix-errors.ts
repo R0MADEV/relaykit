@@ -14,7 +14,6 @@ const whatItMeans = new Map<string, RelayKitErrorCode>([
   ["M_FORBIDDEN", "FORBIDDEN"],
   ["M_GUEST_ACCESS_FORBIDDEN", "FORBIDDEN"],
   ["M_BAD_STATE", "FORBIDDEN"],
-  ["M_NOT_FOUND", "CONVERSATION_NOT_FOUND"],
   ["M_USER_IN_USE", "USERNAME_TAKEN"],
   ["M_INVALID_USERNAME", "INVALID_INPUT"],
   ["M_MISSING_PARAM", "INVALID_INPUT"],
@@ -54,7 +53,22 @@ const inTheseWords: Record<RelayKitErrorCode, string> = {
  * application that has to read an English sentence a homeserver happened to write is an application coupled
  * to that homeserver, which is the whole thing this library exists to prevent.
  */
-export function translateMatrixError(error: unknown): RelayKitError {
+/**
+ * What was being looked for, when the caller knows.
+ *
+ * A homeserver answers "not found" the same way whatever was asked about — a room, an event, a file — so the
+ * only place that knows which it was is the call that made it. Without being told, "not found" stays
+ * `ADAPTER_ERROR`: guessing wrong is worse than not guessing, because a download that failed would come back
+ * saying the conversation is gone.
+ */
+export type WhatWasBeingLookedFor = "conversation" | "message";
+
+const missing: Record<WhatWasBeingLookedFor, RelayKitErrorCode> = {
+  conversation: "CONVERSATION_NOT_FOUND",
+  message: "MESSAGE_NOT_FOUND"
+};
+
+export function translateMatrixError(error: unknown, lookingFor?: WhatWasBeingLookedFor): RelayKitError {
   if (error instanceof RelayKitError) return error;
 
   // The homeserver was never reached. Worth trying again, and nothing is known about whether it happened.
@@ -73,7 +87,10 @@ export function translateMatrixError(error: unknown): RelayKitError {
       });
     }
     // Falling back on the status when the homeserver gave no code of its own, which some of them do.
-    const code = (errcode !== undefined ? whatItMeans.get(errcode) : undefined) ?? byStatus(httpStatus);
+    const code =
+      (errcode !== undefined ? whatItMeans.get(errcode) : undefined) ??
+      notFound(httpStatus, errcode, lookingFor) ??
+      byStatus(httpStatus);
     return new RelayKitError(code, inTheseWords[code], detailOf(error));
   }
 
@@ -83,11 +100,20 @@ export function translateMatrixError(error: unknown): RelayKitError {
   return new RelayKitError("ADAPTER_ERROR", inTheseWords.ADAPTER_ERROR, { detail: said });
 }
 
+/** "Not found" only means something once the caller has said what it was looking for. */
+function notFound(
+  status: number | undefined,
+  errcode: string | undefined,
+  lookingFor: WhatWasBeingLookedFor | undefined
+): RelayKitErrorCode | undefined {
+  const saidNotFound = status === 404 || errcode === "M_NOT_FOUND";
+  return saidNotFound && lookingFor ? missing[lookingFor] : undefined;
+}
+
 /** What an HTTP status means on its own, for a homeserver that answered without saying anything else. */
 function byStatus(status: number | undefined): RelayKitErrorCode {
   if (status === 401) return "INVALID_SESSION";
   if (status === 403) return "FORBIDDEN";
-  if (status === 404) return "CONVERSATION_NOT_FOUND";
   if (status === 400) return "INVALID_INPUT";
   if (status !== undefined && status >= 500) return "ADAPTER_ERROR";
   return "ADAPTER_ERROR";
@@ -112,10 +138,13 @@ function readsAs(from: unknown, name: string): unknown {
 }
 
 /** Runs an adapter operation, turning whatever comes out of it into this library's one kind of error. */
-export async function withTranslatedErrors<Result>(operation: () => Promise<Result>): Promise<Result> {
+export async function withTranslatedErrors<Result>(
+  operation: () => Promise<Result>,
+  lookingFor?: WhatWasBeingLookedFor
+): Promise<Result> {
   try {
     return await operation();
   } catch (error) {
-    throw translateMatrixError(error);
+    throw translateMatrixError(error, lookingFor);
   }
 }

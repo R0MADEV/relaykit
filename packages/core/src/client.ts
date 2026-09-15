@@ -528,7 +528,7 @@ export class MessagingClient {
       },
       onSessionRefreshed: session => {
         // Held here as well as handed out, so anything asked next uses the token that still works.
-        this.session = session;
+        this.nowSignedInAs(session);
         this.events.emit("session.refreshed", session);
       },
       onVerificationRequested: verification => this.events.emit("verification.requested", verification),
@@ -537,14 +537,27 @@ export class MessagingClient {
     };
   }
 
+  /**
+   * The one place the session changes.
+   *
+   * Every way of getting one goes through here — signing in, registering, a guest, coming back from somebody
+   * else's sign-in, a token renewed on its own, signing out — so that anything which has to follow who is
+   * signed in follows one thing instead of remembering six.
+   */
+  private nowSignedInAs(session: Session | undefined): void {
+    if (this.session?.userId === session?.userId && this.session?.accessToken === session?.accessToken) {
+      return;
+    }
+    this.session = session;
+    this.events.emit("session.changed", session);
+  }
+
   /** Signing in and out, starting, stopping, and putting back what was held while it was away. */
   private lifecycleFor(adapter: MessagingAdapter, storage: MessagingStorage | undefined): ClientLifecycle {
     return new ClientLifecycle({
       adapter,
       getSession: () => this.session,
-      setSession: session => {
-        this.session = session;
-      },
+      setSession: session => this.nowSignedInAs(session),
       flushPending: async () => {
         await this.messageOperations.sending.flushPending();
         // What was read while there was nobody to tell is told now, and so is everything else that waited.

@@ -187,8 +187,12 @@ export class ClientLifecycle {
     } catch (error) {
       this.context.diagnostics.say("sync.failed", { tookMs: Date.now() - startedAt, ...codeOf(error) });
       await this.stopAfterFailure(error);
+      // Starting is where a session first meets a homeserver, so it is the likeliest place to find out the
+      // session is dead or there is no network. Flattening those into one code throws away the only thing
+      // that told an application what to do about it.
+      if (error instanceof RelayKitError) throw error;
       const reason = error instanceof Error ? error.message : String(error);
-      throw new RelayKitError("ADAPTER_ERROR", `The messaging adapter could not start: ${reason}`);
+      throw new RelayKitError("ADAPTER_ERROR", "The messaging adapter could not start", { detail: reason });
     }
   }
 

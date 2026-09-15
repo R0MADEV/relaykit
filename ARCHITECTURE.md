@@ -51,9 +51,9 @@ grep -r "matrix-js-sdk\|livekit\|IndexedDB\|window\.\|document\." packages/core/
 
 | Archivo | Qué es |
 |---|---|
-| `client.ts` | **La superficie pública.** 126 operaciones, una línea cada una. Nada de lógica aquí |
+| `client.ts` | **La superficie pública.** <!-- operations: 155 -->155 operaciones en 16 grupos, una línea cada una. Nada de lógica aquí |
 | `adapter.ts` | **El puerto.** 17 métodos que un backend debe tener |
-| `capabilities.ts` | Las 22 mitades opcionales que puede dejar fuera |
+| `capabilities.ts` | Las <!-- capabilities: 22 -->22 mitades opcionales que puede dejar fuera |
 | `models/` | Las formas que se devuelven. Nada de Matrix en ellas |
 | `*-operations.ts` | **La lógica.** Una clase por asunto: conversaciones, mensajes, llamadas, cripto… |
 | `live.ts` | Listas que se mantienen solas: `createConversationList`, `createMessageTimeline` |
@@ -215,7 +215,7 @@ SDK (`new MatrixEvent({...})`), no imitaciones.
 |---|---|
 | `in-memory-adapter.ts` (974) | Implementa el puerto entero. Partirlo son doce callbacks y peor lectura |
 | `matrix-js-adapter.ts` (698) | Lo mismo: delega los 58 métodos que sí tiene |
-| `client.ts` (533) | Es la superficie. 137 líneas son montaje; el resto, 126 operaciones a una línea |
+| `client.ts` (<!-- lines: 640 -->640) | Es la superficie: 155 operaciones a una línea. Una fachada grande no es una clase con muchas responsabilidades si no tiene lógica |
 | `capabilities.ts` (453) | 22 interfaces de tipos. Una lista, no lógica |
 | `outbox-operations.ts` (444) | Once referencias a estado compartido. Partirlo lo empeora |
 
@@ -262,3 +262,11 @@ Dos reglas y ninguna más:
 
 Se emite con `this.context.diagnostics.say(nombre, { ... })`, y el contexto se pasa como cualquier otra
 dependencia. Si nadie está escuchando no se construye nada, así que no hace falta comprobarlo antes.
+
+## Los números de este documento se comprueban solos
+
+`npm run count:api` los cuenta del código y falla si este documento dice otra cosa. Está en CI.
+
+Llegó a decir «126 operaciones» y «533 líneas» cuando ya eran otras, porque estaban escritos a mano: nadie se
+da cuenta de que un número se ha quedado viejo. Ahora mismo: <!-- requiredOfAnAdapter: 17 -->17 métodos obligatorios en el
+puerto, 22 capabilities, 155 operaciones públicas y <!-- errorCodes: 15 -->15 códigos de error.

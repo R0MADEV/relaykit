@@ -158,9 +158,11 @@ export class MatrixRuntime {
         ? undefined
         : openTheWindow(this.client, this.options.conversationWindow);
     await waitForInitialSync(this.client, this.options.initialSyncLimit ?? 20, this.window?.sliding);
-    // Rooms from before calls let only admins on one. An admin opens the ones they hold, in the background:
-    // starting does not wait for it, and a room that will not open is left to say so when somebody calls.
-    void this.rtc.openTheDoorsToCallsEverywhere(this.client);
+    // Conversations from before calls let only administrators on one. Opening them all is not something
+    // starting does unless it was asked to: the one that matters is opened when somebody places a call in it.
+    if (this.options.prepareOldConversationsForCalls) {
+      void this.rtc.openTheDoorsToCallsEverywhere(this.client);
+    }
   }
 
   whenCryptoIsUp(): Promise<void> {

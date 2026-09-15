@@ -146,7 +146,7 @@ import {
   setMatrixAvatar,
   signOutMatrixDevices
 } from "./matrix-profiles.js";
-import { withTranslatedErrors } from "./matrix-errors.js";
+import { withTranslatedErrors, type WhatWasBeingLookedFor } from "./matrix-errors.js";
 import { MatrixCrypto } from "./matrix-crypto.js";
 import { readAroundMatrixMessage } from "./matrix-from-outside.js";
 import { MatrixSso } from "./matrix-sso.js";
@@ -741,8 +741,8 @@ export class MatrixJsAdapter implements MessagingAdapter {
   }
 
   /** Single exit point for homeserver errors, so Matrix details never reach the public API. */
-  private run<Result>(operation: () => Promise<Result>): Promise<Result> {
-    return withTranslatedErrors(operation);
+  private run<Result>(operation: () => Promise<Result>, lookingFor?: WhatWasBeingLookedFor): Promise<Result> {
+    return withTranslatedErrors(operation, lookingFor);
   }
 
   /**
@@ -757,6 +757,6 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(async () => {
       await this.runtime.reachFor(conversationId);
       return operation();
-    });
+    }, "conversation");
   }
 }

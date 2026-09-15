@@ -30,10 +30,14 @@ const ourOwnWords = [
 
 // The four that really came back from Synapse while this library was being built. None of them had a code
 // worth branching on before, and all four handed the homeserver's own English to whoever was reading.
+//
+// The third is "not found" with nothing saying what was being looked for, and it stays ADAPTER_ERROR on
+// purpose: a homeserver says that the same way about a room, an event and a file, so guessing would mean a
+// failed download coming back as a conversation that is gone.
 const reallyHappened = [
   ["M_FORBIDDEN", "You don't have permission to access that event.", 403, "FORBIDDEN"],
   ["M_GUEST_ACCESS_FORBIDDEN", "Guest access not allowed", 403, "FORBIDDEN"],
-  ["M_UNKNOWN", "No row found (access_tokens)", 404, "CONVERSATION_NOT_FOUND"],
+  ["M_UNKNOWN", "No row found (access_tokens)", 404, "ADAPTER_ERROR"],
   ["M_UNKNOWN", "Unable to get validated threepid", 401, "INVALID_SESSION"]
 ];
 

@@ -5,6 +5,34 @@ menores; los cambios incompatibles se listan aqui.
 
 ## Sin publicar
 
+### Corregido
+
+- **La sesión y el almacén local eran dos cosas distintas, y se separaban.** `@relaykit/web` solo se enteraba
+  de quién estaba dentro al hacer `login()`. Registrarse, entrar como invitado y volver de un proveedor de
+  identidad conseguían sesión **sin abrir IndexedDB** — la aplicación funcionaba y no guardaba nada. Y una vez
+  abierto, se cacheaba para siempre: cuenta A, `stop()`, cuenta B, y B leía la caché de A. Ahora hay un solo
+  evento, `session.changed`, por el que pasan los seis caminos, y el almacén lo sigue: se cierra y se vuelve a
+  abrir en cuanto es otra persona, y no se abre nada mientras no haya nadie.
+- **`start()` aplastaba todos los fallos a `ADAPTER_ERROR`.** Arrancar es donde una sesión se encuentra por
+  primera vez con un homeserver, o sea el sitio más probable para descubrir que la sesión murió o que no hay
+  red. Ahora conserva el `RelayKitError` que venga.
+- **Un cliente sin adaptador arrancaba «bien».** `UnavailableAdapter.start()` no hacía nada y todo lo demás
+  respondía vacío: una cuenta sin conversaciones se ve igual que un cliente sin backend. Ahora se niega con
+  `NOT_CONFIGURED`.
+- **`M_NOT_FOUND` adivinaba demasiado.** Todo 404 se convertía en `CONVERSATION_NOT_FOUND`, así que una
+  descarga fallida decía que la conversación no existe. Ahora solo lo dice quien sabía que buscaba una
+  conversación; el resto se queda en `ADAPTER_ERROR`.
+
+### Cambiado
+
+- **`start()` ya no escribe en las salas de nadie.** Abría los `power_levels` de toda conversación antigua que
+  esta cuenta pudiera administrar, en segundo plano: en una cuenta con cientos son cientos de escrituras que
+  nadie pidió. La que importa se abre igualmente cuando alguien coloca una llamada en ella. Para un despliegue
+  donde quien llama primero no suele ser administrador está `matrix: { prepareOldConversationsForCalls: true }`.
+- `npm run count:api` cuenta la superficie pública del código y falla si `ARCHITECTURE.md` dice otra cosa.
+  Llegó a decir 126 operaciones y 533 líneas cuando ya eran otras: nadie se da cuenta de que un número
+  envejece.
+
 ### Añadido
 
 - **Diagnóstico.** `new MessagingClient({ diagnostics: { onEvent } })` cuenta qué está haciendo la librería y
@@ -24,6 +52,34 @@ menores; los cambios incompatibles se listan aqui.
   servidor vive en `error.detail`, que es para un log y no para una pantalla. Quien estuviera leyendo el
   mensaje para decidir algo estaba acoplado a Synapse sin saberlo.
 
+
+### Corregido
+
+- **La sesión y el almacén local eran dos cosas distintas, y se separaban.** `@relaykit/web` solo se enteraba
+  de quién estaba dentro al hacer `login()`. Registrarse, entrar como invitado y volver de un proveedor de
+  identidad conseguían sesión **sin abrir IndexedDB** — la aplicación funcionaba y no guardaba nada. Y una vez
+  abierto, se cacheaba para siempre: cuenta A, `stop()`, cuenta B, y B leía la caché de A. Ahora hay un solo
+  evento, `session.changed`, por el que pasan los seis caminos, y el almacén lo sigue: se cierra y se vuelve a
+  abrir en cuanto es otra persona, y no se abre nada mientras no haya nadie.
+- **`start()` aplastaba todos los fallos a `ADAPTER_ERROR`.** Arrancar es donde una sesión se encuentra por
+  primera vez con un homeserver, o sea el sitio más probable para descubrir que la sesión murió o que no hay
+  red. Ahora conserva el `RelayKitError` que venga.
+- **Un cliente sin adaptador arrancaba «bien».** `UnavailableAdapter.start()` no hacía nada y todo lo demás
+  respondía vacío: una cuenta sin conversaciones se ve igual que un cliente sin backend. Ahora se niega con
+  `NOT_CONFIGURED`.
+- **`M_NOT_FOUND` adivinaba demasiado.** Todo 404 se convertía en `CONVERSATION_NOT_FOUND`, así que una
+  descarga fallida decía que la conversación no existe. Ahora solo lo dice quien sabía que buscaba una
+  conversación; el resto se queda en `ADAPTER_ERROR`.
+
+### Cambiado
+
+- **`start()` ya no escribe en las salas de nadie.** Abría los `power_levels` de toda conversación antigua que
+  esta cuenta pudiera administrar, en segundo plano: en una cuenta con cientos son cientos de escrituras que
+  nadie pidió. La que importa se abre igualmente cuando alguien coloca una llamada en ella. Para un despliegue
+  donde quien llama primero no suele ser administrador está `matrix: { prepareOldConversationsForCalls: true }`.
+- `npm run count:api` cuenta la superficie pública del código y falla si `ARCHITECTURE.md` dice otra cosa.
+  Llegó a decir 126 operaciones y 533 líneas cuando ya eran otras: nadie se da cuenta de que un número
+  envejece.
 
 ### Añadido
 
