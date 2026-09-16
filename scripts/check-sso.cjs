@@ -39,7 +39,7 @@ async function main() {
   page.webContents.on("console-message", (_event, level, message) => {
     if (level >= 2) console.error(`[page] ${message}`);
   });
-  await page.loadURL(`https://127.0.0.1:${server.address().port}/app.html`);
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
 
   await waitFor(page, "the sign in form", `!document.getElementById("sign-in").hidden`, 30);
   await run(
@@ -74,7 +74,7 @@ async function main() {
 
   await sayYesToTheHomeserver(page);
   // And back, with the one-time token in the address, spent without anybody pressing anything else.
-  await waitFor(page, "the application again", `location.pathname.endsWith("/app.html")`, 60);
+  await waitFor(page, "the application again", `location.pathname === "/"`, 60);
   await waitFor(page, "to be signed in", `!document.getElementById("shell").hidden`, 90);
   detail.signedInAs = await read(page, `document.getElementById("account-who")?.textContent ?? ""`);
 
@@ -84,7 +84,7 @@ async function main() {
   }
 
   // And it lasts: opening it again does not ask anything.
-  await page.loadURL(`https://127.0.0.1:${server.address().port}/app.html`);
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
   await waitFor(page, "to still be signed in", `!document.getElementById("shell").hidden`, 90);
 
   server.close();
@@ -102,10 +102,10 @@ async function sayYesToTheHomeserver(page) {
   await waitFor(
     page,
     "the homeserver to ask",
-    `location.pathname.includes("/_synapse/client/") || location.pathname.endsWith("/app.html")`,
+    `location.pathname.includes("/_synapse/client/") || location.pathname === "/"`,
     60
   );
-  if (where(page).includes("/app.html")) return;
+  if (where(page) === "/") return;
   await waitFor(
     page,
     "the continue button",

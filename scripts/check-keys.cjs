@@ -155,7 +155,7 @@ async function open(server, partition) {
   page.webContents.on("console-message", (_event, level, message) => {
     if (level >= 2) console.error(`[${partition}] ${message}`);
   });
-  await page.loadURL(`https://127.0.0.1:${server.address().port}/app.html`);
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
   return page;
 }
 

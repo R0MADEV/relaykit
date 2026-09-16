@@ -1,3 +1,4 @@
+import { RelayKitError } from "@relaykit/web";
 import type { KeyStanding, MessagingClient, UserId, VerificationSession } from "@relaykit/web";
 import { dialog, element, input, onClick, safe } from "./dom.js";
 
@@ -72,6 +73,8 @@ export class ProtectingKeys {
     element("recovery-made").hidden = true;
     element("recovery-asking").hidden = making;
     element("recovery-wrong").hidden = true;
+    element("recovery-proving").hidden = true;
+    input("recovery-password").value = "";
     element("recovery-said").textContent = "";
     input("recovery-given").value = "";
     input("recovery-kept").checked = false;
@@ -95,15 +98,28 @@ export class ProtectingKeys {
       await this.look();
       return;
     }
+    // Not asked for up front: most of the time the homeserver does not want it, and a password box in front
+    // of somebody who was only told their messages are not protected is one more thing to refuse.
+    const typed = input("recovery-password").value;
     try {
-      const made = await this.client.crypto.setupRecovery();
+      const made = await this.client.crypto.setupRecovery(typed ? { password: typed } : {});
       input("recovery-key").value = made.recoveryKey;
       element("recovery-made").hidden = false;
       element("recovery-asking").hidden = true;
+      element("recovery-proving").hidden = true;
       this.sayWhatTheKeyButtonDoes();
     } catch (error) {
-      this.show(error);
+      if (!theHomeserverWantsThePassword(error)) return this.show(error);
+      this.askForThePassword();
     }
+  }
+
+  /** The one answer the homeserver will take, asked for only once it has actually asked. */
+  private askForThePassword(): void {
+    element("recovery-proving").hidden = false;
+    element("recovery-under").textContent = "El servidor pide tu contraseña para publicar tu identidad";
+    element("recovery-wrong").hidden = true;
+    input("recovery-password").focus();
   }
 
   /** It cannot be shown again, so the way out of this dialog is saying it was kept. */
@@ -209,4 +225,12 @@ function whatIsHappening(session: VerificationSession): string {
   if (session.phase === "sas") return "Comprueba que tu otra sesión muestra lo mismo";
   if (session.phase === "done") return "Sesión verificada";
   return session.cancellationReason ?? "La verificación se canceló";
+}
+
+/**
+ * Whether this is the homeserver asking who you are again, which is a password box, rather than anything
+ * being wrong. Asked by its code: the sentence is for a person to read, never for a screen to branch on.
+ */
+function theHomeserverWantsThePassword(error: unknown): boolean {
+  return error instanceof RelayKitError && error.code === "PASSWORD_REQUIRED";
 }

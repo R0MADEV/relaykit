@@ -269,4 +269,4 @@ dependencia. Si nadie está escuchando no se construye nada, así que no hace fa
 
 Llegó a decir «ciento veintiséis operaciones» y «quinientas treinta y tres líneas» cuando ya eran otras, porque estaban escritos a mano: nadie se
 da cuenta de que un número se ha quedado viejo. Ahora mismo: <!-- requiredOfAnAdapter: 17 -->17 métodos obligatorios en el
-puerto, 22 capabilities, <!-- operations: 156 -->156 operaciones públicas y <!-- errorCodes: 16 -->16 códigos de error.
+puerto, 22 capabilities, <!-- operations: 156 -->156 operaciones públicas y <!-- errorCodes: 17 -->17 códigos de error.

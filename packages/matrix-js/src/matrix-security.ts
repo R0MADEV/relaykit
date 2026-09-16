@@ -180,7 +180,7 @@ async function proveWhoYouAre(
   } catch (error) {
     if (!(error instanceof MatrixError) || error.httpStatus !== 401) throw error;
     if (!password) {
-      throw new RelayKitError("INVALID_INPUT", "The homeserver asks for the password to set recovery up");
+      throw new RelayKitError("PASSWORD_REQUIRED", "The homeserver asks for the password to set recovery up");
     }
     const session = stringAt(error.data, "session");
     // Built as the one kind of auth this asks for, rather than assembled and then said to be some kind of

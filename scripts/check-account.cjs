@@ -336,7 +336,7 @@ async function main() {
   });
 
   await makeAnAccount();
-  await page.loadURL(`https://127.0.0.1:${server.address().port}/app.html`);
+  await page.loadURL(`https://127.0.0.1:${server.address().port}/`);
   await signIn(page);
   await signingOutReallyEndsIt(page);
   await signIn(page);

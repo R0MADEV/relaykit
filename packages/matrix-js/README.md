@@ -19,5 +19,5 @@ const adapter = new MatrixJsAdapter({
 ```
 
 Lo que traduce, además de los datos: **los errores**. Ningún texto del homeserver sale de aquí — 17 `errcode`
-de Matrix se convierten en los 16 códigos de `RelayKitError`, y lo que no reconoce cae al código que le
+de Matrix se convierten en los 17 códigos de `RelayKitError`, y lo que no reconoce cae al código que le
 corresponde por su estado HTTP.

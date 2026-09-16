@@ -17,6 +17,15 @@ export type RelayKitErrorCode =
   | "MESSAGE_NOT_FOUND"
   | "CONVERSATION_NOT_FOUND"
   | "VERIFICATION_NOT_FOUND"
+  /**
+   * Signed in, and the homeserver wants the account password again before it will do this.
+   *
+   * Not a refusal and not a mistake: publishing an identity, closing another session, changing an address —
+   * a homeserver asks to be sure it is still the person sitting there. Its own code because the one screen
+   * that answers it is a password box, and an application that cannot tell this apart from a wrong recovery
+   * key can only show the sentence and stop.
+   */
+  | "PASSWORD_REQUIRED"
   /** Signed in, and not allowed to do this. Asking again will not help; something has to change first. */
   | "FORBIDDEN"
   /** Asked for something this kind of call or this homeserver does not do. Not a mistake by the caller. */

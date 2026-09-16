@@ -322,6 +322,12 @@
           <input id="recovery-given" autocomplete="off" placeholder="EsTx ABCD 1234 …" />
         </label>
 
+        <!-- Publishing an identity is sensitive, so the homeserver asks who you are again. -->
+        <label class="field" id="recovery-proving" hidden>
+          <span class="label">Tu contraseña</span>
+          <input id="recovery-password" type="password" autocomplete="current-password" />
+        </label>
+
         <p class="wrong" id="recovery-wrong" hidden></p>
 
         <footer class="modal-foot">

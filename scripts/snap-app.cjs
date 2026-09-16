@@ -84,7 +84,7 @@ async function run() {
     if (level >= 2 || process.env.RELAYKIT_SNAP_VERBOSE) console.error(`[page] ${message}`);
   });
 
-  const address = `https://127.0.0.1:${server.address().port}/app.html?conference=http://localhost:8091`;
+  const address = `https://127.0.0.1:${server.address().port}/?conference=http://localhost:8091`;
   console.log("opening", address);
   await page.loadURL(address);
   await signIn(page);

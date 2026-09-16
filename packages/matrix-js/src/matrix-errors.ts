@@ -37,6 +37,7 @@ const inTheseWords: Record<RelayKitErrorCode, string> = {
   MESSAGE_NOT_FOUND: "There is no such message",
   CONVERSATION_NOT_FOUND: "There is no such conversation",
   VERIFICATION_NOT_FOUND: "There is no such verification",
+  PASSWORD_REQUIRED: "The server asks for the account password again before doing that",
   FORBIDDEN: "This account is not allowed to do that",
   NOT_SUPPORTED: "This homeserver does not do that",
   RATE_LIMITED: "The homeserver is asking this client to slow down",

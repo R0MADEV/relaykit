@@ -15,7 +15,7 @@ import { MessagingClient } from "@relaykit/core";
   capacidades opcionales (`CallingAdapter`, `PollsAdapter`, `CryptoAdapter`…). Pedir algo que el adaptador no
   trae devuelve un `RelayKitError` con código `NOT_SUPPORTED`, no un fallo raro.
 - **`MessagingStorage`** — lo que hay que implementar para guardar una copia local.
-- **`RelayKitError`** — un solo tipo de error con 16 códigos estables. El código es lo que se mira; el texto del
+- **`RelayKitError`** — un solo tipo de error con 17 códigos estables. El código es lo que se mira; el texto del
   servidor nunca sale a la pantalla.
 - **`ClientEvents`** — lo que la biblioteca avisa sola.
 - **Diagnósticos** — `DiagnosticEvent`, para ver qué tarda y qué falla sin instrumentar nada.

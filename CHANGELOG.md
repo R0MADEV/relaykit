@@ -7,6 +7,13 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Incompatible
 
+- **Nuevo código de error `PASSWORD_REQUIRED`**, que son 17. Cuando un homeserver pide la contraseña de la
+  cuenta otra vez antes de hacer algo —publicar una identidad, cerrar otra sesión— eso llegaba como
+  `INVALID_INPUT`, indistinguible de «lo que has escrito no es una clave de recuperación». Una aplicación no
+  podía más que enseñar la frase y pararse, que es exactamente lo que hacía el ejemplo: *«The homeserver asks
+  for the password to set recovery up»* y nada más. Ahora se puede preguntar por el código y enseñar el cuadro
+  de la contraseña, que es la única respuesta que el servidor acepta.
+
 - **`SdkError` pasa a llamarse `RelayKitError`**, y `SdkErrorCode` a `RelayKitErrorCode`. "SDK" no significa
   nada para quien consume esta librería. Se hace ahora porque después de 1.0 ya no se puede.
 
@@ -330,6 +337,10 @@ menores; los cambios incompatibles se listan aqui.
   el token deja de servir.
 
 ### Quitado
+
+- **`app.html`**, que era el mismo marcado que `index.html` bajo su nombre anterior, mantenidos en paso a
+  mano. Es decir, no mantenidos: un campo añadido a uno de los dos era invisible para todas las comprobaciones,
+  porque las comprobaciones cargaban el otro. El ejemplo se sirve en `/` y ya está.
 
 - Las llamadas 1:1 entre navegadores (`m.call.*` del SDK) y con ellas `hold`, `transfer`, `pressDigit`,
   `joinCalls`, el evento `call.transferred`, `CallTransfer`, `Call.kind`, `isOnHold`, `isOnHoldByThem`,

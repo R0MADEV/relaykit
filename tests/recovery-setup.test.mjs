@@ -105,8 +105,13 @@ test("a homeserver that asks to prove who you are is answered, not ignored", asy
   );
 });
 
-test("without a password there is nothing to answer with, and that is said plainly", async () => {
+test("without a password there is nothing to answer with, and it says which kind of no it is", async () => {
   const client = demandingClient();
 
-  await assert.rejects(setupRecovery(client, new SecretStorageKeyHolder(), {}), { code: "INVALID_INPUT" });
+  // Not INVALID_INPUT: an application has to tell "the homeserver wants your password again" apart from
+  // "what you typed is not a recovery key", because the first one is a screen to show and the second is a
+  // mistake to correct. One code for both meant the example could only show the sentence and stop there.
+  await assert.rejects(setupRecovery(client, new SecretStorageKeyHolder(), {}), {
+    code: "PASSWORD_REQUIRED"
+  });
 });

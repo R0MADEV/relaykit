@@ -41,7 +41,25 @@ async function main() {
   let secondDevice;
   try {
     const { conversation, body } = await sendBeforeEnablingRecovery(firstDevice, bobUserId);
+    await firstDevice.crypto.setupRecovery({ password: owner.password });
+
+    // Protecting again is publishing a second identity over the first, and a homeserver will not take that on
+    // trust: it asks who is sitting there. Only the first one is free. An application has to be able to tell
+    // that apart from a typing mistake, so it is asked for by its code and never by the sentence it carries.
+    const askedAgain = await firstDevice.crypto.setupRecovery().then(
+      () => undefined,
+      error => error
+    );
+    if (askedAgain?.code !== "PASSWORD_REQUIRED") {
+      throw new Error(
+        `setting recovery up again without a password said ${askedAgain?.code ?? "nothing at all"}, ` +
+          `and an application cannot act on that`
+      );
+    }
+    // And with one it goes through, which is what a screen does after asking. Its key is the one that counts
+    // from here: making a recovery replaces the store, so the key from before this opens nothing any more.
     const { recoveryKey } = await firstDevice.crypto.setupRecovery({ password: owner.password });
+
     const status = await firstDevice.crypto.status();
     if (!status.crossSigningReady || !status.secretStorageReady) {
       throw new Error(`Recovery setup left crypto not ready: ${JSON.stringify(status)}`);
