@@ -103,7 +103,7 @@ function shapeOf(data: Uint8Array): number[] {
   });
 }
 
-async function aSmileyFace(): Promise<Uint8Array | undefined> {
+async function aSmileyFace(): Promise<Uint8Array<ArrayBuffer> | undefined> {
   const canvas = document.createElement("canvas");
   canvas.width = stickerSize;
   canvas.height = stickerSize;

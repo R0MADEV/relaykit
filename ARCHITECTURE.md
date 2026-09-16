@@ -110,11 +110,17 @@ Cuando un backend podría legítimamente no tenerla.
 2. `readonly x?: XAdapter` en `MessagingAdapter`, y reexportar el nombre desde `adapter.ts`
 3. En el núcleo, un guardia y nada más:
 
+<!-- setup: import { RelayKitError } from "@relaykit/core"; type XAdapter = { readonly x: string }; -->
+
 ```ts
-private get x(): XAdapter {
-  const found = this.context.adapter.x;
-  if (!found) throw new RelayKitError("NOT_SUPPORTED", "X no es algo que este homeserver tenga");
-  return found;
+class XOperations {
+  private readonly context!: { readonly adapter: { readonly x?: XAdapter } };
+
+  private get x(): XAdapter {
+    const found = this.context.adapter.x;
+    if (!found) throw new RelayKitError("NOT_SUPPORTED", "X no es algo que este homeserver tenga");
+    return found;
+  }
 }
 ```
 
@@ -124,8 +130,10 @@ private get x(): XAdapter {
 
 ### Escribir un adaptador nuevo
 
+<!-- setup: import type { MessagingAdapter } from "@relaykit/core"; -->
+
 ```ts
-export class MiAdapter implements MessagingAdapter {
+export class MiAdapter implements Partial<MessagingAdapter> {
   // diecisiete métodos: entrar, registrarse, arrancar, parar, salir;
   // listar/crear/entrar/salir/invitar conversaciones;
   // listar mensajes, traer más, enviar; y quién es alguien.

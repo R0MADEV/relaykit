@@ -652,7 +652,7 @@ export class MatrixJsAdapter implements MessagingAdapter {
     return this.run(() => previewMatrixLink(this.runtime.getClient(), url));
   }
 
-  downloadAttachment(media: MediaRef): Promise<Uint8Array> {
+  downloadAttachment(media: MediaRef): Promise<Uint8Array<ArrayBuffer>> {
     return this.run(() => downloadMatrixAttachment(this.runtime.getClient(), media));
   }
 

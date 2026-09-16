@@ -25,7 +25,7 @@ export interface Notification {
 }
 
 export interface AvatarImage {
-  readonly data: Uint8Array;
+  readonly data: Uint8Array<ArrayBuffer>;
   readonly mimeType: string;
 }
 

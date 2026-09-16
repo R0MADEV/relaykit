@@ -153,7 +153,7 @@ export interface MediaAdapter {
     transactionId?: string,
     onProgress?: (fraction: number) => void
   ): Promise<Message>;
-  downloadAttachment(media: MediaRef): Promise<Uint8Array>;
+  downloadAttachment(media: MediaRef): Promise<Uint8Array<ArrayBuffer>>;
   /** The homeserver asks, not this device: that way whoever publishes the link does not know who is looking. */
   previewLink(url: string): Promise<LinkPreview>;
   /** What the homeserver will take, so nothing is sent that it is going to refuse. */

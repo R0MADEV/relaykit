@@ -21,6 +21,8 @@ supiera algo de Matrix, el de memoria no podría pasarlos.
 
 ## Arrancar
 
+<!-- setup: declare const accessToken: string; declare const userId: string; -->
+
 ```ts
 import { MessagingClient } from "@relaykit/web";
 
@@ -403,7 +405,7 @@ list(conversationId: ConversationId): Promise<readonly Poll[]>
 Archivos: bajarlos, y qué acepta el servidor
 
 ```ts
-download(media: MediaRef): Promise<Uint8Array>
+download(media: MediaRef): Promise<Uint8Array<ArrayBuffer>>
 preview(url: string): Promise<LinkPreview>
 limits(): Promise<MediaLimits>
 ```
@@ -473,7 +475,7 @@ Devuelve la función para dejar de escuchar.
 
 ### `Message`
 
-```ts
+```text
 id  conversationId  senderId  body  createdAt  status
 editedAt?  deletedAt?  replyToId?  threadId?  attachment?  location?
 formattedBody?  mentions?  kind?  undecryptable?  reactions?  invitesTo?
@@ -492,7 +494,7 @@ pantalla con eso —una tarjeta con una puerta, en vez de una línea de texto—
 
 ### `Conversation`
 
-```ts
+```text
 id  title?  participantIds  invitedIds?  knockingIds?  membership?
 lastMessage?  unreadCount  isDirect?  joinRule?  historyVisibility?
 alias?  replacedBy?  replaces?
@@ -502,7 +504,7 @@ alias?  replacedBy?  replaces?
 
 ### `Participant`
 
-```ts
+```text
 userId  role  membership  isUnderMe
 ```
 
@@ -512,7 +514,7 @@ se dibujan.
 
 ### `PastCall`
 
-```ts
+```text
 id  conversationId  startedAt  endedAt  participantIds
 ```
 
@@ -521,7 +523,7 @@ nadie más entró.**
 
 ### `Call`
 
-```ts
+```text
 id  conversationId  callerId  isVideo  state  startedAt  isEncrypted?  wentWrong?
 participants  ownMedia?  ownScreen?  remoteMedia?  remoteScreen?
 isMicrophoneMuted  isCameraMuted  isSharingScreen
@@ -537,6 +539,8 @@ en la que aún no estás; `connected`, que estás en ella — solo, si acabas de
 para ti.
 
 `ownMedia` y `remoteMedia` son **`MediaStream` del navegador**, listos para un elemento:
+
+<!-- setup: declare const video: HTMLVideoElement; -->
 
 ```ts
 client.on("call.changed", call => {

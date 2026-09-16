@@ -24,6 +24,8 @@ El proceso principal (`main.js`) la genera una vez con `crypto.randomBytes`, la 
 guarda en `userData`. El renderer nunca ve Node ni el disco: la pide por un puente de `contextBridge`
 (`preload.cjs`) y se la pasa al cliente:
 
+<!-- setup: import { MessagingClient } from "@relaykit/web"; declare const window: { relaykit: { getStorageSecret(): Promise<string> } }; -->
+
 ```ts
 const storageSecret = await window.relaykit.getStorageSecret();
 const client = new MessagingClient({ storageSecret });

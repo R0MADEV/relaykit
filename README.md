@@ -1,3 +1,31 @@
+<!-- Lo que los ejemplos de esta página dan por puesto. `npm run check` los compila, y sin esto no
+     compilarían: son fragmentos, no programas. Invisible al leer. -->
+<!-- setup-all: import type { MessagingClient as RkC, MessageId as RkM, ConversationId as RkCid } from "@relaykit/web"; -->
+<!-- setup-all: declare const MessagingClient: typeof import("@relaykit/web").MessagingClient; -->
+<!-- setup-all: declare const bytes: Uint8Array<ArrayBuffer>; -->
+<!-- setup-all: declare const image: HTMLImageElement; -->
+<!-- setup-all: declare const video: HTMLVideoElement; -->
+<!-- setup-all: declare const id: RkM; -->
+<!-- setup-all: declare const reactionId: string; -->
+<!-- setup-all: declare const sessionId: string; -->
+<!-- setup-all: declare const otraSesionId: string; -->
+<!-- setup-all: declare const otraConversationId: RkCid; -->
+<!-- setup-all: declare const otraConversacion: RkCid; -->
+<!-- setup-all: declare const recoveryKey: string; -->
+<!-- setup-all: declare const texto: string; -->
+<!-- setup-all: declare const viejo: string; -->
+<!-- setup-all: declare const nuevo: string; -->
+<!-- setup-all: declare const secreto: string; -->
+<!-- setup-all: declare const claveWebPush: string; -->
+<!-- setup-all: declare const subscription: PushSubscription; -->
+<!-- setup-all: declare const list: { get(): readonly unknown[]; subscribe(f: () => void): () => void }; -->
+<!-- setup-all: declare function pintar(...cosas: readonly unknown[]): void; -->
+<!-- setup-all: declare function repintar(...cosas: readonly unknown[]): void; -->
+<!-- setup-all: declare function registrar(...cosas: readonly unknown[]): void; -->
+<!-- setup-all: declare function esperar(...cosas: readonly unknown[]): Promise<void>; -->
+<!-- setup-all: declare function showEmoji(...cosas: readonly unknown[]): void; -->
+<!-- setup-all: declare function useSyncExternalStore<T>(s: (f: () => void) => () => void, g: () => T): T; -->
+
 # RelayKit
 
 SDK de mensajería headless para aplicaciones web y Electron, construido sobre el ecosistema Matrix.
@@ -155,7 +183,7 @@ const sent = await client.messages.sendFile(
   { name: "photo.jpg", mimeType: "image/jpeg", data: bytes, width: 800, height: 600 },
   { onProgress: fraction => console.log(fraction) }
 );
-const content = await client.media.download(sent.attachment);
+if (sent.attachment) await client.media.download(sent.attachment);
 
 // Texto con formato, menciones y mensajes que no son una frase normal.
 await client.messages.send(conversationId, "esto es importante", {
@@ -283,9 +311,11 @@ antes de subirlo. `attachment.source` es un localizador opaco: nunca es una URL 
 Para no descargar una foto entera solo para enseñarla en la lista, el emisor puede adjuntar una miniatura. La hace
 la aplicacion, que es la unica que sabe dibujar sus propios archivos, y se cifra igual que el original:
 
+<!-- setup: declare const name: string; declare const mimeType: string; declare const data: Uint8Array<ArrayBuffer>; declare const thumbnail: { readonly data: Uint8Array<ArrayBuffer>; readonly mimeType: string }; -->
+
 ```ts
 await client.messages.sendFile(conversationId, { name, mimeType, data, thumbnail });
-const preview = message.attachment.thumbnail;
+const preview = message.attachment?.thumbnail;
 if (preview) image.src = URL.createObjectURL(new Blob([await client.media.download(preview)], { type: preview.mimeType }));
 ```
 
@@ -306,6 +336,8 @@ Se decide una vez aqui, no en cada pantalla.
 
 La primera vez, el dispositivo crea cross-signing, secret storage y key backup. La recovery key se muestra una sola vez
 y no se persiste:
+
+<!-- setup: declare const password: string; -->
 
 ```ts
 const { recoveryKey } = await client.crypto.setupRecovery({ password });
@@ -336,7 +368,7 @@ location.assign(adonde);
 
 // Al volver, el homeserver deja un token de un solo uso en la direccion.
 const token = new URLSearchParams(location.search).get("loginToken");
-const session = await client.sso.finish("https://matrix.example", token);
+if (token) await client.sso.finish("https://matrix.example", token);
 ```
 
 Las tres ocurren **antes de que haya sesion**, asi que el homeserver se nombra cada vez: no hay nada dentro a
@@ -512,7 +544,7 @@ const requested = await client.verification.request(userId);
 
 client.on("verification.requested", session => client.verification.accept(session.id));
 client.on("verification.changed", session => {
-  if (session.phase === "sas") showEmoji(session.sas.emoji);
+  if (session.sas) showEmoji(session.sas.emoji);
 });
 
 await client.verification.confirm(sessionId); // los emoji coinciden
@@ -523,6 +555,8 @@ await client.verification.cancel(sessionId);
 Para verificar el dispositivo de otro usuario hay que indicar su `deviceId` en `request`.
 
 ## Cuenta
+
+<!-- setup: declare const username: string; declare const password: string; declare const data: Uint8Array<ArrayBuffer>; -->
 
 ```ts
 // Crear una cuenta, donde el homeserver lo permita solo con usuario y contrasena.
@@ -603,8 +637,9 @@ await client.conversations.setHistoryVisibility(conversationId, "joined");
 
 // Desde fuera: pedir entrar, y desde dentro ver quien espera y dejarle pasar.
 await client.conversations.knock(conversationId, { reason: "trabajo aqui", via: ["otro.servidor"] });
-const { knockingIds } = (await client.conversations.list()).find(item => item.id === conversationId);
-await client.conversations.invite(conversationId, knockingIds[0]);
+const aqui = (await client.conversations.list()).find(item => item.id === conversationId);
+const esperando = aqui?.knockingIds ?? [];
+if (esperando[0]) await client.conversations.invite(conversationId, esperando[0]);
 ```
 
 ## Abrir la aplicacion
@@ -637,7 +672,7 @@ la pestana deja de verse.
 ```ts
 // Diciendo en que conversacion, el nombre sale de lo ya sincronizado y no cuesta ninguna peticion.
 const aqui = await client.users.profile(userId, conversationId);
-const imagen = await client.users.avatar(userId, conversationId);
+const imagen = await client.users.avatar(userId, { conversationId });
 
 // Sin decirlo, es el nombre que usa en todas partes, y eso si hay que preguntarlo.
 const enTodasPartes = await client.users.profile(userId);
@@ -733,7 +768,7 @@ await client.verification.confirm(sesion.id);
 // O con un codigo: el dispositivo nuevo lo muestra y el de confianza lo lee.
 const nueva = await client.verification.request(userId, undefined, { method: "code" });
 const codigo = await client.verification.qrCode(nueva.id);
-await client.verification.scan(otraSesionId, codigo);
+if (codigo) await client.verification.scan(otraSesionId, codigo);
 await client.verification.confirm(nueva.id);
 ```
 
@@ -748,6 +783,8 @@ Lo que se diga a partir de ahi va con una clave nueva. Quien conserve la vieja s
 nada mas, que es justo lo que hace falta cuando alguien deja el equipo.
 
 ## Cambiar el secreto del almacen local
+
+<!-- setup: import { IndexedDbStorage } from "@relaykit/browser-storage"; -->
 
 ```ts
 const storage = new IndexedDbStorage("relaykit", { encryptionSecret: viejo });

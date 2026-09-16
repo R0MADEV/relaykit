@@ -118,7 +118,7 @@ export interface VoiceInfo {
 
 export interface ThumbnailInput {
   readonly mimeType: string;
-  readonly data: Uint8Array;
+  readonly data: Uint8Array<ArrayBuffer>;
   readonly width?: number;
   readonly height?: number;
 }
@@ -126,7 +126,7 @@ export interface ThumbnailInput {
 export interface FileInput {
   readonly name: string;
   readonly mimeType: string;
-  readonly data: Uint8Array;
+  readonly data: Uint8Array<ArrayBuffer>;
   readonly width?: number;
   readonly height?: number;
   /** The application decides how to make it, since only it knows how to render its own files. */

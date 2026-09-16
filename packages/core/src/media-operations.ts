@@ -35,7 +35,7 @@ export class MediaOperations {
 
   constructor(private readonly context: MediaOperationsContext) {}
 
-  async download(media: MediaRef): Promise<Uint8Array> {
+  async download(media: MediaRef): Promise<Uint8Array<ArrayBuffer>> {
     this.context.assertStarted();
     if (!media.source) {
       throw new RelayKitError("INVALID_INPUT", "The attachment has not been uploaded yet");

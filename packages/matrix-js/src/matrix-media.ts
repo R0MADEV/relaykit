@@ -223,7 +223,7 @@ export async function previewMatrixLink(client: MatrixClient, url: string): Prom
 export async function downloadMatrixAttachment(
   client: MatrixClient,
   attachment: MediaRef
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const source = parseSource(attachment.source);
   const { data } = await downloadFromMediaServer(client, source.url);
   const bytes = toArrayBuffer(data);
@@ -242,7 +242,7 @@ export async function downloadFromMediaServer(
   client: MatrixClient,
   mxcUrl: string,
   size?: number
-): Promise<{ readonly data: Uint8Array; readonly mimeType: string }> {
+): Promise<{ readonly data: Uint8Array<ArrayBuffer>; readonly mimeType: string }> {
   const { server, mediaId } = splitMxcUrl(mxcUrl);
   const wholeThing = size === undefined;
   const blob = await client.http.authedRequest<Blob>(

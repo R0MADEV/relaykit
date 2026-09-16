@@ -385,7 +385,7 @@ export class MessagingClient {
       this.pollOperations.list(conversationId)
   };
   readonly media = {
-    download: (media: MediaRef): Promise<Uint8Array> => this.mediaOperations.download(media),
+    download: (media: MediaRef): Promise<Uint8Array<ArrayBuffer>> => this.mediaOperations.download(media),
     preview: (url: string): Promise<LinkPreview> => this.mediaOperations.preview(url),
     limits: (): Promise<MediaLimits> => this.mediaOperations.limits()
   };

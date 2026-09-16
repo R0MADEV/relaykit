@@ -895,7 +895,7 @@ export class InMemoryAdapter implements MessagingAdapter {
     return { url };
   }
 
-  async downloadAttachment(media: MediaRef): Promise<Uint8Array> {
+  async downloadAttachment(media: MediaRef): Promise<Uint8Array<ArrayBuffer>> {
     const data = this.attachments.get(media.source);
     if (!data) {
       throw new RelayKitError("MESSAGE_NOT_FOUND", "The attachment does not exist");

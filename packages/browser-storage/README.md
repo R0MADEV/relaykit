@@ -18,19 +18,23 @@ campo nuevo del modelo queda protegido sin que nadie se acuerde de añadirlo.
 
 La clave se deriva de una de estas dos cosas:
 
+<!-- setup: declare const encryptionSecret: string; declare const typed: string; declare const salt: string; -->
+
 ```ts
 import { IndexedDbStorage } from "@relaykit/browser-storage";
 
 // Un secreto que ya es aleatorio —un secreto de dispositivo, un token—: basta un digest.
-const storage = new IndexedDbStorage("relaykit-app", { encryptionSecret });
+const conUnSecreto = new IndexedDbStorage("relaykit-app", { encryptionSecret });
 
-// Algo que una persona ha tecleado: es adivinable, así que la derivación tiene que ser lenta.
+// O algo que una persona ha tecleado: es adivinable, así que la derivación tiene que ser lenta.
 // PBKDF2-HMAC-SHA256, 600.000 vueltas. La sal no es secreta y se guarda al lado de los datos; sin ella la
 // misma contraseña daría la misma clave en todos los dispositivos y un solo cálculo previo los abriría todos.
-const storage = new IndexedDbStorage("relaykit-app", { passphrase: { typed, salt } });
+const conUnaContraseña = new IndexedDbStorage("relaykit-app", { passphrase: { typed, salt } });
 ```
 
 ## Cambiar la clave
+
+<!-- setup: declare const storage: import("@relaykit/browser-storage").IndexedDbStorage; declare const nuevaClave: string; -->
 
 ```ts
 await storage.rekey(nuevaClave);                          // conserva lo que no se pueda abrir

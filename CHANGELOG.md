@@ -101,6 +101,12 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Cambiado
 
+- **Los bytes que devuelve la biblioteca dicen que no son compartidos** (`Uint8Array<ArrayBuffer>` en lugar de
+  `Uint8Array`), en adjuntos, avatares y `media.download`. Un `Uint8Array` a secas incluye `SharedArrayBuffer`,
+  que un `Blob` no acepta, así que lo más normal que hace un navegador con una imagen —`new Blob([avatar.data])`
+  y enseñarla— no compilaba sin un cast. Lo encontró la compilación de los ejemplos: la documentación enseñaba
+  exactamente eso.
+
 - **El aviso de claves dice de dónde sale la clave que pide, y deja de ofrecer puertas contra un muro.** Decía
   «Hay una copia de tus claves que este dispositivo todavía no ha abierto» y un botón «Introducir clave», sin
   decir en ningún sitio **cuál** clave: la de recuperación que se enseña una sola vez al proteger los mensajes,
@@ -297,6 +303,14 @@ menores; los cambios incompatibles se listan aqui.
   llamada empieza en una conversación tuya.
 
 ### Corregido
+
+- **Los ejemplos de la documentación no compilaban, y nadie lo sabía.** 55 bloques de TypeScript repartidos por
+  el README, `API.md`, `ARCHITECTURE.md` y los README de paquetes, y ninguno lo había mirado nunca. Entre ellos
+  había cosas que un lector no podría ejecutar: `users.avatar(userId, conversationId)` cuando el segundo
+  argumento son opciones (`{ conversationId }`), un adjunto opcional pasado a `media.download` sin comprobarlo,
+  un `find` desestructurado sin mirar si encontró algo, el token de la dirección —que puede no estar— pasado a
+  `sso.finish`, un código QR opcional pasado a `scan`, y `session.sas` leído en una fase donde puede no haber.
+  Arreglados, y `npm run check:examples` los compila de ahora en adelante.
 
 - **Salir vaciaba la copia local en lugar de llevársela.** De las tres bases de datos que abre una sesión, dos
   se iban al salir y la tercera se quedaba vacía, con sus seis almacenes y su número de versión, a la vista de

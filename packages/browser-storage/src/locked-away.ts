@@ -146,7 +146,7 @@ export class LockedAway {
     return `${sealedBy}${encode(iv)}.${encode(new Uint8Array(encrypted))}`;
   }
   /** Encrypts raw bytes as `iv (12 bytes) + ciphertext`; file contents queued in the outbox go through here. */
-  async encryptBytes(value: Uint8Array): Promise<Uint8Array> {
+  async encryptBytes(value: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     if (!this.key) {
       return value;
     }
@@ -160,7 +160,7 @@ export class LockedAway {
     return stored;
   }
   /** Returns undefined when the stored bytes were written with a different key. */
-  async decryptBytes(value: Uint8Array): Promise<Uint8Array | undefined> {
+  async decryptBytes(value: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer> | undefined> {
     if (!this.key) {
       return value;
     }

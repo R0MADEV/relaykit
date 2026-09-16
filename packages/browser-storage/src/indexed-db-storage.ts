@@ -573,7 +573,11 @@ export class IndexedDbStorage implements MessagingStorage {
  */
 
 /** The same file with what was read back put in place of what was stored. */
-function readBack(attachment: FileInput, data: Uint8Array, thumbnailData: Uint8Array | undefined): FileInput {
+function readBack(
+  attachment: FileInput,
+  data: Uint8Array<ArrayBuffer>,
+  thumbnailData: Uint8Array<ArrayBuffer> | undefined
+): FileInput {
   const read = { ...attachment, data };
   const { thumbnail } = attachment;
   if (!thumbnail || !thumbnailData) return read;
