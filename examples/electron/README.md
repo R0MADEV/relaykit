@@ -15,8 +15,10 @@ con el aislamiento activo.
 
 ## Clave del storage local
 
-RelayKit cifra su cache local con una clave derivada de `storageSecret`. Por defecto usa el access token, que
-rota, asi que en Electron conviene una clave estable por dispositivo guardada en el llavero del sistema.
+RelayKit cifra su copia local con una clave derivada de `storageSecret`. Por defecto, en un navegador, usa un
+secreto estable hecho una vez para ese navegador y guardado en `localStorage`. En Electron eso deja la clave sin
+cifrar dentro del perfil de la aplicacion, asi que conviene darle una clave propia guardada en el llavero del
+sistema, que es lo que hace este ejemplo.
 
 El proceso principal (`main.js`) la genera una vez con `crypto.randomBytes`, la cifra con `safeStorage` y la
 guarda en `userData`. El renderer nunca ve Node ni el disco: la pide por un puente de `contextBridge`

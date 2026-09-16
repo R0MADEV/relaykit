@@ -5,21 +5,17 @@ menores; los cambios incompatibles se listan aqui.
 
 ## Sin publicar
 
-### Corregido
+### Incompatible
 
-- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
-  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
-  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
-  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
-  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
-  dos por la otra persona.
+- **`SdkError` pasa a llamarse `RelayKitError`**, y `SdkErrorCode` a `RelayKitErrorCode`. "SDK" no significa
+  nada para quien consume esta librería. Se hace ahora porque después de 1.0 ya no se puede.
 
-- **Salir de una conversación no se lo decía a nadie.** Entrar en una sí lo anunciaba y salir no, así que
-  cualquier lista viva se enteraba de las llegadas y nunca de las salidas: pulsabas «Salir y olvidarla» y la
-  conversación seguía ahí. Ahora sale `conversation.left` —evento propio, porque una conversación que dejaste
-  no es una conversación que tengas, y el modelo lo dice— y las listas vivas la sueltan.
-- **Aceptar una invitación no hacía nada visible.** La pantalla solo repintaba la lista lateral, no la
-  conversación abierta, así que el cartel de «Te han invitado» seguía puesto después de entrar.
+- **El tercer argumento del constructor es un objeto**, no un número: `new RelayKitError("RATE_LIMITED", ...,
+  { retryAfterMs })`. Lo que carga un fallo tiene nombres.
+
+- **`error.message` ya no trae lo que escribió el homeserver.** Lo escribe esta librería, y lo que dijo el
+  servidor vive en `error.detail`, que es para un log y no para una pantalla. Quien estuviera leyendo el
+  mensaje para decidir algo estaba acoplado a Synapse sin saberlo.
 
 ### Añadido
 
@@ -27,127 +23,6 @@ menores; los cambios incompatibles se listan aqui.
   orden: el directorio de personas del homeserver es el mismo que busca el ejemplo, así que setecientas
   cuentas de usar y tirar es lo que ve quien escribe un nombre en «Invitar»; y un dispositivo es *para quien*
   se cifra un mensaje, así que trescientas sesiones muertas significan cifrarlo trescientas veces.
-
-- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
-  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
-  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
-  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
-
-- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
-  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
-  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
-  el token deja de servir.
-
-### Cambiado
-
-- **El resto del traslado al ejemplo que se queda**: ubicación (un sitio, y dónde estoy durante un rato),
-  mensajes fijados, favorita, cuánto interrumpe, quién puede entrar, reenviar, denunciar, pegatinas, notas de
-  voz, vista previa de enlaces, crear cuenta, y buscar conversaciones además de mensajes.
-- `sweep:rooms` acepta `RELAYKIT_SWEEP_EVERYTHING=1` para dejar una cuenta de desarrollo a cero, y ahora
-  barre también los espacios — `conversations.list` los deja fuera a propósito, así que quedaban todos.
-
-- **Encuestas en el ejemplo nuevo**: preguntar, votar, ver el reparto y cerrar. Se pintan encima del timeline
-  y no dentro, porque el timeline se repinta entero cada vez que alguien dice algo y una pregunta que la gente
-  está contestando no puede desaparecer porque otro haya escrito «vale». `check:account` las recorre.
-
-- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
-  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
-  las dos comprobaciones que todavía la conducen, y luego se va.
-
-- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
-  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
-  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
-  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
-  petición de sync en vuelo.
-- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
-  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
-  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
-  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
-
-- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
-  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
-  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
-  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
-- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
-  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
-  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
-- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
-  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
-  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
-- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
-  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
-  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
-- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
-- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
-  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
-  por pasar la cadena al parámetro equivocado.
-
-- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
-  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
-  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
-  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
-  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
-  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
-- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
-  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
-  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
-- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
-  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
-  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
-- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
-  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
-  dos primeros.
-- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
-  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
-  descubriera. Ahora para, suelta la sesión y borra la copia.
-
-- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
-  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
-- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
-  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
-  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
-  cobertura tiene que quedar fuera de ese dispositivo.
-- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
-  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
-  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
-  y se comparan todos los campos.
-- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
-  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
-  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
-- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
-  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
-  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
-  dentro, igual que ya hacía el almacén de Matrix.
-- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
-  actualizarse, y lo hace esperando en silencio.
-
-- **La sesión y el almacén local eran dos cosas distintas, y se separaban.** `@relaykit/web` solo se enteraba
-  de quién estaba dentro al hacer `login()`. Registrarse, entrar como invitado y volver de un proveedor de
-  identidad conseguían sesión **sin abrir IndexedDB** — la aplicación funcionaba y no guardaba nada. Y una vez
-  abierto, se cacheaba para siempre: cuenta A, `stop()`, cuenta B, y B leía la caché de A. Ahora hay un solo
-  evento, `session.changed`, por el que pasan los seis caminos, y el almacén lo sigue: se cierra y se vuelve a
-  abrir en cuanto es otra persona, y no se abre nada mientras no haya nadie.
-- **`start()` aplastaba todos los fallos a `ADAPTER_ERROR`.** Arrancar es donde una sesión se encuentra por
-  primera vez con un homeserver, o sea el sitio más probable para descubrir que la sesión murió o que no hay
-  red. Ahora conserva el `RelayKitError` que venga.
-- **Un cliente sin adaptador arrancaba «bien».** `UnavailableAdapter.start()` no hacía nada y todo lo demás
-  respondía vacío: una cuenta sin conversaciones se ve igual que un cliente sin backend. Ahora se niega con
-  `NOT_CONFIGURED`.
-- **`M_NOT_FOUND` adivinaba demasiado.** Todo 404 se convertía en `CONVERSATION_NOT_FOUND`, así que una
-  descarga fallida decía que la conversación no existe. Ahora solo lo dice quien sabía que buscaba una
-  conversación; el resto se queda en `ADAPTER_ERROR`.
-
-### Cambiado
-
-- **`start()` ya no escribe en las salas de nadie.** Abría los `power_levels` de toda conversación antigua que
-  esta cuenta pudiera administrar, en segundo plano: en una cuenta con cientos son cientos de escrituras que
-  nadie pidió. La que importa se abre igualmente cuando alguien coloca una llamada en ella. Para un despliegue
-  donde quien llama primero no suele ser administrador está `matrix: { prepareOldConversationsForCalls: true }`.
-- `npm run count:api` cuenta la superficie pública del código y falla si `ARCHITECTURE.md` dice otra cosa.
-  Llegó a decir 126 operaciones y 533 líneas cuando ya eran otras: nadie se da cuenta de que un número
-  envejece.
-
-### Añadido
 
 - **Cómo está cerrada una copia se guarda junto a ella**, sin cifrar: `{ kdf, version, iterations, salt }`.
   Sin eso, subir el coste de PBKDF2 dentro de dos años dejaría fuera a quien hiciera su copia hoy, y no habría
@@ -166,37 +41,62 @@ menores; los cambios incompatibles se listan aqui.
   es para un log y tiene que poder. No lleva nada privado —hay una prueba que lo comprueba—, se traga lo que
   se lance dentro, y sin `diagnostics` no se construye nada.
 
-### Incompatible
+- **Sesiones que caducan.** `login` pide un token de refresco y, cuando el homeserver cambia el de acceso, la
+  librería avisa con `session.refreshed` para que la aplicación guarde el nuevo. Sin esto, un homeserver con
+  tokens cortos echa al usuario y nadie sabe por qué.
 
-- **`SdkError` pasa a llamarse `RelayKitError`**, y `SdkErrorCode` a `RelayKitErrorCode`. "SDK" no significa
-  nada para quien consume esta librería. Se hace ahora porque después de 1.0 ya no se puede.
-- **El tercer argumento del constructor es un objeto**, no un número: `new RelayKitError("RATE_LIMITED", ...,
-  { retryAfterMs })`. Lo que carga un fallo tiene nombres.
-- **`error.message` ya no trae lo que escribió el homeserver.** Lo escribe esta librería, y lo que dijo el
-  servidor vive en `error.detail`, que es para un log y no para una pantalla. Quien estuviera leyendo el
-  mensaje para decidir algo estaba acoplado a Synapse sin saberlo.
+- **Abrir un resultado de búsqueda.** `messages.around(id, mensajeId, cuantos)` trae el mensaje y lo que se
+  dijo a cada lado. Lo resuelve el homeserver, que es el único que tiene toda la historia.
 
+- **Búsqueda por páginas.** `messages.searchRemote` devuelve `{ messages, cursor }` en vez de una lista.
+  Antes solo se podía leer la primera página.
 
-### Corregido
+- **Correo.** `account.addEmail`/`confirmEmail`/`addresses`/`removeAddress` añaden una dirección a la cuenta
+  en los dos pasos que hacen falta: nadie la añade por decirlo, hay que probarla. `client.resetPassword` y
+  `finishResettingPassword` son la vuelta para quien no se acuerda de la contraseña. `npm run check:mail`
+  recorre las dos cosas contra Synapse leyendo el buzón de verdad.
 
-- **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
-  id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
-  toda conversación durante los primeros instantes de un sync—, y lo pasábamos tal cual como título. Cada
-  pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
-  la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
-  dos por la otra persona.
+- **Invitados.** `client.signInAsGuest(homeserver)` entra sin cuenta donde el homeserver lo permita. Un
+  invitado no es una cuenta pequeña: el homeserver le niega sus claves y sus reglas de notificación, así que
+  la sesión se arranca sabiendo lo que es y no pierde los primeros segundos oyendo que no.
 
-- **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
-  te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
-  en cada arranque, antes de que terminara el primer sync, como si estuviera. Ahora la suelta en cuanto se ha
-  puesto al día — salvo si queda algo por enviar ahí, porque eso es lo único que solo existe en local.
+- **Cuenta.** `client.account` cambia la contraseña, da de baja la cuenta, y guarda y lee ajustes propios en
+  el servidor (`remember` / `remembered`), que es lo que hace que un ajuste sea el mismo en todos tus
+  dispositivos. Lo que solo importa en un navegador no va aquí.
 
-- **Salir de la aplicación de ejemplo no se lo decía al homeserver.** Paraba el cliente y borraba la sesión
-  guardada, y el token seguía siendo válido para siempre: en un ordenador compartido, la sesión de alguien
-  abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
-  el token deja de servir.
+- **Etiquetas y olvidar.** `conversations.tag` / `untag` / `tags` archivan una conversación bajo un nombre
+  tuyo que nadie más ve. `conversations.forget` la borra de tu historial: salir y olvidar son dos pasos y en
+  ese orden, porque olvidar una en la que sigues la devuelve en la siguiente sincronización.
+
+- **Versiones de sala.** `conversations.versions()` dice qué admite el homeserver y qué prefiere, que es entre
+  lo que puede elegir un `upgrade`.
+
+- En la app de ejemplo: cambiar la contraseña y darse de baja desde tu cuenta, archivar una conversación en
+  una etiqueta tuya (se ve como una pastilla sobre la conversación, y se quita pulsándola), salir y olvidarla,
+  y entrar como invitado. `npm run check:account` recorre todo eso en un navegador de verdad, con una cuenta
+  que se crea para esa pasada y se borra al final.
+
+- **El árbol de un espacio.** `spaces.children(id)` baja todos los niveles, no uno: cada hijo trae su `depth`,
+  y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
 
 ### Cambiado
+
+- **`count:api` comprueba los números de todos los documentos, no solo de dos.** Antes miraba `ARCHITECTURE.md`
+  y el README de la raíz; los README de paquetes decían que la copia local derivaba su clave de un secreto de
+  dispositivo meses después de que dejara de ser la única forma. Un número es más fácil de comprobar que una
+  frase, así que al menos los números se comprueban donde se afirman. El CHANGELOG y el ROADMAP se quedan fuera
+  a propósito: uno dice lo que un número fue y el otro lo que podría llegar a ser.
+
+- **El resto del traslado al ejemplo que se queda**: ubicación (un sitio, y dónde estoy durante un rato),
+  mensajes fijados, favorita, cuánto interrumpe, quién puede entrar, reenviar, denunciar, pegatinas, notas de
+  voz, vista previa de enlaces, crear cuenta, y buscar conversaciones además de mensajes.
+
+- `sweep:rooms` acepta `RELAYKIT_SWEEP_EVERYTHING=1` para dejar una cuenta de desarrollo a cero, y ahora
+  barre también los espacios — `conversations.list` los deja fuera a propósito, así que quedaban todos.
+
+- **Encuestas en el ejemplo nuevo**: preguntar, votar, ver el reparto y cerrar. Se pintan encima del timeline
+  y no dentro, porque el timeline se repinta entero cada vez que alguien dice algo y una pregunta que la gente
+  está contestando no puede desaparecer porque otro haya escrito «vale». `check:account` las recorre.
 
 - **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
   (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
@@ -207,6 +107,7 @@ menores; los cambios incompatibles se listan aqui.
   cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
   por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
   petición de sync en vuelo.
+
 - **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
   se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
   Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
@@ -216,16 +117,21 @@ menores; los cambios incompatibles se listan aqui.
   el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
   se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
   `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
+
 - **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
   vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
   y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
+
 - **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
   base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
   clave nueva solo entra en vigor cuando la base ya la ha aceptado.
+
 - **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
   descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
   aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
+
 - **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
+
 - **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
   ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
   por pasar la cadena al parámetro equivocado.
@@ -236,36 +142,45 @@ menores; los cambios incompatibles se listan aqui.
   hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
   renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
   en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
+
 - **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
   mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
   siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
+
 - **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
   lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
   conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
+
 - **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
   se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
   dos primeros.
+
 - **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
   una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
   descubriera. Ahora para, suelta la sesión y borra la copia.
 
 - **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
   como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
+
 - **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
   se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
   se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
   cobertura tiene que quedar fuera de ese dispositivo.
+
 - **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
   devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
   había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
   y se comparan todos los campos.
+
 - **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
   la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
   esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
+
 - **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
   entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
   siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
   dentro, igual que ya hacía el almacén de Matrix.
+
 - Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
   actualizarse, y lo hace esperando en silencio.
 
@@ -275,59 +190,97 @@ menores; los cambios incompatibles se listan aqui.
   abierto, se cacheaba para siempre: cuenta A, `stop()`, cuenta B, y B leía la caché de A. Ahora hay un solo
   evento, `session.changed`, por el que pasan los seis caminos, y el almacén lo sigue: se cierra y se vuelve a
   abrir en cuanto es otra persona, y no se abre nada mientras no haya nadie.
+
 - **`start()` aplastaba todos los fallos a `ADAPTER_ERROR`.** Arrancar es donde una sesión se encuentra por
   primera vez con un homeserver, o sea el sitio más probable para descubrir que la sesión murió o que no hay
   red. Ahora conserva el `RelayKitError` que venga.
+
 - **Un cliente sin adaptador arrancaba «bien».** `UnavailableAdapter.start()` no hacía nada y todo lo demás
   respondía vacío: una cuenta sin conversaciones se ve igual que un cliente sin backend. Ahora se niega con
   `NOT_CONFIGURED`.
+
 - **`M_NOT_FOUND` adivinaba demasiado.** Todo 404 se convertía en `CONVERSATION_NOT_FOUND`, así que una
   descarga fallida decía que la conversación no existe. Ahora solo lo dice quien sabía que buscaba una
   conversación; el resto se queda en `ADAPTER_ERROR`.
-
-### Cambiado
 
 - **`start()` ya no escribe en las salas de nadie.** Abría los `power_levels` de toda conversación antigua que
   esta cuenta pudiera administrar, en segundo plano: en una cuenta con cientos son cientos de escrituras que
   nadie pidió. La que importa se abre igualmente cuando alguien coloca una llamada en ella. Para un despliegue
   donde quien llama primero no suele ser administrador está `matrix: { prepareOldConversationsForCalls: true }`.
+
 - `npm run count:api` cuenta la superficie pública del código y falla si `ARCHITECTURE.md` dice otra cosa.
   Llegó a decir 126 operaciones y 533 líneas cuando ya eran otras: nadie se da cuenta de que un número
   envejece.
 
-### Añadido
+- **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
+  `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
+  `"Guest access not allowed"`, `"No row found (access_tokens)"`. Ahora hay 17 `errcode` mapeados, respaldo
+  por estado HTTP, `NETWORK_ERROR` para cuando no se llegó al servidor, y 24 `Error` pelados que lanzaba la
+  propia librería pasan a llevar su código. Lo prueban los fallos reales que devolvió Synapse y un test de
+  contrato que provoca refusals contra el homeserver de verdad.
 
-- **Sesiones que caducan.** `login` pide un token de refresco y, cuando el homeserver cambia el de acceso, la
-  librería avisa con `session.refreshed` para que la aplicación guarde el nuevo. Sin esto, un homeserver con
-  tokens cortos echa al usuario y nadie sabe por qué.
-- **Abrir un resultado de búsqueda.** `messages.around(id, mensajeId, cuantos)` trae el mensaje y lo que se
-  dijo a cada lado. Lo resuelve el homeserver, que es el único que tiene toda la historia.
-- **Búsqueda por páginas.** `messages.searchRemote` devuelve `{ messages, cursor }` en vez de una lista.
-  Antes solo se podía leer la primera página.
-- **Correo.** `account.addEmail`/`confirmEmail`/`addresses`/`removeAddress` añaden una dirección a la cuenta
-  en los dos pasos que hacen falta: nadie la añade por decirlo, hay que probarla. `client.resetPassword` y
-  `finishResettingPassword` son la vuelta para quien no se acuerda de la contraseña. `npm run check:mail`
-  recorre las dos cosas contra Synapse leyendo el buzón de verdad.
+- **`FORBIDDEN` y `NETWORK_ERROR` son códigos nuevos.** Antes los dos eran `ADAPTER_ERROR`, que es lo mismo
+  que decir "algo pasó": no se puede distinguir "no puedes hacer eso" de "no hay red", y son dos pantallas
+  distintas.
 
-- **Invitados.** `client.signInAsGuest(homeserver)` entra sin cuenta donde el homeserver lo permita. Un
-  invitado no es una cuenta pequeña: el homeserver le niega sus claves y sus reglas de notificación, así que
-  la sesión se arranca sabiendo lo que es y no pierde los primeros segundos oyendo que no.
-- **Cuenta.** `client.account` cambia la contraseña, da de baja la cuenta, y guarda y lee ajustes propios en
-  el servidor (`remember` / `remembered`), que es lo que hace que un ajuste sea el mismo en todos tus
-  dispositivos. Lo que solo importa en un navegador no va aquí.
-- **Etiquetas y olvidar.** `conversations.tag` / `untag` / `tags` archivan una conversación bajo un nombre
-  tuyo que nadie más ve. `conversations.forget` la borra de tu historial: salir y olvidar son dos pasos y en
-  ese orden, porque olvidar una en la que sigues la devuelve en la siguiente sincronización.
-- **Versiones de sala.** `conversations.versions()` dice qué admite el homeserver y qué prefiere, que es entre
-  lo que puede elegir un `upgrade`.
-- En la app de ejemplo: cambiar la contraseña y darse de baja desde tu cuenta, archivar una conversación en
-  una etiqueta tuya (se ve como una pastilla sobre la conversación, y se quita pulsándola), salir y olvidarla,
-  y entrar como invitado. `npm run check:account` recorre todo eso en un navegador de verdad, con una cuenta
-  que se crea para esa pasada y se borra al final.
-- **El árbol de un espacio.** `spaces.children(id)` baja todos los niveles, no uno: cada hijo trae su `depth`,
-  y una conversación que está en dos sitios a la vez sale una sola vez, por el camino más corto.
+- **Un borrador a medias se perdía al volver a la conversación.** Dos fallos en la misma ruta del ejemplo: al
+  irte se guardaba contra la conversación equivocada, y al volver se leía el borrador y se tiraba porque se
+  comparaba con lo que había abierto, que todavía no había cambiado. Era exactamente lo que la función existe
+  para evitar.
+
+- **Ir hacia atrás en una conversación arrastraba las respuestas de los hilos a la conversación.** El filtro
+  estaba en lo que llega en vivo y al abrir, pero no al paginar: la misma conversación se leía de una manera al
+  abrirla y de otra al subir.
+
+- `check:chat` entra en CI. Estaba fuera desde hacía días; los dos fallos de arriba eran la causa.
+
+- `npm run sweep:rooms` recoge las salas que dejan las comprobaciones. Las cuentas de desarrollo tenían 722 y
+  267: no es desorden, es que una cuenta con setecientas salas sincroniza distinto a la que tiene cualquiera.
+
+- **`messages.searchRemote` devuelve `{ messages, cursor }`**, no una lista. Incompatible a propósito: la
+  forma anterior no podía decir que quedaba más.
+
+- **`account.confirmEmail` pide la contraseña**, porque el homeserver la pide: una dirección es cómo se
+  encuentra una cuenta y cómo se recupera, y no es algo que deba poder cambiar una pantalla abierta y sola.
+
+- Cambiar la contraseña ahora tira el token de refresco de esa sesión, porque el homeserver lo invalida sin
+  decírselo a nadie. La pantalla de cuenta del ejemplo decía que las otras sesiones seguían abiertas; las
+  cierra el homeserver, y ahora lo dice bien y la comprobación lo verifica en vez de creérselo.
+
+- **Una sola forma de llamar.** Toda llamada, de dos personas o de muchas, va por un SFU (LiveKit) con
+  MatrixRTC: Matrix dice quién puede estar y quién está, y reparte las claves con las que cada navegador cifra
+  lo que manda. `place` te mete en la llamada el primero y hace sonar a los demás; `join` entra en una en
+  marcha; `answer` es entrar en la que te sonó; colgar es salir y la llamada sigue para quien quede.
+
+- Las conversaciones nuevas dejan a todos sus miembros decir que están en una llamada, y en las antiguas lo
+  abre el primer administrador que empiece una — antes solo podía entrar en su propia llamada quien había
+  creado la sala.
+
+- `Call` gana `participants` (todo el mundo, cada uno con su `media`), `isEncrypted` y `ownScreen`; el evento
+  `call.speaking` dice quién habla sin repintar la llamada entera; `call.incoming` suena también cuando una
+  llamada empieza en una conversación tuya.
 
 ### Corregido
+
+- **Una conversación volvía a llamarse como su identificador al recargar.** `room.name` de matrix-js-sdk es un
+  cálculo a partir del estado de la sala y de quién está dentro, y contesta con el id cuando no puede: en un
+  navegador que restaura su copia local, eso es toda conversación durante los primeros instantes. El nombre que
+  se le dio a una sala está en su propio estado (`m.room.name`) desde el principio, y es de ahí de donde se lee
+  ahora; `room.name` solo se usa si no hay, y un identificador nunca se acepta como nombre. `check:chat`
+  recarga la página a mitad de conversación.
+
+- **Quien acepta un chat directo no lo anotaba como directo.** Matrix guarda con quién hablas en privado en los
+  datos de tu propia cuenta (`m.direct`), una copia por persona: quien lo empieza escribe la suya y quien lo
+  acepta tiene que escribir la suya, y nadie la escribe por él. Aceptar solo entraba en la sala, así que ese
+  lado no tenía nada guardado que dijera que el chat era directo y lo archivaba como canal en cuanto pintaba
+  desde lo guardado. `conversations.join` lee quién te invitó antes de aceptar —aceptar borra esa señal— y lo
+  anota.
+
+- **Nada escuchaba los datos de cuenta, ni los del usuario ni los de cada conversación.** Si un chat pasaba a
+  ser directo, se marcaba como favorito o se marcaba como no leído, la pantalla seguía mostrando la respuesta
+  anterior hasta que llegaba un mensaje y forzaba un repintado: recargar el navegador parecía obligatorio. El
+  adaptador sigue `ClientEvent.AccountData` y `RoomEvent.AccountData`, y repinta solo las conversaciones que el
+  cambio nombra.
 
 - **Una conversación sin nombre se llamaba como su identificador.** matrix-js-sdk contesta `room.name` con el
   id de la sala cuando no puede calcular uno —sin nombre propio, y con la gente todavía sin cargar, que es
@@ -335,6 +288,14 @@ menores; los cambios incompatibles se listan aqui.
   pantalla acababa pintando `!xUJktYKBXBpvxYpryi:localhost` donde va un nombre. Ahora no hay título, que es
   la respuesta honesta y con la que una aplicación puede hacer algo: el ejemplo llama a una conversación de
   dos por la otra persona.
+
+- **Salir de una conversación no se lo decía a nadie.** Entrar en una sí lo anunciaba y salir no, así que
+  cualquier lista viva se enteraba de las llegadas y nunca de las salidas: pulsabas «Salir y olvidarla» y la
+  conversación seguía ahí. Ahora sale `conversation.left` —evento propio, porque una conversación que dejaste
+  no es una conversación que tengas, y el modelo lo dice— y las listas vivas la sueltan.
+
+- **Aceptar una invitación no hacía nada visible.** La pantalla solo repintaba la lista lateral, no la
+  conversación abierta, así que el cartel de «Te han invitado» seguía puesto después de entrar.
 
 - **La copia local nunca soltaba una conversación en la que ya no estás.** Salir desde otro dispositivo, que
   te echen, o que la borre quien lleva el homeserver: este navegador no se enteraba nunca y seguía pintándola
@@ -346,127 +307,14 @@ menores; los cambios incompatibles se listan aqui.
   abierta sin nada en pantalla que lo diga. Ahora llama a `client.logout()`, y `check:account` comprueba que
   el token deja de servir.
 
-### Cambiado
-
-- **El ejemplo es uno solo y vive en la raíz.** `http://localhost:5173/` sirve la aplicación modular
-  (`src/app/`, 29 archivos); la antigua de un solo archivo pasa a `legacy-demo.html` mientras se le trasladan
-  las dos comprobaciones que todavía la conducen, y luego se va.
-
-- **`check:web-demo` vuelve a pasar.** Dos causas, ninguna del ejemplo. `send-as.mjs` moría antes de decir
-  nada: matrix-js-sdk busca la raíz de cada hilo mientras sincroniza, el homeserver contesta 403 en una sala
-  cuyo historial esta cuenta no puede leer, y ese rechazo no lo captura nadie — en node se lleva el proceso
-  por delante. Y la comprobación contaba como fallo del ejemplo su propio recargado de página, que aborta la
-  petición de sync en vuelo.
-- **Una llamada se llama como su conversación, y ese nombre vuelve.** Tratar el nombre como prueba de que ya
-  se conocía la llamada hacía que la segunda llamada de una conversación no sonara a nadie, en silencio.
-  Ahora se compara la sesión, no el nombre; lo que sigue colgando de un nombre cuando empieza otra cosa se
-  suelta; y quien está entrando en una llamada no puede recibir la suya propia como llamada entrante.
-
-- **Lo desconocido ahora es privado.** El sobre listaba los campos privados y dejaba pasar el resto, así que
-  el siguiente campo privado que alguien añadiera al modelo habría llegado al disco en claro hasta que alguien
-  se acordara de volver a ese archivo. Ahora se lista lo que puede quedar fuera —lo que el índice necesita:
-  `id`, `conversationId`, `status`— y todo lo demás, conocido o no, va dentro.
-- **Lo cifrado y el sobre llevan marca.** `rk1:` delante de lo sellado y `__relaykit: 1` dentro del sobre, en
-  vez de adivinar por la forma. Adivinar significaba que «Hola. Que tal?» parecía cifrado por tener un punto,
-  y que un mensaje que alguien escribiera como `{"body":"hola"}` se leía como estructura interna.
-- **El cambio de clave era atómico en la base y no en la instancia.** Si algo fallaba después de cambiarla, la
-  base seguía con la vieja y el objeto en memoria con la nueva: todo parecía ilegible sin serlo. Ahora la
-  clave nueva solo entra en vigor cuando la base ya la ha aceptado.
-- **Un cambio de clave con la contraseña equivocada destruía datos recuperables.** Lo que no se podía abrir se
-  descartaba y se reescribía la base sin ello — y hasta ese momento no estaba perdido, solo cerrado. Ahora
-  aborta sin tocar nada; `rekey(clave, { dropUnreadable: true })` para cuando de verdad se quiera limpiar.
-- **El `formattedBody` de lo que esperaba salir se perdía al releerlo.** Se cifraba y nunca se devolvía.
-- **`rekey` solo sabía cambiar a un secreto aleatorio**, aunque la copia estuviera abierta con una passphrase:
-  ahora toma `{ kind: "secret" | "passphrase" }`, y una contraseña humana no puede acabar por el camino rápido
-  por pasar la cadena al parámetro equivocado.
-
-- **Renovar el token podía retroceder dos renovaciones.** La función de renovación se construía desde una
-  copia de la sesión tomada al arrancar, no desde la de ahora. Y cuando el homeserver renueva sin devolver un
-  refresh token nuevo —perfectamente válido: el que acabas de usar sigue sirviendo— se arrastraba el que
-  hubiera en esa copia, o sea el primero de todos. Un cliente podía presentar un token de hace dos
-  renovaciones y funcionar durante días antes de dejar de hacerlo, sin nada a lo que señalar. Ahora se decide
-  en una función pura, `theSessionAfterRefreshing`, con un test por cada regla.
-- **Un listener que lanzaba rompía la librería.** Los eventos se emiten desde dentro del propio trabajo —un
-  mensaje llegando, una sesión cambiando— así que un fallo en la pantalla de una aplicación dejaba al
-  siguiente listener sin enterarse y ese trabajo a medias. Ahora se avisa por `error` y se sigue.
-- **Vaciar la copia local al salir podía no pasar en silencio.** Iba por el envoltorio tolerante que usa todo
-  lo demás, donde un fallo se traga a propósito. Aquí no es una comodidad: alguien pidió que sus
-  conversaciones no estén en ese dispositivo. Va por el almacén real y falla con `STORAGE_ERROR`.
-- **Salir dejaba la credencial puesta si vaciar fallaba.** Los tres pasos de salir son independientes ahora:
-  se avisa al homeserver, se vacía la copia, y la credencial se suelta **siempre**, pase lo que pase con los
-  dos primeros.
-- **Dar de baja la cuenta dejaba el cliente en marcha.** Sesión que no vale nada, sync que van a rechazar, y
-  una copia local de conversaciones que ya nadie podrá abrir — hasta que alguna petición posterior lo
-  descubriera. Ahora para, suelta la sesión y borra la copia.
-
-- **Salir dejaba la copia local sin borrar.** Se quitaba la sesión antes de vaciarla, y la copia se llama
-  como quien está dentro: al llegar a vaciarla ya no había a quién apuntar. Ahora se vacía primero.
-- **Salir con el servidor caído dejaba la sesión y los datos puestos.** El fallo remoto se propagaba y nunca
-  se llegaba a olvidar nada. Ahora el dispositivo **siempre** olvida —credenciales y copia local—, y el fallo
-  se sigue entregando a quien llamó. En un mensajero, alguien que dice «sal de mi cuenta» en un tren sin
-  cobertura tiene que quedar fuera de ese dispositivo.
-- **Un refresh token revocado se quedaba guardado.** Cambiar la contraseña lo invalida en el homeserver y
-  devuelve la misma persona y el mismo access token, así que la comparación de esos dos campos decidía que no
-  había novedad y ni siquiera actualizaba la sesión. Ahora se guarda siempre y *después* se decide si avisar,
-  y se comparan todos los campos.
-- **`M_UNKNOWN_TOKEN` dejaba el cliente parado pero con el token muerto en la mano.** Ahora también se suelta
-  la sesión: sale `session.changed(undefined)` además de `session.ended`. La copia local **no** se borra —
-  esto no es salir, y quien vuelva a entrar como la misma persona debería encontrar sus conversaciones.
-- **`storeName` rompía el aislamiento entre cuentas.** Si la aplicación elegía nombre, ese nombre se usaba
-  entero: todas las cuentas del navegador compartían una base de datos, con lo de una persona al alcance de la
-  siguiente y sin nada que lo hiciera sospechar. Ahora es un prefijo y el nombre siempre acaba en quién está
-  dentro, igual que ya hacía el almacén de Matrix.
-- Al cambiar de persona se **cierra** la base de datos anterior. Una abierta se niega a borrarse y a
-  actualizarse, y lo hace esperando en silencio.
-
-- **Nada crudo de matrix-js-sdk escapa ya.** Antes se traducían dos casos y el resto salía como
-  `ADAPTER_ERROR` con la frase del homeserver dentro: `"You don't have permission to access that event."`,
-  `"Guest access not allowed"`, `"No row found (access_tokens)"`. Ahora hay 17 `errcode` mapeados, respaldo
-  por estado HTTP, `NETWORK_ERROR` para cuando no se llegó al servidor, y 24 `Error` pelados que lanzaba la
-  propia librería pasan a llevar su código. Lo prueban los fallos reales que devolvió Synapse y un test de
-  contrato que provoca refusals contra el homeserver de verdad.
-- **`FORBIDDEN` y `NETWORK_ERROR` son códigos nuevos.** Antes los dos eran `ADAPTER_ERROR`, que es lo mismo
-  que decir "algo pasó": no se puede distinguir "no puedes hacer eso" de "no hay red", y son dos pantallas
-  distintas.
-
-- **Un borrador a medias se perdía al volver a la conversación.** Dos fallos en la misma ruta del ejemplo: al
-  irte se guardaba contra la conversación equivocada, y al volver se leía el borrador y se tiraba porque se
-  comparaba con lo que había abierto, que todavía no había cambiado. Era exactamente lo que la función existe
-  para evitar.
-- **Ir hacia atrás en una conversación arrastraba las respuestas de los hilos a la conversación.** El filtro
-  estaba en lo que llega en vivo y al abrir, pero no al paginar: la misma conversación se leía de una manera al
-  abrirla y de otra al subir.
-- `check:chat` entra en CI. Estaba fuera desde hacía días; los dos fallos de arriba eran la causa.
-- `npm run sweep:rooms` recoge las salas que dejan las comprobaciones. Las cuentas de desarrollo tenían 722 y
-  267: no es desorden, es que una cuenta con setecientas salas sincroniza distinto a la que tiene cualquiera.
-
-### Cambiado
-
-- **`messages.searchRemote` devuelve `{ messages, cursor }`**, no una lista. Incompatible a propósito: la
-  forma anterior no podía decir que quedaba más.
-- **`account.confirmEmail` pide la contraseña**, porque el homeserver la pide: una dirección es cómo se
-  encuentra una cuenta y cómo se recupera, y no es algo que deba poder cambiar una pantalla abierta y sola.
-- Cambiar la contraseña ahora tira el token de refresco de esa sesión, porque el homeserver lo invalida sin
-  decírselo a nadie. La pantalla de cuenta del ejemplo decía que las otras sesiones seguían abiertas; las
-  cierra el homeserver, y ahora lo dice bien y la comprobación lo verifica en vez de creérselo.
-
-- **Una sola forma de llamar.** Toda llamada, de dos personas o de muchas, va por un SFU (LiveKit) con
-  MatrixRTC: Matrix dice quién puede estar y quién está, y reparte las claves con las que cada navegador cifra
-  lo que manda. `place` te mete en la llamada el primero y hace sonar a los demás; `join` entra en una en
-  marcha; `answer` es entrar en la que te sonó; colgar es salir y la llamada sigue para quien quede.
-- Las conversaciones nuevas dejan a todos sus miembros decir que están en una llamada, y en las antiguas lo
-  abre el primer administrador que empiece una — antes solo podía entrar en su propia llamada quien había
-  creado la sala.
-- `Call` gana `participants` (todo el mundo, cada uno con su `media`), `isEncrypted` y `ownScreen`; el evento
-  `call.speaking` dice quién habla sin repintar la llamada entera; `call.incoming` suena también cuando una
-  llamada empieza en una conversación tuya.
-
 ### Quitado
 
 - Las llamadas 1:1 entre navegadores (`m.call.*` del SDK) y con ellas `hold`, `transfer`, `pressDigit`,
   `joinCalls`, el evento `call.transferred`, `CallTransfer`, `Call.kind`, `isOnHold`, `isOnHoldByThem`,
   `talkingTo` y `hasRemoteMedia`. Era vocabulario de teléfono; el teléfono no va por aquí.
+
 - coturn del entorno de desarrollo: el relé lo trae LiveKit dentro.
+
 - El estado `connecting` de `Call`: nada lo producía ya. Una llamada suena, está conectada o ha terminado.
 
 ## 0.1.0-alpha.1 - 2026-09-07

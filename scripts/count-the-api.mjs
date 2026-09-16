@@ -62,6 +62,41 @@ for (const [, said] of notes.matchAll(/(?<!--> )(?<!-->)\b(\d+) operaciones/g)) 
   }
 }
 
+// And the same numbers written in prose anywhere else they are claimed. The package notes said the storage
+// derived its key from a device secret months after it stopped being the only way; a number is easier to
+// check than a sentence, so at least the numbers are checked everywhere they appear.
+//
+// The changelog and the roadmap are left out on purpose: one says what a number used to be, and the other
+// says what it might become. Neither is a claim about today.
+const saidInProse = {
+  operations: /(\d+) operaciones/g,
+  groups: /(\d+) grupos/g,
+  capabilities: /(\d+) capacidades/g,
+  requiredOfAnAdapter: /(\d+) métodos obligatorios/g,
+  errorCodes: /(\d+) códigos/g
+};
+const alsoClaiming = [
+  "ARCHITECTURE.md",
+  "README.md",
+  "API.md",
+  "packages/core/README.md",
+  "packages/matrix-js/README.md",
+  "packages/in-memory/README.md",
+  "packages/browser-storage/README.md",
+  "packages/web/README.md",
+  "examples/web/README.md"
+];
+for (const where of alsoClaiming) {
+  const text = readFileSync(where, "utf8");
+  for (const [what, pattern] of Object.entries(saidInProse)) {
+    for (const [, said] of text.matchAll(pattern)) {
+      if (Number(said) !== counted[what]) {
+        wrong.push(`${what}: ${where} says ${said}, it is ${counted[what]}`);
+      }
+    }
+  }
+}
+
 if (wrong.length > 0) {
   console.error(`The architecture notes are out of date:\n  ${wrong.join("\n  ")}`);
   process.exit(1);

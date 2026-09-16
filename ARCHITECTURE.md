@@ -93,7 +93,7 @@ Un archivo por pantalla o por asunto. Ninguno pasa de 300 líneas. `app.ts` solo
 Ejemplo: `conversations.pin`.
 
 1. **Modelo** — si devuelve algo nuevo, `core/src/models/<asunto>.ts`
-2. **Puerto** — el método en `core/src/capabilities.ts` (o en `adapter.ts` si de verdad es obligatorio)
+2. **Puerto** — el método en `packages/core/src/capabilities.ts` (o en `adapter.ts` si de verdad es obligatorio)
 3. **Test en rojo** — `tests/<asunto>.test.mjs`, contra el doble
 4. **Lógica** — `core/src/<asunto>-operations.ts`
 5. **Fachada** — una línea en `client.ts`
@@ -106,7 +106,7 @@ Ejemplo: `conversations.pin`.
 
 Cuando un backend podría legítimamente no tenerla.
 
-1. `export interface XAdapter` en `core/src/capabilities.ts`
+1. `export interface XAdapter` en `packages/core/src/capabilities.ts`
 2. `readonly x?: XAdapter` en `MessagingAdapter`, y reexportar el nombre desde `adapter.ts`
 3. En el núcleo, un guardia y nada más:
 
@@ -150,7 +150,7 @@ node --test tests/adapter-contract.test.mjs   # la misma suite que cumple Matrix
 ### Añadir una pantalla al ejemplo
 
 1. Un archivo en `examples/web/src/app/`, un asunto
-2. El marcado en `app.html`
+2. El marcado en `examples/web/index.html`
 3. Armarlo en `app.ts`
 4. Lógica pura en su propio archivo sin DOM: node ejecuta TypeScript, así que se testea desde el fuente
    (`tests/writing.test.mjs` lo hace)

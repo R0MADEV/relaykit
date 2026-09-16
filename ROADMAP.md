@@ -207,7 +207,7 @@ Pendiente:
   y `media.download`, validado contra Synapse en el smoke E2E. La cache de descargas esta cubierta, con limite
   en bytes y vaciado al cerrar sesion.
 - Rate limits y retry-after: los envios de eventos los reintenta el scheduler de `matrix-js-sdk`. El resto de
-  llamadas (crear room, unirse, subir media) devuelven `SdkError` con codigo `RATE_LIMITED` y `retryAfterMs` para
+  llamadas (crear room, unirse, subir media) devuelven `RelayKitError` con codigo `RATE_LIMITED` y `retryAfterMs` para
   que la aplicacion decida. Los envios de mensajes si se reintentan solos con esa espera.
 - Estados de carga y error: cubierto con `connection.changed`, `sync.changed`, estados de mensaje y `error`.
 - API de paginacion: cubierta. `messages.loadMore` devuelve `{ messages, hasMore }`, validado contra Synapse en el

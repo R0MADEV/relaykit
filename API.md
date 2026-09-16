@@ -32,6 +32,32 @@ await client.start();
 
 Tres datos opacos. No hace falta login con usuario y contraseña: si el token lo provisiona un backend, encaja.
 
+### Empezar, parar y salir
+
+| Qué | Qué hace |
+|---|---|
+| `client.start(opciones?)` | arranca. Con `waitForSync: false` vuelve enseguida y lo de ayer se pinta ya |
+| `client.stop()` | para. La sesión sigue siendo válida: volver a arrancar no pide entrar otra vez |
+| `client.logout()` | sale de verdad: se lo dice al homeserver, borra la copia local y suelta la credencial. Los tres pasos son independientes, así que ninguno se queda a medias porque otro falle |
+| `client.currentSession()` | la sesión que tiene ahora mismo, o nada si no tiene ninguna |
+
+`currentSession` hace pareja con el aviso `session.changed`: el aviso dice **cuándo**, esto dice **qué**. Una
+pantalla dibujada después de que un token se renovara solo tiene dónde preguntar en lugar de adivinar.
+
+### Cómo va la cosa
+
+| Qué | Qué contesta |
+|---|---|
+| `client.getConnectionStatus()` | `"disconnected"`, `"connecting"`, `"connected"` o `"reconnecting"` |
+| `client.getSyncStatus()` | `"idle"`, `"syncing"`, `"synced"` o `"error"` |
+
+Los dos avisan también solos, con `connection.changed` y `sync.changed`. Se preguntan para pintar la primera
+vez; después basta con escuchar.
+
+`client.emitListenerError(error)` es la otra mitad de eso, y casi ninguna aplicación la llama: la usan las
+listas vivas para decir que algo ha fallado **dentro de un suscriptor de la propia aplicación**. Sale por el
+aviso `error`, como todo lo demás que va mal, en lugar de romper el trabajo que lo estaba haciendo.
+
 ---
 
 ## Lo que se pide
