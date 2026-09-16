@@ -88,6 +88,13 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Cambiado
 
+- **El aviso de claves dice de dónde sale la clave que pide, y deja de ofrecer puertas contra un muro.** Decía
+  «Hay una copia de tus claves que este dispositivo todavía no ha abierto» y un botón «Introducir clave», sin
+  decir en ningún sitio **cuál** clave: la de recuperación que se enseña una sola vez al proteger los mensajes,
+  que nadie más tiene y que no se puede volver a ver. Ahora lo dice. Y «Verificar desde otra sesión» solo
+  aparece si hay otra sesión: ofrecerlo cuando no hay ninguna es ofrecer una salida que no existe, y quien la
+  pulsa no tiene forma de averiguarlo. La decisión vive en `what-opens-these-keys.ts`, sin DOM, con sus tests.
+
 - **Las comprobaciones cierran las cuentas que registran, y la de claves ya no deja una copia sin dueño.**
   Diecisiete guiones registraban cuentas y solo cerraban sesión, así que la cuenta seguía en el directorio de
   personas del homeserver —el mismo que busca el ejemplo cuando alguien escribe un nombre en «invitar»—, y

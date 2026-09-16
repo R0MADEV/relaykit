@@ -1,6 +1,7 @@
 import { RelayKitError } from "@relaykit/web";
 import type { KeyStanding, MessagingClient, UserId, VerificationSession } from "@relaykit/web";
 import { dialog, element, input, onClick, safe } from "./dom.js";
+import { whatOpensThese } from "./what-opens-these-keys.js";
 
 /**
  * What this device can do with what was said before it existed, and the two ways out when the answer is
@@ -46,24 +47,30 @@ export class ProtectingKeys {
       this.standing = "ready";
       this.wentWrong(error);
     }
+    if (this.standing === "locked") await this.countTheOthers();
     this.paint();
   }
 
   private paint(): void {
-    const banner = element("keys");
-    banner.hidden = this.standing === "ready";
-    element("keys-verify").hidden = this.standing !== "locked";
-    if (this.standing === "never-protected") {
-      element("keys-title").textContent = "Tus mensajes cifrados no están protegidos";
-      element("keys-under").textContent =
-        "Sin una clave de recuperación, lo que se diga aquí se pierde al cambiar de dispositivo.";
-      element("keys-act").textContent = "Proteger mis mensajes";
-      return;
-    }
-    element("keys-title").textContent = "Este dispositivo no puede leer los mensajes anteriores";
-    element("keys-under").textContent =
-      "Hay una copia de tus claves que este dispositivo todavía no ha abierto.";
-    element("keys-act").textContent = "Introducir clave";
+    const way = whatOpensThese(this.standing, { otherSessions: this.otherSessions });
+    element("keys").hidden = this.standing === "ready";
+    element("keys-verify").hidden = !way.canAskAnotherSession;
+    element("keys-title").textContent = way.title;
+    element("keys-under").textContent = way.under;
+    element("keys-act").textContent = way.act;
+  }
+
+  /**
+   * How many other sessions of this account there are, because one of the two ways out is asking one of them.
+   *
+   * Counted rather than assumed: offering to verify from another session when there is no other session is a
+   * door onto a wall, and the person pressing it has no way of finding that out.
+   */
+  private otherSessions = 0;
+
+  private async countTheOthers(): Promise<void> {
+    const sessions = await this.client.devices.list().catch(() => []);
+    this.otherSessions = sessions.filter(session => !session.isCurrent).length;
   }
 
   // --- the key ---------------------------------------------------------------
