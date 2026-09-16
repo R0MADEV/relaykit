@@ -5,6 +5,16 @@ import { MessagingClient, createConversationList } from "@relaykit/core";
 
 const session = { homeserver: "memory://test", userId: "alice", accessToken: "token" };
 
+/** A homeserver that will not take what somebody wrote, so that it stays waiting to go out. */
+class AdapterThatCannotSend extends InMemoryAdapter {
+  failSends = false;
+
+  async sendMessage(conversationId, body, ...rest) {
+    if (this.failSends) throw new Error("the homeserver is not answering");
+    return super.sendMessage(conversationId, body, ...rest);
+  }
+}
+
 async function startClient() {
   const adapter = new InMemoryAdapter();
   const client = new MessagingClient({ adapter, storage: new InMemoryStorage(), session });
@@ -96,5 +106,54 @@ test("what the local copy remembers does not outvote what the homeserver says no
   const [seen] = (await again.conversations.list()).filter(each => each.id === conversation.id);
 
   assert.equal(seen?.isDirect, true, "the stale local copy won");
+  await again.stop();
+});
+
+test("a conversation the account is no longer in goes from the local copy too", async () => {
+  const adapter = new InMemoryAdapter();
+  const storage = new InMemoryStorage();
+  const first = new MessagingClient({ adapter, storage, session });
+  await first.start();
+  const conversation = await first.conversations.create({ participantIds: ["bob"], title: "Equipo" });
+  await first.conversations.list();
+  await first.stop();
+
+  // Thrown out, or left from another device. Either way nobody here was told, and the only sign of it is
+  // that the homeserver stops listing it. A copy that only ever grows shows conversations that are gone.
+  await adapter.forgetConversation(conversation.id);
+
+  const again = new MessagingClient({ adapter, storage, session });
+  await again.start();
+  await again.conversations.list();
+
+  assert.deepEqual(await storage.getConversations(), []);
+  await again.stop();
+});
+
+test("except while it still holds something waiting to be sent", async () => {
+  const adapter = new AdapterThatCannotSend();
+  const storage = new InMemoryStorage();
+  const first = new MessagingClient({ adapter, storage, session });
+  await first.start();
+  const conversation = await first.conversations.create({ participantIds: ["bob"], title: "Equipo" });
+  // And it still cannot be sent when the client comes back: a homeserver that answers again is one where the
+  // outbox sends it, and then there is nothing waiting and nothing to protect.
+  adapter.failSends = true;
+  await first.messages.send(conversation.id, "esto no ha salido todavía").catch(() => undefined);
+  await first.conversations.list();
+  await first.stop();
+
+  await adapter.forgetConversation(conversation.id);
+
+  const again = new MessagingClient({ adapter, storage, session });
+  await again.start();
+  await again.conversations.list();
+
+  // Whoever wrote it has not been told it cannot be sent. Throwing it away without saying so loses it.
+  const kept = await storage.getConversations();
+  assert.deepEqual(
+    kept.map(each => each.id),
+    [conversation.id]
+  );
   await again.stop();
 });
