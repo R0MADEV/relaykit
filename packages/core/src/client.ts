@@ -60,6 +60,12 @@ import type {
   SignOutOptions,
   MediaRef,
   KeyStanding,
+  DeviceVerification,
+  CryptoStatus,
+  KeyBackupStatus,
+  RecoverySetup,
+  KeyBackupRestoreSummary,
+  VerificationSession,
   User,
   UserPresence,
   WayIn,
@@ -238,9 +244,12 @@ export class MessagingClient {
       this.reactionOperations.remove(id, reactionId)
   };
   readonly devices = {
-    verification: (userId: string, deviceId: string) => this.deviceOperations.verification(userId, deviceId),
-    verify: (userId: string, deviceId: string) => this.deviceOperations.verify(userId, deviceId),
-    revoke: (userId: string, deviceId: string) => this.deviceOperations.revoke(userId, deviceId),
+    verification: (userId: string, deviceId: string): Promise<DeviceVerification | undefined> =>
+      this.deviceOperations.verification(userId, deviceId),
+    verify: (userId: string, deviceId: string): Promise<void> =>
+      this.deviceOperations.verify(userId, deviceId),
+    revoke: (userId: string, deviceId: string): Promise<void> =>
+      this.deviceOperations.revoke(userId, deviceId),
     list: (): Promise<readonly Device[]> => this.deviceOperations.list(),
     rename: (deviceId: string, displayName: string): Promise<void> =>
       this.deviceOperations.rename(deviceId, displayName),
@@ -265,12 +274,14 @@ export class MessagingClient {
     setLevel: (level: NotificationLevel): Promise<void> => this.deviceOperations.setLevel(level)
   };
   readonly crypto = {
-    status: () => this.cryptoOperations.status(),
+    status: (): Promise<CryptoStatus> => this.cryptoOperations.status(),
     /** Whether this device can read what was said before it, and what there is to offer when it cannot. */
     standing: (): Promise<KeyStanding> => this.cryptoOperations.standing(),
-    backupStatus: () => this.cryptoOperations.backupStatus(),
-    setupRecovery: (options?: RecoverySetupOptions) => this.cryptoOperations.setupRecovery(options),
-    recover: (recoveryKey: string) => this.cryptoOperations.recover(recoveryKey)
+    backupStatus: (): Promise<KeyBackupStatus> => this.cryptoOperations.backupStatus(),
+    setupRecovery: (options?: RecoverySetupOptions): Promise<RecoverySetup> =>
+      this.cryptoOperations.setupRecovery(options),
+    recover: (recoveryKey: string): Promise<KeyBackupRestoreSummary> =>
+      this.cryptoOperations.recover(recoveryKey)
   };
   /**
    * Signing in somewhere else and coming back: an organisation's single sign-on, or Google.
@@ -379,14 +390,22 @@ export class MessagingClient {
     limits: (): Promise<MediaLimits> => this.mediaOperations.limits()
   };
   readonly verification = {
-    request: (userId: string, deviceId?: string, options?: VerificationRequestOptions) =>
-      this.verificationOperations.request(userId, deviceId, options),
-    qrCode: (sessionId: string) => this.verificationOperations.qrCode(sessionId),
-    scan: (sessionId: string, code: Uint8Array) => this.verificationOperations.scan(sessionId, code),
-    accept: (sessionId: string) => this.verificationOperations.accept(sessionId),
-    cancel: (sessionId: string) => this.verificationOperations.cancel(sessionId),
-    confirm: (sessionId: string) => this.verificationOperations.confirm(sessionId),
-    reject: (sessionId: string) => this.verificationOperations.reject(sessionId)
+    request: (
+      userId: string,
+      deviceId?: string,
+      options?: VerificationRequestOptions
+    ): Promise<VerificationSession> => this.verificationOperations.request(userId, deviceId, options),
+    qrCode: (sessionId: string): Promise<Uint8Array | undefined> =>
+      this.verificationOperations.qrCode(sessionId),
+    scan: (sessionId: string, code: Uint8Array): Promise<VerificationSession> =>
+      this.verificationOperations.scan(sessionId, code),
+    accept: (sessionId: string): Promise<VerificationSession> =>
+      this.verificationOperations.accept(sessionId),
+    cancel: (sessionId: string): Promise<VerificationSession> =>
+      this.verificationOperations.cancel(sessionId),
+    confirm: (sessionId: string): Promise<VerificationSession> =>
+      this.verificationOperations.confirm(sessionId),
+    reject: (sessionId: string): Promise<VerificationSession> => this.verificationOperations.reject(sessionId)
   };
 
   private readonly events = new EventBus();

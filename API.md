@@ -155,27 +155,291 @@ pantalla de otro; quien se aparta es el que ya estaba, y sale lo mismo para todo
 La lista de micrófonos y cámaras **no la da la biblioteca**: la da el navegador con `enumerateDevices()`.
 `useMicrophone(deviceId)` es la parte que sí es nuestra.
 
-### Los demás
+## Todas las operaciones
 
-| Grupo | Qué hay |
-|---|---|
-| `client.reactions` | `add`, `remove` — las que ya están llegan **en el mensaje**, en `message.reactions` |
-| `client.polls` | `start`, `vote`, `close`, `list` |
-| `client.location` | `start`, `update`, `stop`, `list` — ubicación en vivo |
-| `client.media` | `download`, `preview` (previsualización de enlaces), `limits` (lo que el servidor acepta) |
-| `client.users` | `profile`, `avatar`, `search`, `setDisplayName`, `setAvatar`, `ignore`, `unignore`, `ignored` |
-| `client.presence` | `set` (lo que haces tú), `of(userId)` (lo que hace otro) |
-| `client.sso` | `waysIn`, `startAt`, `finish` — entrar con el SSO de la organización, Google, GitHub |
-| `client.signInAsGuest(homeserver)` | entrar sin cuenta, donde el homeserver lo permita |
-| `client.devices` | `list` (la sesión que usas primero, luego por cuándo se vio cada una), `rename`, `verify`, `revoke`, `signOut`, `verification` |
-| `client.verification` | `request`, `qrCode`, `scan`, `accept`, `confirm`, `reject`, `cancel` |
-| `client.crypto` | `standing`, `status`, `backupStatus`, `setupRecovery`, `recover` |
-| `client.push` | `register`, `registered`, `unregister`, `watchFor`, `stopWatchingFor`, `keywords`, `pending`, `mute`, `unmute`, `muted`, `level`, `setLevel` |
-| `client.spaces` | `list`, `create`, `add`, `remove`, `conversations`, `children` (el árbol entero, con `depth`) |
-| `client.account` | `changePassword`, `close` (darse de baja), `remember(nombre, valor)`, `remembered(nombre)`, `addresses`, `addEmail`, `confirmEmail`, `removeAddress` |
-| `client.resetPassword(servidor, correo)` | volver a entrar cuando no te acuerdas; se termina con `finishResettingPassword` |
+Lo de arriba cuenta lo que hay que saber de las tres que más se usan. Esto es la lista entera, con lo que
+recibe y devuelve cada una, escrita desde el código: `npm run check` falla si deja de coincidir.
 
----
+<!-- generated: the operations -->
+
+<!-- Escrito por `npm run write:api` desde `packages/core/src/client.ts`. No editar a mano. -->
+
+Todo devuelve una promesa salvo donde se diga otra cosa.
+
+### `client.conversations`
+
+Las conversaciones: abrirlas, entrar, salir, y todo lo que se hace a una entera
+
+```ts
+list(options?: ListConversationsOptions): Promise<readonly Conversation[]>
+create(input: CreateConversationInput): Promise<Conversation>
+join(conversationId: ConversationId, options?: JoinConversationOptions): Promise<Conversation>
+open(userId: string): Promise<Conversation>
+leave(conversationId: ConversationId): Promise<void>
+invite(conversationId: ConversationId, userId: string): Promise<Conversation>
+rename(conversationId: ConversationId, title: string): Promise<Conversation>
+remove(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation>
+ban(conversationId: ConversationId, userId: string, reason?: string): Promise<Conversation>
+unban(conversationId: ConversationId, userId: string): Promise<Conversation>
+setUnread(conversationId: ConversationId, unread: boolean): Promise<Conversation>
+setFavourite(conversationId: ConversationId, favourite: boolean): Promise<Conversation>
+setTopic(conversationId: ConversationId, topic: string): Promise<Conversation>
+setAvatar(conversationId: ConversationId, image: AvatarImage): Promise<Conversation>
+setNotifications(conversationId: ConversationId, level: NotificationLevel): Promise<Conversation>
+pin(conversationId: ConversationId, messageId: MessageId): Promise<void>
+unpin(conversationId: ConversationId, messageId: MessageId): Promise<void>
+rotateKeys(conversationId: ConversationId): Promise<void>
+upgrade(conversationId: ConversationId): Promise<Conversation>
+current(conversationId: ConversationId): Promise<Conversation>
+link(conversationId: ConversationId): Promise<string>
+setAlias(conversationId: ConversationId, alias: string): Promise<Conversation>
+publish(conversationId: ConversationId, listed: boolean): Promise<void>
+discover(query?: string): Promise<readonly PublicConversation[]>
+setJoinRule(conversationId: ConversationId, rule: JoinRule): Promise<Conversation>
+setHistoryVisibility( conversationId: ConversationId, visibility: HistoryVisibility ): Promise<Conversation>
+knock(conversationId: ConversationId, options?: KnockOptions): Promise<void>
+draft(conversationId: ConversationId): Promise<string | undefined>
+pinned(conversationId: ConversationId): Promise<readonly Message[]>
+participants(conversationId: ConversationId): Promise<readonly Participant[]>
+permissions(conversationId: ConversationId): Promise<ConversationPermissions>
+forget(conversationId: ConversationId): Promise<void>
+tag(conversationId: ConversationId, tag: string): Promise<void>
+untag(conversationId: ConversationId, tag: string): Promise<void>
+tags(conversationId: ConversationId): Promise<readonly string[]>
+versions(): Promise<RoomVersions>
+setRole(conversationId: ConversationId, userId: string, role: ConversationRole): Promise<void>
+findDirect(userId: string): Promise<Conversation | undefined>
+search(query: string): Promise<readonly Conversation[]>
+typing(conversationId: ConversationId, isTyping: boolean, timeoutMs = 5000): Promise<void>
+```
+
+### `client.messages`
+
+Lo que se dice dentro de una conversación
+
+```ts
+list(id: ConversationId, options?: ListMessagesOptions): Promise<readonly Message[]>
+loadMore(id: ConversationId, limit = 20): Promise<MessagePage>
+search(query: string, options?: MessageSearchOptions): Promise<readonly Message[]>
+thread(id: ConversationId, rootId: MessageId): Promise<readonly Message[]>
+threads(id: ConversationId): Promise<readonly ThreadSummary[]>
+searchRemote(query: string, options?: RemoteSearchOptions): Promise<RemoteSearchPage>
+around(id: ConversationId, messageId: MessageId, limit?: number): Promise<MessageSurroundings>
+send(id: ConversationId, body: string, options?: SendMessageOptions): Promise<Message>
+sendFile(id: ConversationId, file: FileInput, options?: SendFileOptions): Promise<Message>
+sendSticker(id: ConversationId, sticker: FileInput): Promise<Message>
+sendLocation(id: ConversationId, location: GeoLocation): Promise<Message>
+sendVoice(id: ConversationId, file: FileInput, voice: VoiceInfo): Promise<Message>
+report(id: MessageId, reason: string): Promise<void>
+unreadSince(id: ConversationId): Promise<readonly Message[]>
+forward(id: MessageId, toConversationId: ConversationId): Promise<Message>
+retry(id: MessageId): Promise<Message>
+cancel(id: MessageId): Promise<Message>
+markRead( conversationId: ConversationId, messageId: MessageId, options?: MarkReadOptions ): Promise<void>
+readBy(conversationId: ConversationId, messageId: MessageId): Promise<readonly ReadReceipt[]>
+edit(id: ConversationId, messageId: MessageId, body: string): Promise<Message>
+delete(id: ConversationId, messageId: MessageId): Promise<Message>
+```
+
+### `client.reactions`
+
+Reaccionar a un mensaje
+
+```ts
+add(id: ConversationId, messageId: MessageId, key: string): Promise<Reaction>
+remove(id: ConversationId, reactionId: string): Promise<void>
+```
+
+### `client.devices`
+
+Las sesiones de esta cuenta, y cuáles son de fiar
+
+```ts
+verification(userId: string, deviceId: string): Promise<DeviceVerification | undefined>
+verify(userId: string, deviceId: string): Promise<void>
+revoke(userId: string, deviceId: string): Promise<void>
+list(): Promise<readonly Device[]>
+rename(deviceId: string, displayName: string): Promise<void>
+signOut(deviceIds: readonly string[], options?: SignOutOptions): Promise<void>
+```
+
+### `client.push`
+
+Avisos cuando la aplicación está cerrada
+
+```ts
+register(registration: PushRegistration): Promise<void>
+registered(): Promise<readonly PushRegistration[]>
+unregister(deviceToken: string): Promise<void>
+watchFor(word: string): Promise<void>
+stopWatchingFor(word: string): Promise<void>
+keywords(): Promise<readonly string[]>
+pending(options?: PendingNotificationsOptions): Promise<readonly Notification[]>
+muted(): Promise<readonly string[]>
+mute(userId: string): Promise<void>
+unmute(userId: string): Promise<void>
+level(): Promise<NotificationLevel>
+setLevel(level: NotificationLevel): Promise<void>
+```
+
+### `client.crypto`
+
+Las claves: protegerlas y recuperarlas
+
+```ts
+status(): Promise<CryptoStatus>
+standing(): Promise<KeyStanding>
+backupStatus(): Promise<KeyBackupStatus>
+setupRecovery(options?: RecoverySetupOptions): Promise<RecoverySetup>
+recover(recoveryKey: string): Promise<KeyBackupRestoreSummary>
+```
+
+### `client.account`
+
+La cuenta: contraseña, direcciones, y darse de baja
+
+```ts
+changePassword(currentPassword: string, newPassword: string): Promise<void>
+close(password: string): Promise<void>
+remember(name: string, value: Readonly<Record<string, unknown>>): Promise<void>
+remembered(name: string): Promise<Readonly<Record<string, unknown>> | undefined>
+addresses(): Promise<readonly AccountAddress[]>
+addEmail(email: string): Promise<AddressProof>
+confirmEmail(proof: AddressProof, password: string): Promise<void>
+removeAddress(kind: "email" | "phone", address: string): Promise<void>
+```
+
+### `client.sso`
+
+Entrar con el sistema de identidad de la organización
+
+```ts
+waysIn(homeserver: string): Promise<readonly WayIn[]>
+startAt(homeserver: string, comeBackTo: string, wayInId?: string): Promise<string>
+finish(homeserver: string, token: string): Promise<Session>
+```
+
+### `client.presence`
+
+Si alguien está delante de su pantalla
+
+```ts
+set(update: PresenceUpdate): Promise<void>
+of(userId: string): Promise<UserPresence | undefined>
+```
+
+### `client.users`
+
+Las personas: quién es quién, y a quién no quieres leer
+
+```ts
+profile(userId: string, conversationId?: ConversationId): Promise<User>
+avatar(userId: string, options?: AvatarOptions): Promise<AvatarImage | undefined>
+search(query: string, options?: SearchUsersOptions): Promise<readonly User[]>
+setDisplayName(displayName: string): Promise<void>
+setAvatar(image: AvatarImage): Promise<void>
+ignored(): Promise<readonly string[]>
+ignore(userId: string): Promise<void>
+unignore(userId: string): Promise<void>
+```
+
+### `client.spaces`
+
+Agrupar conversaciones
+
+```ts
+list(): Promise<readonly Space[]>
+create(input: CreateSpaceInput): Promise<Space>
+add(spaceId: ConversationId, conversationId: ConversationId): Promise<void>
+remove(spaceId: ConversationId, conversationId: ConversationId): Promise<void>
+conversations(spaceId: ConversationId): Promise<readonly Conversation[]>
+children(spaceId: ConversationId): Promise<readonly SpaceChild[]>
+```
+
+### `client.location`
+
+Compartir dónde estás, mientras te mueves
+
+```ts
+start(conversationId: ConversationId, input: ShareLocationInput): Promise<LiveLocation>
+update(sharingId: string, position: GeoLocation): Promise<void>
+stop(sharingId: string): Promise<void>
+list(conversationId: ConversationId): Promise<readonly LiveLocation[]>
+```
+
+### `client.calls`
+
+Llamadas y videollamadas
+
+```ts
+place(conversationId: ConversationId, options?: PlaceCallOptions): Promise<Call>
+join(conversationId: ConversationId, options?: PlaceCallOptions): Promise<Call>
+answer(callId: string, options?: PlaceCallOptions): Promise<Call>
+hangUp(callId: string): Promise<void>
+reject(callId: string): Promise<void>
+muteMicrophone(callId: string, muted: boolean): Promise<void>
+muteCamera(callId: string, muted: boolean): Promise<void>
+shareScreen(callId: string, sharing: boolean): Promise<void>
+quality(callId: string): Promise<CallQuality>
+useMicrophone(deviceId: string): Promise<void>
+useCamera(deviceId: string): Promise<void>
+list(): Promise<readonly Call[]>
+history(conversationId: ConversationId, limit?: number): Promise<readonly PastCall[]>
+```
+
+### `client.polls`
+
+Preguntar algo y contar las respuestas
+
+```ts
+start(conversationId: ConversationId, input: StartPollInput): Promise<Poll>
+vote(conversationId: ConversationId, pollId: MessageId, answerId: string): Promise<void>
+close(conversationId: ConversationId, pollId: MessageId): Promise<void>
+list(conversationId: ConversationId): Promise<readonly Poll[]>
+```
+
+### `client.media`
+
+Archivos: bajarlos, y qué acepta el servidor
+
+```ts
+download(media: MediaRef): Promise<Uint8Array>
+preview(url: string): Promise<LinkPreview>
+limits(): Promise<MediaLimits>
+```
+
+### `client.verification`
+
+Comprobar que otra sesión o persona es quien dice
+
+```ts
+request( userId: string, deviceId?: string, options?: VerificationRequestOptions ): Promise<VerificationSession>
+qrCode(sessionId: string): Promise<Uint8Array | undefined>
+scan(sessionId: string, code: Uint8Array): Promise<VerificationSession>
+accept(sessionId: string): Promise<VerificationSession>
+cancel(sessionId: string): Promise<VerificationSession>
+confirm(sessionId: string): Promise<VerificationSession>
+reject(sessionId: string): Promise<VerificationSession>
+```
+
+### En el propio cliente
+
+```ts
+client.login(credentials: LoginCredentials): Promise<Session>
+client.resetPassword(homeserver: string, email: string): Promise<AddressProof>
+client.finishResettingPassword(homeserver: string, proof: AddressProof, newPassword: string): Promise<void>
+client.currentSession(): Session | undefined
+client.signInAsGuest(homeserver: string): Promise<Session>
+client.register(credentials: RegisterCredentials): Promise<Session>
+client.start(options?: StartOptions): Promise<void>
+client.stop(): Promise<void>
+client.logout(): Promise<void>
+client.getConnectionStatus(): ConnectionStatus
+client.getSyncStatus(): SyncStatus
+client.emitListenerError(error: unknown): void
+```
+
+<!-- end generated -->
 
 ## Lo que avisa solo
 

@@ -26,6 +26,19 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Añadido
 
+- **`API.md` lleva la referencia entera, escrita desde el código.** De las 156 operaciones, 52 aparecían solo
+  como un nombre dentro de una lista separada por comas —los doce de `push`, ocho de `account`, seis de
+  `verification`— y únicamente 12 enseñaban qué recibían. Ahora las 156 enseñan sus parámetros y lo que
+  devuelven. No está escrito a mano a propósito: una referencia de ese tamaño se desincroniza con el primer
+  argumento que se renombre y no hay nada que lo note, que es exactamente el problema que ya tuvimos con los
+  números. La genera `npm run write:api` desde `client.ts` y `npm run check` falla si alguien la deja sin
+  regenerar. La prosa se queda con lo que un generador no sabe decir: por qué existe algo y qué no hacer con
+  ello.
+
+- **Las 14 operaciones que no declaraban qué devuelven ya lo declaran** (`devices.verification`, `verify`,
+  `revoke`, las cuatro de `crypto` y las siete de `verification`). En una fachada pública el tipo que devuelve
+  es el contrato: sin escribirlo, cambia solo cuando cambia algo de dentro y nadie se entera.
+
 - `npm run sweep:accounts` y `npm run sweep:devices`, para lo que las comprobaciones dejaban atrás. No es
   orden: el directorio de personas del homeserver es el mismo que busca el ejemplo, así que setecientas
   cuentas de usar y tirar es lo que ve quien escribe un nombre en «Invitar»; y un dispositivo es *para quien*
