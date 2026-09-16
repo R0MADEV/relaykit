@@ -68,8 +68,20 @@ async function signIn(page) {
  */
 async function signingOutReallyEndsIt(page) {
   const before = await read(page, `JSON.parse(localStorage.getItem("deitu-session")).accessToken`);
+  const databasesBefore = await read(page, `indexedDB.databases().then(all => all.map(each => each.name))`);
   await run(page, `document.getElementById("me").click(); document.getElementById("sign-out").click();`);
   await waitFor(page, "the sign in form after signing out", `!document.getElementById("sign-in").hidden`, 60);
+  // What this session left in the browser goes with it. They are named after a device nobody will sign in as
+  // again, so keeping them is keeping its keys where whoever uses this browser next can reach them.
+  const left = await read(
+    page,
+    `indexedDB
+       .databases()
+       .then(all => all.map(each => each.name).filter(name => /relaykit-crypto-|matrix-js-sdk:/.test(name)))`
+  );
+  detail.databasesBefore = databasesBefore.length;
+  detail.databasesAfterSigningOut = left;
+  if (left.length > 0) throw new Error(`signing out left its databases behind: ${left.join(", ")}`);
   const stillGood = await fetch(`${homeserver}/_matrix/client/v3/account/whoami`, {
     headers: { Authorization: `Bearer ${before}` }
   });

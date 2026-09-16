@@ -79,3 +79,27 @@ function syncStatusFor(state: string): SyncStatus {
   }
   return "idle";
 }
+
+/**
+ * Takes away the databases one session left in a browser.
+ *
+ * Three of them, all named after the device: the sync copy, the crypto store and its metadata. Named after the
+ * device because two sessions of the same person must never share keys — which also means nobody else will
+ * ever open them again once this one is over. Nothing deleted them, so a browser signed in and out of a few
+ * times ends up holding dozens, every one still carrying the keys it had.
+ *
+ * `clearStores` is the SDK's own and knows where they all are, except the rust crypto store, which is found by
+ * the prefix it was created under. And the client has to be stopped first: the SDK refuses otherwise, because
+ * a sync still in flight would write the database straight back.
+ */
+export async function takeTheDatabasesAway(
+  client: Pick<MatrixClient, "stopClient" | "clearStores">,
+  cryptoDatabasePrefix: string | undefined
+): Promise<void> {
+  client.stopClient();
+  // Said, never thrown: the session is over either way, and a browser that will not let go of a database is
+  // not a reason to leave somebody signed in.
+  await client
+    .clearStores(cryptoDatabasePrefix === undefined ? {} : { cryptoDatabasePrefix })
+    .catch(() => undefined);
+}

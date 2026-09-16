@@ -170,6 +170,7 @@ export class MatrixJsAdapter implements MessagingAdapter {
   readonly guests = new MatrixGuests();
   readonly account = new MatrixAccount(
     () => this.runtime.getClient(),
+    () => this.runtime.forgetWhatThisSessionLeft(),
     () => this.runtime.forgetTheRefreshToken()
   );
   readonly moderation: ModerationAdapter = this;

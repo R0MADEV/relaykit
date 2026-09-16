@@ -12,6 +12,7 @@ import { withTranslatedErrors } from "./matrix-errors.js";
 export class MatrixAccount implements AccountAdapter {
   constructor(
     private readonly client: () => MatrixClient,
+    private readonly forgetWhatIsLeft: () => Promise<void>,
     /** Told when the refresh token this session was given stops being worth anything. */
     private readonly noLongerRefreshable: () => void
   ) {}
@@ -60,6 +61,9 @@ export class MatrixAccount implements AccountAdapter {
         password
       });
     });
+    // And the databases of an account that does not exist any more, which nothing else is going to come back
+    // for. Said rather than thrown: the account is gone whether or not the browser lets go of them.
+    await this.forgetWhatIsLeft();
   }
 
   async listAddresses(): Promise<readonly AccountAddress[]> {

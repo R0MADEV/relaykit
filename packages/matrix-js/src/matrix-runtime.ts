@@ -12,7 +12,7 @@ import {
 } from "matrix-js-sdk";
 import type { AdapterHandlers, Session } from "@relaykit/core";
 import { theSessionAfterRefreshing } from "./matrix-tokens.js";
-import { createBrowserStore, handleSync, waitForInitialSync } from "./matrix-sync.js";
+import { createBrowserStore, handleSync, takeTheDatabasesAway, waitForInitialSync } from "./matrix-sync.js";
 import {
   handleAccountData,
   handleClientEvent,
@@ -132,7 +132,7 @@ export class MatrixRuntime {
         ? { useIndexedDB: false }
         : {
             useIndexedDB: true,
-            cryptoDatabasePrefix: `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}`
+            cryptoDatabasePrefix: this.rememberTheCryptoPrefix(session)
           };
     // Nothing encrypted can be read without an account, so there is nothing for a guest to set up.
     if (!session.isGuest) await this.client.initRustCrypto(cryptoOptions);
@@ -218,11 +218,39 @@ export class MatrixRuntime {
 
   async logout(): Promise<void> {
     if (!this.client) return;
+    const going = this.client;
+    const prefix = this.cryptoPrefix;
     try {
-      await this.client.logout();
+      await going.logout();
     } finally {
       await this.stop();
+      // Everything this session left in the browser goes with it. Named after a device nobody will sign in as
+      // again, so keeping them is keeping its keys where the next person to use this browser can reach them.
+      await takeTheDatabasesAway(going, prefix);
     }
+  }
+
+  /**
+   * Everything this session left in the browser, gone for good.
+   *
+   * For an account that no longer exists as much as for one that signed out: the databases are named after a
+   * device nobody will ever sign in as again, so what is kept is only its keys, where the next person to use
+   * this browser can reach them.
+   */
+  async forgetWhatThisSessionLeft(): Promise<void> {
+    const going = this.client;
+    if (!going) return;
+    const prefix = this.cryptoPrefix;
+    await this.stop();
+    await takeTheDatabasesAway(going, prefix);
+  }
+
+  /** Kept because deleting the crypto store means naming it, and by then the session is already gone. */
+  private cryptoPrefix: string | undefined;
+
+  private rememberTheCryptoPrefix(session: Session): string {
+    this.cryptoPrefix = `relaykit-crypto-${session.userId}-${session.deviceId ?? "unknown-device"}`;
+    return this.cryptoPrefix;
   }
 
   getClient(): MatrixClient {

@@ -271,6 +271,13 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Cada sesión dejaba tres bases de datos en el navegador y nadie las borraba nunca.** La copia de
+  sincronización, el almacén de claves y sus metadatos van con el nombre del dispositivo —dos sesiones de la
+  misma persona no pueden compartir claves—, así que un navegador usado unos días acumulaba treinta y cinco,
+  todas restos de sesiones que ya no existen y todas todavía con sus claves dentro. Salir y cerrar la cuenta se
+  las llevan ahora, con `clearStores` del propio SDK, que es quien sabe dónde están todas. `check:account`
+  cuenta las bases de datos antes y después de salir.
+
 - **Una conversación volvía a llamarse como su identificador al recargar.** `room.name` de matrix-js-sdk es un
   cálculo a partir del estado de la sala y de quién está dentro, y contesta con el id cuando no puede: en un
   navegador que restaura su copia local, eso es toda conversación durante los primeros instantes. El nombre que
