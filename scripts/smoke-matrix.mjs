@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
 async function request(path, options = {}) {
@@ -36,7 +36,9 @@ async function main() {
   console.log("Matrix smoke check passed for two users");
 }
 
-main().catch(error => {
-  console.error(`Matrix smoke check failed: ${error.message}`);
-  process.exitCode = 1;
-});
+main()
+  .finally(closeWhatWasMade)
+  .catch(error => {
+    console.error(`Matrix smoke check failed: ${error.message}`);
+    process.exitCode = 1;
+  });

@@ -14,7 +14,11 @@ const { serve, acceptOwnCertificate, waitFor } = require("./browser-harness.cjs"
 const root = path.join(__dirname, "..", "examples", "web", "dist");
 const homeserver = process.env.MATRIX_HOMESERVER ?? "http://localhost:8008";
 
-function report(ok, summary) {
+// Ends the run, and hands back the account it registered before it goes: a check that leaves accounts
+// behind fills the homeserver's people directory, which is the directory the example searches.
+async function report(ok, summary) {
+  const { closeWhatWasMade } = await import("./fresh-accounts.mjs");
+  await closeWhatWasMade().catch(() => undefined);
   console.log(`RELAYKIT_KEYS_RESULT ${JSON.stringify({ ok, summary })}`);
   app.exit(ok ? 0 : 1);
 }

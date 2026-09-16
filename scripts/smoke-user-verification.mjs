@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Two different people verifying each other, which happens inside the conversation they share. Both accounts
 // are their own: verifying leaves cross-signing state, and sharing accounts between checks means one check
@@ -104,8 +104,7 @@ async function main() {
 
     console.log(`RelayKit user verification smoke check passed (${emojiOf(asAlice)})`);
   } finally {
-    await bobSide?.client.logout();
-    await aliceSide.client.logout();
+    await closeWhatWasMade();
   }
 }
 

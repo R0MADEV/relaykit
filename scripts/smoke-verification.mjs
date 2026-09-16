@@ -1,4 +1,4 @@
-import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
+import { registerAccount, signInAgain, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // On an account of its own: verifying leaves cross-signing state behind, and a shared account that has been
 // through this all day stops being able to verify anything, with a failure that says nothing about why.
@@ -86,8 +86,7 @@ async function main() {
 
     console.log(`RelayKit verification smoke check passed (${emojiOf(firstSession)}, revoked afterwards)`);
   } finally {
-    await second?.client.logout();
-    await first.client.logout();
+    await closeWhatWasMade();
   }
 }
 

@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Registrar un gateway y que el homeserver le entregue algo no son lo mismo. Aqui hay un gateway de verdad,
 // dentro de la red de Docker, que apunta lo que recibe. Se comprueba que llega lo que tiene que llegar y que
@@ -88,7 +88,7 @@ async function main() {
       `RelayKit push smoke check passed (${everything.length} notified, and what was said never left)`
     );
   } finally {
-    for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

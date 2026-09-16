@@ -55,6 +55,7 @@
     "sweep:rooms": "npm run build && node scripts/sweep-rooms.mjs",
     "sweep:accounts": "npm run build && node scripts/sweep-accounts.mjs",
     "sweep:devices": "npm run build && node scripts/sweep-devices.mjs",
+    "sweep:keys": "node scripts/sweep-keys.mjs",
     "check:chat": "npm run build --workspace=@relaykit/example-web && electron scripts/check-chat.cjs --no-sandbox",
     "check:keys": "npm run build --workspace=@relaykit/example-web && electron scripts/check-keys.cjs --no-sandbox",
     "check:calls": "npm run build --workspace=@relaykit/example-web && electron scripts/check-calls.cjs --no-sandbox",

@@ -1,5 +1,5 @@
 import { createClient, EventType } from "matrix-js-sdk";
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 /**
  * The Matrix half of a conference, against a real homeserver and a real service handing out the leave.
@@ -179,7 +179,9 @@ async function run() {
   );
 }
 
-run().catch(error => {
-  console.error(`RelayKit conference smoke check failed: ${error.message}`);
-  process.exit(1);
-});
+run()
+  .finally(closeWhatWasMade)
+  .catch(error => {
+    console.error(`RelayKit conference smoke check failed: ${error.message}`);
+    process.exit(1);
+  });

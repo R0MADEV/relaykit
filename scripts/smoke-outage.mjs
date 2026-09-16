@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 const run = promisify(execFile);
 const compose = ["compose", "-f", "infrastructure/matrix/docker-compose.yml"];
@@ -92,7 +92,7 @@ async function main() {
     console.log("RelayKit outage smoke check passed (queued while down, delivered on its own once back)");
   } finally {
     if (stopped) await run("docker", [...compose, "start", "synapse"]).catch(() => undefined);
-    for (const device of [aliceDevice, bobDevice]) await device?.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

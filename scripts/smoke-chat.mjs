@@ -1,5 +1,5 @@
 import { deflateSync } from "node:zlib";
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Everything a conversation is besides plain text: rich text, mentions, a description, a picture, pinning.
 
@@ -256,7 +256,7 @@ async function main() {
       `RelayKit chat smoke check passed (rich text, mention, action, voice note, place, forwarding, new key, description, picture ${savedByAsking}x smaller when asked small, ${whoWasFound.id} found by name, pinning, silence)`
     );
   } finally {
-    for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

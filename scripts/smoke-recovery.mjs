@@ -1,4 +1,4 @@
-import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
+import { registerAccount, signInAgain, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // On accounts of its own: setting recovery up resets the cross-signing identity, so a shared account that has
 // been through this all day is left in a state where nothing else can verify, and the failure says nothing
@@ -94,9 +94,10 @@ async function main() {
     );
     console.log(`RelayKit recovery smoke check passed (${summary.imported}/${summary.total} keys imported)`);
   } finally {
-    await other.client.logout().catch(() => undefined);
+    // The devices first: they are sessions of an account that is about to stop existing.
     await secondDevice?.logout().catch(() => undefined);
     await firstDevice.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

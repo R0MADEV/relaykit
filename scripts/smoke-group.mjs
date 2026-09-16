@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 const people = ["group-a", "group-b", "group-c"];
 
@@ -164,7 +164,7 @@ async function main() {
       `RelayKit group smoke check passed (3 members, unread ${unreadForCarol}, ${afterLeaving.participantIds.length} left talking)`
     );
   } finally {
-    for (const member of members) await member.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

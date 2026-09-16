@@ -81,6 +81,15 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Cambiado
 
+- **Las comprobaciones cierran las cuentas que registran, y la de claves ya no deja una copia sin dueño.**
+  Diecisiete guiones registraban cuentas y solo cerraban sesión, así que la cuenta seguía en el directorio de
+  personas del homeserver —el mismo que busca el ejemplo cuando alguien escribe un nombre en «invitar»—, y
+  `check:keys` dejaba además una copia de claves con una clave de recuperación que se enseña una vez y se
+  tira. Ahora el ayudante recuerda lo que registró y `closeWhatWasMade()` lo cierra pase lo que pase;
+  `closeThem` dice en voz alta lo que no puede cerrar en lugar de saltárselo, y arranca el cliente cuando hace
+  falta, porque una comprobación que conduce el navegador nunca arranca el suyo. Nuevo `sweep:keys` para las
+  copias que ya estaban.
+
 - **`count:api` comprueba los números de todos los documentos, no solo de dos.** Antes miraba `ARCHITECTURE.md`
   y el README de la raíz; los README de paquetes decían que la copia local derivaba su clave de un secreto de
   dispositivo meses después de que dejara de ser la única forma. Un número es más fácil de comprobar que una

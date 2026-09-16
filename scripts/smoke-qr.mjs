@@ -1,4 +1,4 @@
-import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
+import { registerAccount, signInAgain, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Verifying a new device by showing it a code instead of comparing emoji.
 //
@@ -76,8 +76,7 @@ async function main() {
     }
     console.log(`RelayKit qr smoke check passed (${code.byteLength} bytes scanned)`);
   } finally {
-    await newcomer?.client.logout();
-    await trusted.client.logout();
+    await closeWhatWasMade();
   }
 }
 

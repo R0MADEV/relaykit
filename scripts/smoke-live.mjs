@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // The things that only exist while somebody is looking: typing, presence and read receipts.
 
@@ -115,7 +115,7 @@ async function main() {
       `RelayKit live smoke check passed (typing, ${receipts.length} receipt(s), presence ${seen.presence}, reopened in ${paintedIn} ms)`
     );
   } finally {
-    for (const side of [aliceSide, bobSide]) await side?.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Who is in a conversation, asked of a real homeserver.
 //
@@ -62,7 +62,9 @@ async function run() {
   console.log("RelayKit participants smoke check passed (a conversation knows who is in it)");
 }
 
-run().catch(error => {
-  console.error(`RelayKit participants smoke check failed: ${error.message}`);
-  process.exit(1);
-});
+run()
+  .finally(closeWhatWasMade)
+  .catch(error => {
+    console.error(`RelayKit participants smoke check failed: ${error.message}`);
+    process.exit(1);
+  });

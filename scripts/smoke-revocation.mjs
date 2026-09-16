@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Whoever provisions the accounts can take one away: a suspension, somebody leaving, a token revoked from
 // another device. The application has to find out and send that person back to the sign in screen.
@@ -43,6 +43,7 @@ async function main() {
 }
 
 main()
+  .finally(closeWhatWasMade)
   .then(() => process.exit(0))
   .catch(error => {
     console.error(`RelayKit revocation smoke check failed: ${error.message}`);

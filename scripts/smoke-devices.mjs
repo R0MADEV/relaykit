@@ -1,4 +1,4 @@
-import { registerAccount, signInAgain } from "./fresh-accounts.mjs";
+import { registerAccount, signInAgain, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 async function createClient(purpose, deviceName) {
   const account = await registerAccount(purpose, deviceName);
@@ -100,7 +100,7 @@ async function main() {
 
     console.log(`RelayKit two device smoke check passed (${laptop.deviceId} and ${phone.deviceId})`);
   } finally {
-    for (const device of [...devices, bobDevice]) await device?.client.logout().catch(() => undefined);
+    await closeWhatWasMade();
   }
 }
 

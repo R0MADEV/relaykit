@@ -1,4 +1,4 @@
-import { registerAccount } from "./fresh-accounts.mjs";
+import { registerAccount, closeWhatWasMade } from "./fresh-accounts.mjs";
 
 // Editing, answering and threads inside an encrypted conversation, which nothing else here checked.
 //
@@ -90,7 +90,9 @@ async function run() {
   console.log("RelayKit encrypted chat smoke check passed (edits, answers and threads survive encryption)");
 }
 
-run().catch(error => {
-  console.error(`RelayKit encrypted chat smoke check failed: ${error.message}`);
-  process.exit(1);
-});
+run()
+  .finally(closeWhatWasMade)
+  .catch(error => {
+    console.error(`RelayKit encrypted chat smoke check failed: ${error.message}`);
+    process.exit(1);
+  });
