@@ -38,7 +38,10 @@ export class IndexedDbStorage implements MessagingStorage {
   /** Not readonly on purpose: a change of key replaces it, and only once the database has taken it. */
   private locked = new LockedAway();
 
-  constructor(databaseName = "relaykit", options: IndexedDbStorageOptions = {}) {
+  constructor(
+    private readonly databaseName = "relaykit",
+    options: IndexedDbStorageOptions = {}
+  ) {
     this.database = this.open(databaseName);
     if (options.passphrase) {
       this.locked.lockWithPassphrase(options.passphrase.typed, options.passphrase.salt);
@@ -414,6 +417,25 @@ export class IndexedDbStorage implements MessagingStorage {
    */
   async close(): Promise<void> {
     await this.database.then(database => database.close()).catch(() => undefined);
+  }
+
+  /**
+   * Takes the copy away, rather than emptying it.
+   *
+   * What signing out wants: an emptied database is still a database, sitting in the browser's storage with
+   * its stores and its version, next to the ones the session did take with it. A copy nobody is signed in to
+   * is not a cache of anything.
+   */
+  async destroy(): Promise<void> {
+    await this.close();
+    await new Promise<void>(resolve => {
+      const request = indexedDB.deleteDatabase(this.databaseName);
+      // Whatever it answers. A browser that will not let go of a database is not worth failing over, and
+      // `onblocked` means another tab still has it open — which will delete it when that tab lets go.
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+      request.onblocked = () => resolve();
+    });
   }
 
   private open(databaseName: string): Promise<IDBDatabase> {

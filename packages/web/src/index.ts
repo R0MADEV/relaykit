@@ -81,20 +81,32 @@ export class StoreForWhoeverIsSignedIn implements MessagingStorage {
 
   constructor(private readonly open: (session: Session | undefined) => IndexedDbStorage | undefined) {}
 
-  /** Told every time the session changes, and does nothing at all unless it is a different person. */
-  nowSignedInAs(session: Session | undefined): void {
+  /**
+   * Told every time the session changes, and does nothing at all unless it is a different person.
+   *
+   * Answers when the copy that was open has been let go of, which nothing has to wait for — the next person
+   * gets their own either way — but which a test has no other way of knowing.
+   */
+  nowSignedInAs(session: Session | undefined): Promise<void> {
     const whoNow = session?.userId;
-    if (this.storage !== undefined && whoNow === this.openFor) return;
+    if (this.storage !== undefined && whoNow === this.openFor) return Promise.resolve();
     // Letting go rather than only forgetting: a database still open refuses to be deleted and refuses to be
     // upgraded, and does it by waiting rather than by failing, so nobody finds out. Whether it let go is not
     // allowed to decide whether the next person gets their own copy.
+    //
+    // And when there is nobody now, the copy goes with the session rather than staying emptied: signing out
+    // already takes the sync copy and the keys away, and a local copy nobody is signed in to is a cache of
+    // nothing. Somebody else signing in is a different thing — the person before them has not left, so what
+    // they wrote is waiting for them.
     const letting = this.storage;
-    void Promise.resolve()
-      .then(() => letting?.close())
+    const nobodyNow = whoNow === undefined;
+    const letGo = Promise.resolve()
+      .then(() => (nobodyNow ? letting?.destroy() : letting?.close()))
       .catch(() => undefined);
     this.storage = undefined;
     this.openFor = whoNow;
     this.session = session;
+    return letGo;
   }
 
   private session: Session | undefined;

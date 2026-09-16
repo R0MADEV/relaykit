@@ -271,6 +271,12 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Salir vaciaba la copia local en lugar de llevársela.** De las tres bases de datos que abre una sesión, dos
+  se iban al salir y la tercera se quedaba vacía, con sus seis almacenes y su número de versión, a la vista de
+  cualquiera que abriese el panel de almacenamiento del navegador. Una copia local de nadie no es la caché de
+  nada: ahora se borra entera. Que entre otra persona es distinto —la anterior no se ha ido— y su copia se
+  queda esperándola. `check:account` comprueba que tras salir no queda ninguna.
+
 - **Cada sesión dejaba tres bases de datos en el navegador y nadie las borraba nunca.** La copia de
   sincronización, el almacén de claves y sus metadatos van con el nombre del dispositivo —dos sesiones de la
   misma persona no pueden compartir claves—, así que un navegador usado unos días acumulaba treinta y cinco,

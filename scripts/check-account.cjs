@@ -77,7 +77,7 @@ async function signingOutReallyEndsIt(page) {
     page,
     `indexedDB
        .databases()
-       .then(all => all.map(each => each.name).filter(name => /relaykit-crypto-|matrix-js-sdk:/.test(name)))`
+       .then(all => all.map(each => each.name).filter(name => /relaykit-/.test(name)))`
   );
   detail.databasesBefore = databasesBefore.length;
   detail.databasesAfterSigningOut = left;
