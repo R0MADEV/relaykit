@@ -521,23 +521,29 @@ function encryptionWorker(): Worker {
 /**
  * Leaving, in all the ways a conference has to be left. Dropping the connection is the easy half: what the
  * room says about this device has to come down too, or somebody who walked out is still drawn on the call
- * until their membership runs out hours later. Stopping the session is what stops it being kept alive.
+ * until their membership runs out hours later.
+ *
+ * What is deliberately not done here is `stop()`. The session belongs to the SDK, which keeps one per room
+ * and hands the same one back next time; `stop()` is for a session you made yourself, and among other things
+ * it unsubscribes from the room's state. Called here it left that room's session deaf to anybody joining, for
+ * ever — so the third or fourth call rang and was withdrawn a moment later, and the SDK's own log said
+ * "Called MembershipManager.leave() even though the MembershipManager is not running". `leaveRoomSession()`
+ * takes the membership down and leaves the session listening, which is the whole of what leaving is.
  */
-async function walkOutOf(going: Joined): Promise<void> {
+export async function walkOutOf(going: Joined): Promise<void> {
   going.stopListening();
   await going.room.disconnect();
   // A session the room refused, or one already left, has nothing to take down; asking it to warns and does
   // nothing, and a log full of that hides the warning that matters. Bounded: a homeserver that will not take
   // the leave should not keep a client hanging for it, and the membership expires on its own.
   if (going.session.isJoined()) await going.session.leaveRoomSession(leavePatienceMs);
-  await going.session.stop();
 }
 
 /** How long to wait for the room to take this side's leave before moving on without it. */
 const leavePatienceMs = 5000;
 
 /** What is kept about a conference this side is in. The SFU and the SDK keep everything else. */
-interface Joined {
+export interface Joined {
   readonly room: LiveKitRoom;
   /** The SDK's own: it writes who is on the call into the room and takes it back down on the way out. */
   readonly session: MatrixRTCSession;

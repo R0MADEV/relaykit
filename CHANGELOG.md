@@ -304,6 +304,18 @@ menores; los cambios incompatibles se listan aqui.
 
 ### Corregido
 
+- **Salir de una llamada dejaba sorda a esa sala.** Se llamaba a `stop()` sobre la sesión del propio SDK —la
+  que guarda una por sala y vuelve a entregar la siguiente vez—, y `stop()`, entre otras cosas, la desengancha
+  de los eventos de estado de la sala. Así que después de la primera llamada esa sesión ya no se enteraba de
+  que alguien entrara, para siempre: la tercera o cuarta llamada sonaba y se retiraba un instante después.
+  `leaveRoomSession()` baja la pertenencia y deja la sesión escuchando, que es todo lo que salir significa.
+  El propio SDK lo venía diciendo cuarenta veces por ejecución —«Called MembershipManager.leave() even though
+  the MembershipManager is not running»—; ahora, ninguna.
+
+- **`check:calls` podía pasar sin dictaminar nada.** Su último paso mata un navegador a propósito, y sin un
+  oyente de `window-all-closed` Electron se cerraba solo en cuanto se iba la última ventana: código de salida
+  0, sin veredicto impreso. Una comprobación que puede pasar sin decir nada es peor que no tenerla.
+
 - **Los ejemplos de la documentación no compilaban, y nadie lo sabía.** 55 bloques de TypeScript repartidos por
   el README, `API.md`, `ARCHITECTURE.md` y los README de paquetes, y ninguno lo había mirado nunca. Entre ellos
   había cosas que un lector no podría ejecutar: `users.avatar(userId, conversationId)` cuando el segundo

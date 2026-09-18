@@ -1,21 +1,31 @@
 "use strict";
 // Two browsers calling each other, for real, through a real SFU.
 //
-// NOT IN CI. Every step passes on its own — `RELAYKIT_CALLS_ONLY=camera` and so on — and the run as a whole
-// does not: from about the fourth call onwards the ring reaches the other side and is withdrawn before
-// anybody could answer. What was established while chasing it, so the next person does not start over:
+// NOT IN CI, though it is much closer than it was. Two things that were wrong have been fixed since this
+// header was first written, and what is left is smaller and reproduces in a quarter of the time:
 //
-//   * The room state ends clean: both `m.call.member` entries are empty, as leaving should leave them.
-//   * The library does emit `call.incoming` — the other side really is told — and then `call.changed` with
-//     `ended` a moment later.
-//   * That ending comes from the SDK's own `SessionEnded`, not from anything here: no membership error, no
-//     hang up, nothing this library reports.
-//   * Giving each step its own conversation fixes several of them and not all, so what accumulates is in the
-//     client rather than in the room.
+//   * Leaving a call called `stop()` on the SDK's own session — the one it keeps per room and hands back next
+//     time. Among other things `stop()` unsubscribes it from the room's state, so that room's session went
+//     deaf to anybody joining, for ever. That is what "the ring is withdrawn a moment later" was, and the
+//     SDK's log said so all along: "Called MembershipManager.leave() even though the MembershipManager is not
+//     running", forty times a run. Now: none.
+//   * This check could pass without deciding anything. The last step destroys a browser on purpose, and with
+//     no `window-all-closed` listener Electron quit by itself the moment the last window went, exit code 0,
+//     no verdict printed. It says so now.
 //
-// That points at matrix-js-sdk's MatrixRTC session manager across repeated calls, which is not something
-// this repository can fix from here. Out of CI rather than red in CI: a check nobody can make pass is a
-// check everybody learns to ignore, and then it stops being read at all.
+// What is left, narrowed by bisection: `RELAYKIT_CALLS_ONLY=devices,camera` fails — two calls, not five. Any
+// four calls without the device step pass (`voice,video,refuse,camera`), and each step passes alone. So the
+// residue is left by switching microphone or camera mid-call, in the client rather than in the room.
+//
+// Ruled out while chasing it, so nobody starts over:
+//
+//   * Not the remembered device: joining later calls with no device at all fails the same way.
+//   * Not delayed events piling up on the homeserver: alice's never go above one during a whole run.
+//   * Not the room state: the `m.call.member` entries end empty, as leaving should leave them.
+//   * Each step makes its own conversation, so it is not what a room looks like after several calls.
+//
+// Out of CI rather than red in CI: a check nobody can make pass is a check everybody learns to ignore, and
+// then it stops being read at all.
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 const { serve, acceptOwnCertificate, waitFor } = require("./browser-harness.cjs");
@@ -38,7 +48,12 @@ app.commandLine.appendSwitch("use-fake-ui-for-media-stream");
 const root = path.join(__dirname, "..", "examples", "web", "dist");
 const detail = {};
 
+/** Whether anything has been decided yet, so that ending quietly can be told from ending well. */
+let saidSomething = false;
+
 function report(ok, summary) {
+  if (saidSomething) return;
+  saidSomething = true;
   console.log(`RELAYKIT_CALLS_RESULT ${JSON.stringify({ ok, summary, detail })}`);
   app.exit(ok ? 0 : 1);
 }
@@ -1020,4 +1035,14 @@ async function run() {
   );
 }
 
-app.whenReady().then(() => run().catch(error => report(false, error.message)));
+// The last step kills a browser on purpose, and a window gone is not a verdict: with no listener here
+// Electron quits by itself the moment the last window closes, and the run ends with a success nobody decided.
+// A check that can pass without saying anything is worse than no check.
+app.on("window-all-closed", () => {});
+
+app.whenReady().then(() =>
+  run().then(
+    () => report(false, "the run ended without saying whether it passed"),
+    error => report(false, error.message)
+  )
+);
